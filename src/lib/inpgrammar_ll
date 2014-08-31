@@ -1,0 +1,39 @@
+/* This is a LL(1) version of the LALR(1) grammar in inpgrammar file.
+ */
+
+input_file : wx_decl
+;
+
+wx_decl : wx_decl_top wx_decl_list wx_decl_end
+;
+
+wx_decl_top : WX_LEFT_ANGLE WX_ID WX_RIGHT_ANGLE
+;
+
+wx_decl_end : WX_LEFT_ANGLE_FRONT_SLASH WX_ID WX_RIGHT_ANGLE
+;
+
+wx_decl_list : wx_decl_value wx_decl_list_rest
+;
+
+wx_decl_list_rest :  wx_decl_value wx_decl_list_rest
+| <NULL>
+;
+
+wx_decl_value : WX_ID WX_EQUAL wx_value_list
+| wx_decl
+;
+
+wx_value_list : WX_LEFT_BOX wx_value_sub_list WX_RIGHT_BOX
+| wx_value
+;
+
+wx_value_sub_list : wx_value wx_value_sub_list_rest
+;
+
+wx_value_sub_list_rest : WX_COMMA wx_value wx_value_sub_list_rest
+| <NULL>
+;
+
+wx_value : WX_INT | WX_REAL | WX_STRING | WX_VALUE | WX_ID
+;

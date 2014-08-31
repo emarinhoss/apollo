@@ -1,0 +1,40 @@
+## -*- python -*-
+
+
+Import('env')
+##
+# WarpM library files
+##
+
+# source files in lib
+sources = [
+	'wxobject.cc',
+	'wxcrypt.cc',
+	'wxcryptset.cc',
+        #'wxcreator.cc',
+	'wxcryptsetlexer.cc',
+	'wxexcept.cc',
+        #'wxhdf5io.cc',
+        #'wxhdf5iotmpl.cc',
+        #'wxhdf5traits.cc',
+        #'wxiobase.cc',
+	'wxlogger.cc',
+	'wxlogstream.cc',
+	'wxlogstreamstrm.cc',
+	'wxmpimsg.cc',
+	'wxmpimsgop.cc',
+	'wxmpimsgtmpl.cc',
+        #'wmnametree.cc',
+        #'wmindexer.cc',
+	#'wmdependencygraph.cc',
+           ]
+
+##
+# compile sources and add them to list of objects built
+##
+objs = []
+for s in sources:
+    o = env.Object(s)
+    objs.append(o)
+
+Return('objs')

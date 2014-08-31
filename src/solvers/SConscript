@@ -1,0 +1,25 @@
+## -*- python -*-
+
+
+Import('env')
+##
+# WarpM library files
+##
+
+# source files in lib
+sources = [
+        'apsolver.cc',
+        'wxsolverbase.cc',
+        'wxstepper.cc',
+        'wxsubsolver.cc',
+           ]
+
+##
+# compile sources and add them to list of objects built
+##
+objs = []
+for s in sources:
+    o = env.Object(s)
+    objs.append(o)
+
+Return('objs')

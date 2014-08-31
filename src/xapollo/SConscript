@@ -1,0 +1,23 @@
+## -*- python -*-
+
+
+Import('env')# objs')
+##
+# Build the WarpM executable
+##
+
+# source files in lib
+sources = [
+    'xapollo.cc',
+    'apsimulation.cc',
+           ]
+
+##
+# compile sources and add them to list of objects built
+##
+objs = []
+for s in sources:
+    o = env.Object(s)
+    objs.append(o)
+
+Return('objs')

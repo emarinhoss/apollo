@@ -1,0 +1,57 @@
+##
+# Find Global Arrays library
+##
+
+
+
+Import('warpMConstructionEnv')
+
+
+#use default path if not already specified
+if warpMConstructionEnv['ga_base'] == '':
+	warpMConstructionEnv['ga_base']  = warpMConstructionEnv['RESEARCH_SOFTWARE_BASE'] + '/ga'
+
+#Add specified library paths to search paths for libs and headers
+if warpMConstructionEnv['ga_libdir'] == '':
+	warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['ga_base']+'/lib'))
+else:
+	warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['ga_libdir']))
+
+if warpMConstructionEnv['ga_includedir'] == '':
+	warpMConstructionEnv.AppendUnique(CPPPATH=(warpMConstructionEnv['ga_base']+'/include'))
+else:
+	warpMConstructionEnv.AppendUnique(CPPPATH=(warpMConstructionEnv['ga_includedir']))
+
+
+#provides for optional specification of gfortran installed path
+if warpMConstructionEnv['gfortran_base'] != '':
+	#assume default library and include paths relative to installed base dir	
+	warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['gfortran_base']+'/lib'))
+	warpMConstructionEnv.AppendUnique(CPPPATH=(warpMConstructionEnv['gfortran_base']+'/include'))
+
+warpMConstructionEnv.Append(LIBS = ['ga'])
+#configure libraries using some autoconf like functionality of scons
+conf = Configure(warpMConstructionEnv)
+
+#on rebuilding GA 5.0.1 all of a sudden linking WarpM fails, missing symbols associated with BLAS.  I don't remember anything that I had do specifically around BLAS back in March, but I did notice the GA test suites now using Framework Accelerate, so
+if warpMConstructionEnv['useAppleOpenCL']:   #serves as an awkwardly named indicator that this is a OS X build
+	conf.env.AppendUnique(FRAMEWORKS = 'Accelerate')
+#else:
+#	try:
+#		assert(conf.CheckLib('blas'))
+#	except:
+#		print 'BLAS library not found'
+#		raise
+
+
+try:
+	# Note we have already appended the library 'ga' above.
+	# ordering must become -lga -lgfortran, I don't know any other way to force this
+	assert(conf.CheckLibWithHeader('gfortran', 'ga.h', 'C', 'GA_Initialize();'))
+
+except:
+	print 'Global Arrays library or header ga.h not found'
+	raise
+
+
+warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions

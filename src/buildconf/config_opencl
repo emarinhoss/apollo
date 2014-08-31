@@ -1,0 +1,36 @@
+##
+# Add OpenCL library to build warpMConstructionEnvironment
+##
+
+Import('warpMConstructionEnv')
+
+# unfortunately, Apple calls the standard include file OpenCL/opencl.h and NVIDIA CL/opencl.h,  OS X uses a framework (including NVIDIA's OpenCL SDK on OS X)
+
+if warpMConstructionEnv['opencl_libdir'] != '':
+		warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['opencl_libdir']))
+if warpMConstructionEnv['opencl_includedir'] != '':
+		warpMConstructionEnv.AppendUnique(CPPPATH=(warpMConstructionEnv['opencl_includedir']))
+
+
+#configure libraries using some autoconf like functionality of scons
+conf = Configure(warpMConstructionEnv)
+
+if warpMConstructionEnv['useAppleOpenCL']:
+	conf.env.AppendUnique(FRAMEWORKS = 'OpenCL')
+	try:
+		assert(conf.CheckCHeader('OpenCL/opencl.h'))
+	except:
+		print 'Apple OS X OpenCL header opencl.h not found'
+		raise
+	else:
+		print 'Apple OpenCL library components found'
+else:
+	try:
+		assert(conf.CheckLibWithHeader('OpenCL','CL/opencl.h', 'C'))
+	except:
+		print 'OpenCL library or header opencl.h not found'
+		raise
+	else:
+		print 'OpenCL library components found'
+
+warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions

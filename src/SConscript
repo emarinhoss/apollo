@@ -1,0 +1,42 @@
+## -*- python -*-
+
+Import('env')
+
+##
+# Directories searched when a project file uses angle bracket #include<file> syntax
+##
+incs = [
+#	'#computemachine',
+#	'#math_functions',
+	'#lib',
+#	'#geometry',
+#	'#hostactions',
+        '#solvers',
+#	'#subsolvers',
+#	'#variables',
+#	'#hyper',
+#	'#hyperapps',
+	'#xapollo',
+    ]
+env.Append(CPPPATH = incs)
+
+##
+# Primary list of sources collected through hierarchical SConscript calls
+##
+objs = []
+objs.append(env.SConscript('xapollo/SConscript', exports='env') )
+objs.append(env.SConscript('lib/SConscript', exports='env') )
+#objs.append(env.SConscript('math_functions/SConscript', exports='env') )
+#objs.append(env.SConscript('geometry/SConscript', exports='env') )
+#objs.append(env.SConscript('computemachine/SConscript', exports='env') )
+#objs.append(env.SConscript('hostactions/SConscript', exports='env') )
+objs.append(env.SConscript('solvers/SConscript', exports='env') )
+#objs.append(env.SConscript('subsolvers/SConscript', exports='env') )
+#objs.append(env.SConscript('variables/SConscript', exports='env') )
+#objs.append(env.SConscript('hyper/SConscript', exports='env') )
+#objs.append(env.SConscript('hyperapps/SConscript', exports='env') )
+
+##
+# build WarpM executable for specified target configurations
+##
+env.Program('apollo', objs)

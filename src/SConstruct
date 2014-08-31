@@ -1,0 +1,89 @@
+## -*- python -*-
+
+##
+# WarpM top level SConstruct file. This file controls how WarpM is
+# built. To understand/modify it read scons documentation on
+# http://www.scons.org.  In general this script does not need to be
+# modified unless adding a new directory or building on a new platform
+# which has non-standard build tools. Code files which need
+# compilation should go in the appropriate directories and their
+# SConscript file should be modified accordingly.
+##
+import os
+import sys
+import string
+import buildconf as buildconf
+
+Help(""" Build help for WarpM
+Type: 'scons product_name' to build the desired product, where the products are:
+  build-opt - the optimized version,
+  build-debug - the debug version,
+  
+  Additional options can be sepcified:
+""")
+
+
+# construct build variables: 
+# defaults are read from known_host_configs.py
+vars = Variables('this_host_config.py')
+# add various variables used to build WarpM
+vars.AddVariables(
+    ('CXX', 'The C++ compiler to use', 'mpicxx'),
+    ('CC', 'The C compiler to use', 'mpicc'),
+    BoolVariable('usetau', 'Set to yes to compile with TAU profiling', 'no'),
+    ('TAU_CC', 'The C compiler wrapper for TAU profiling', ''),
+    ('TAU_CXX', 'The C++ compiler wrapper for TAU profiling', ''),
+    ('TAU_MAKEFILE', 'The name of the Makefile to sue with TAU', ''),
+    ('TAU_OPTIONS', 'Additional options to pass to TAU', ''),
+	('mpi_base', 'Base directory for MPI package',''),
+	('petsc_base', 'Base directory for PETSC package',''),
+	('petsc_includedir', 'include directory for PETSC package',''),
+	('petsc_libdir', 'Library directory for PETSC package',''),
+)
+
+#uhg, PGI compiler is not even working for me right now, and I don't see how to work this into this_host_config.py
+pgi_licensce_file = ''
+if 'LM_LICENSE_FILE' in os.environ:
+	pgi_licensce_file = os.environ['LM_LICENSE_FILE']
+
+# and NERSC C++ compiler can't find its standard libraries unless the location is set in LD_LIBRARY_PATH
+cop_out_library_path = ''
+if 'LD_LIBRARY_PATH' in os.environ:
+	cop_out_library_path = os.environ['LD_LIBRARY_PATH']
+
+
+# setup initial construction environment
+warpMConstructionEnv = Environment(variables=vars, ENV = {'PATH' : os.environ['PATH'], 'LM_LICENSE_FILE' : pgi_licensce_file, 'LD_LIBRARY_PATH' : cop_out_library_path } )
+warpMConstructionEnv['LIBPATH'] = ['']
+warpMConstructionEnv['CPPPATH'] = ['']
+
+if not warpMConstructionEnv.GetOption('clean'):
+	# setup build for external libraries
+	SConscript('buildconf/config_mpi.py',     exports='warpMConstructionEnv')
+	SConscript('buildconf/config_petsc.py',   exports='warpMConstructionEnv')
+
+# generate help messages specific to the build variables
+Help(vars.GenerateHelpText(warpMConstructionEnv))
+
+# configure number of compiler processes for scons
+import buildconf.getNumCores as getNumCores
+try:
+	numberOfBuildCores = min(getNumCores.determineNumberOfCPUs(), 12) #12 reasonalble ceiling due to compiler memory footprint
+except:
+	print "getNumCores raised an exception.  Using default 2 cores"
+	numberOfBuildCores = 2
+SetOption('num_jobs', numberOfBuildCores)
+print "running with -j", GetOption('num_jobs')
+
+
+# DEBUG target
+# build with debug symbols and range checking turned on.
+debugEnv     = warpMConstructionEnv.Clone(CCFLAGS = '-g -Wall' + ' -D_DO_RANGE_CHECK_' )
+env = debugEnv
+debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
+
+# OPTIMIZED target, due to the march flag, this product will only run on the architecture of the build machine. To do otherwise, will need to set specific march, not native.
+march = 'native'
+optimizedEnv = warpMConstructionEnv.Clone(CCFLAGS = '-O3 -funroll-loops -Wall')
+env = optimizedEnv
+optimizedEnv.SConscript('SConscript', variant_dir='build-opt', duplicate=0, exports='env')
