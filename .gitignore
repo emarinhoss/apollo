@@ -1,0 +1,5 @@
+*.o
+src/.sconsign.dblite
+src/.sconf_temp/
+src/build-debug/
+src/build-opt/
