@@ -8,6 +8,7 @@
 // Mpi includes
 # include <mpi.h>
 # include <wxmpimsg.h>
+#include <petsc.h>
 
 /**
  * Top level class for WarpX simulations. This class does all the
@@ -100,6 +101,8 @@ class ApSimulation : public WxObject
 
 /** Remove characters following the last '.' in nm */
     std::string stripName(const std::string& nm);
+
+    PetscInt _np; // number of processors
 };
 
 #endif // __plsimulation__

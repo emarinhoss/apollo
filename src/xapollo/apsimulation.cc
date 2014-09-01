@@ -8,9 +8,6 @@
 # include <getopt.h>
 #endif
 
-// petsc include
-#include <petsc.h>
-
 // WarpX lib includes
 #include <wxobject.h>
 #include <wxlogger.h>

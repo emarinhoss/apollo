@@ -29,6 +29,7 @@ ApSolver<REAL>::~ApSolver()
   typename SubSolverMap_t::iterator ssItr;
   for (ssItr=_subSolvers.begin(); ssItr!=_subSolvers.end(); ++ssItr)
     delete ssItr->second;
+  _ierr = DMDestroy(&_dm);CHKERRQ(_ierr);
 }
 
 template <typename REAL>
@@ -52,10 +53,20 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     _tend = wx_any_cast<REAL>(times[1]);
 
     // number of files to write
-    _nout = wxc.template get<int>("Out");
+    _nout = wxc.template get<int>("Output_files");
 
     // time step to take
     _dt = wxc.template get<REAL>("Dt");
+
+    // problem dimensions
+    _dim = wxc.template get<int>("Dimensions");
+
+    _ierr = DMMoabLoadFromFile(PETSC_COMM_WORLD, _dim, _filename, "", &_dm);CHKERRQ(_ierr);
+
+    _ierr = DMSetFromOptions(dm);CHKERRQ(_ierr);
+
+    /* SetUp the data structures for DMMOAB */
+    _ierr = DMSetUp(_dm);CHKERRQ(_ierr);
 }
 
 template <typename REAL>

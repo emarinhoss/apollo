@@ -1,0 +1,26 @@
+# -*- python -*- 
+
+TEND = 0.01
+NOUT = 10
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = femadvection1d
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = debug
+
+ <femadvection1d>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND] # start, end times
+   Out = NOUT # no. of output files to write
+   Dt = DT # initial dt to try
+   Gridname = 'grid.inp'
+
+ </femadvection1d>
+
+</warpx>

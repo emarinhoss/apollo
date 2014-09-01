@@ -5,6 +5,7 @@
 #include <wxsolverbase.h>
 #include <wxsubsolver.h>
 #include <wxsubsolverstep.h>
+#include <petscdmmoab.h>
 
 // std includes
 #include <map>
@@ -141,6 +142,8 @@ class ApSolver : public WxSolverBase<REAL>
     unsigned _nout;
 /** Initial time-step to use */
     REAL _dt;
+/** Problem dimensions */
+    PetscInt _dim;
 /** Flag whether to use fuzzy stepper */
     int _useFixedDt;
 /** Subsolvers used */
@@ -153,6 +156,12 @@ class ApSolver : public WxSolverBase<REAL>
     std::vector<WxSubSolverStep<REAL> > _writeOnly;
 /** Sequence of steps for each time step */
     std::vector<WxSubSolverStep<REAL> > _perStep;
+/** Petsc Data Management object */
+    DM _dm;
+/** Petsc error code */
+    PetscErrorCode  _ierr;
+/** Grid filename to be read */
+    char _filename[PETSC_MAX_PATH_LEN];
 };
 
 
