@@ -1,5 +1,5 @@
-#ifndef __wxsubsolverstep__h__
-#define __wxsubsolverstep__h__
+#ifndef __apsubsolverstep__h__
+#define __apsubsolverstep__h__
 
 // WarpX includes
 #include <wxobject.h>
@@ -13,7 +13,7 @@
 template <typename REAL> class ApSolver;
 
 template <typename REAL>
-struct WxSubSolverStep : public WxObject
+struct ApSubSolverStep : public WxObject
 {
 
 /**
@@ -31,4 +31,4 @@ struct WxSubSolverStep : public WxObject
     std::vector<std::string> syncVars;
 };
 
-#endif //  __wxsubsolverstep__h__
+#endif //  __apsubsolverstep__h__

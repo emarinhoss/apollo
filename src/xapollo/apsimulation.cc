@@ -1,4 +1,4 @@
-// xwarpx includes
+// includes
 #include <apsimulation.h>
 
 // include getopt or mygetopt
@@ -8,7 +8,7 @@
 # include <getopt.h>
 #endif
 
-// WarpX lib includes
+// lib includes
 #include <wxobject.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
@@ -18,7 +18,7 @@
 
 template <typename REAL>
 ApSimulation<REAL>::ApSimulation(int argc, char **argv)
-  : solver(0), inpFileName("warpx.inp"), 
+  : solver(0), inpFileName("apollo.inp"),
     outPrefixSet(false), restartSim(false), realType("double")
 {
   // parse command line parameters
@@ -102,8 +102,8 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
     else
         runName = stripName(inpFileName);
 
-    // create WarpX root logger
-    WxLogger *wr = WxLogger::get("warpx-root");
+    // create Apollo root logger
+    WxLogger *wr = WxLogger::get("apollo-root");
 
     // set root logger's verbosity level
     std::string level;
@@ -120,8 +120,8 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
         fn.str());
     wr->addHandler(wrfhndl);
 
-    // create WarpX console logger
-    WxLogger *wrc = WxLogger::get("warpx-root.console");
+    // create Apollo console logger
+    WxLogger *wrc = WxLogger::get("apollo-root.console");
 
     // set console logger's verbosity level
     if (wxc.has("Verbosity"))
@@ -142,7 +142,7 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
     WxLogStream wrnStrm = wrc->getWarningStream();
 
     // now setup top level solver
-    debStrm << "Setting up WarpX simulation..." << std::endl;
+    debStrm << "Setting up Apollo simulation..." << std::endl;
     std::string simName;
     // name of simulation to run
     if (wxc.has("Simulation"))
@@ -184,8 +184,8 @@ template <typename REAL>
 void
 ApSimulation<REAL>::simulate()
 {
-    WxLogStream debStrm = WxLogger::get("warpx-root.console")->getDebugStream();
-    WxLogStream infStrm = WxLogger::get("warpx-root.console")->getInfoStream();
+    WxLogStream debStrm = WxLogger::get("apollo-root.console")->getDebugStream();
+    WxLogStream infStrm = WxLogger::get("apollo-root.console")->getInfoStream();
     debStrm << "Running simulation...\n";
 
     time_t start = time(0); // time at start of main loop
@@ -272,7 +272,7 @@ ApSimulation<REAL>::usage()
   // for input file
   std::cout << " -i <file-name>\n"
             << " --input-file=<file-name>\n"
-            << "    Read input from <file-name>. Defaults to warpx.inp.\n" << std::endl;
+            << "    Read input from <file-name>. Defaults to apollo.inp.\n" << std::endl;
   // for output prefix
   std::cout << " -o <output-prefix>\n"
             << " --output-prefix=<output-prefix>\n"

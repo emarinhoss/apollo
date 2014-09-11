@@ -1,10 +1,10 @@
-// WarpX lib includes
+// lib includes
 #include <wxcreator.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
 #include <wxtimer.h>
 
-// WarpX solver includes
+// solver includes
 #include "apsolver.h"
 //#include <wxwriteonlysubsolver.h>
 
@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <limits>
+
 
 template <typename REAL>
 ApSolver<REAL>::ApSolver(const std::string& name)
@@ -29,7 +30,9 @@ ApSolver<REAL>::~ApSolver()
   typename SubSolverMap_t::iterator ssItr;
   for (ssItr=_subSolvers.begin(); ssItr!=_subSolvers.end(); ++ssItr)
     delete ssItr->second;
-  _ierr = DMDestroy(&_dm);CHKERRQ(_ierr);
+
+  DMDestroy(&_dm);
+  PetscViewerDestroy(&_viewer);
 }
 
 template <typename REAL>
@@ -43,7 +46,7 @@ template <typename REAL>
 void
 ApSolver<REAL>::setup(const WxCryptSet& wxc)
 {
-    WxLogStream debStrm = WxLogger::get("warpx-root.console")->getDebugStream();
+    WxLogStream debStrm = WxLogger::get("apollo-root.console")->getDebugStream();
 
     // setup our parent first
     WxSolverBase<REAL>::setup(wxc);
@@ -61,16 +64,102 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     // problem dimensions
     _dim = wxc.template get<int>("Dimensions");
 
-    _ierr = DMMoabLoadFromFile(PETSC_COMM_WORLD, _dim, _filename, "", &_dm);CHKERRQ(_ierr);
+    // grid to be used
+    std::string fname = wxc.template get<std::string>("Gridname");
+    _filename = &fname[0];
 
-    _ierr = DMSetFromOptions(dm);CHKERRQ(_ierr);
+    // grid partinioner to be used
+    _partitioner = "metis";
+    if (wxc.has("Partinioner_name"))
+    {
+        std::string pname = wxc.template get<std::string>("Partinioner_name");
+        _partitioner = &pname[0];
+    }
 
-    /* SetUp the data structures for DMMOAB */
-    _ierr = DMSetUp(_dm);CHKERRQ(_ierr);
+    // read and create mesh object
+    this->createMesh(PETSC_COMM_WORLD,&_dm);
+
+    std::vector<std::string>::const_iterator i;
+
+    // initialize all subsolvers
+    std::vector<std::string> subsolverCS = wxc.getNamesOfType("ApSubSolver");
+    for (i=subsolverCS.begin(); i!=subsolverCS.end(); ++i)
+    {
+      const WxCryptSet& sscs = wxc.getSet(*i);
+      std::string kind = sscs.get<std::string>("Kind");
+      ApSubSolver<REAL> *ss = WxCreatorMap<ApSubSolver<REAL> >::getNew(kind);
+      ss->setIo(this->getIo());
+      ss->setMsg(this->getMsg());
+      ss->setParent(this);
+      ss->setup(sscs); // setup the subsolver
+//      ss->declareTypes(); // get to declare its expected variable types
+      _subSolvers.insert(SubSolverPair_t(sscs.name(), ss));
+    }
+
+    // initialize various solver sequences
+    const WxCryptSet sseqcs = wxc.getSet("SolverSequence");
+    std::vector<WxAny>::const_iterator itr;
+    // list of StartOnly subsolver steps
+    if (sseqcs.has("StartOnly"))
+    {
+      std::vector<WxAny> list = sseqcs.template get<std::vector<WxAny> >("StartOnly");
+      for (itr=list.begin(); itr!=list.end(); ++itr)
+      {
+        std::string name = wx_any_cast<std::string>(*itr);
+        const WxCryptSet& ssscs = wxc.getSet(name);
+        ApSubSolverStep<REAL> sss;
+        sss.setup(ssscs);
+        _startOnly.push_back(sss);
+      }
+    }
+    // list of EndOnly subsolver steps
+    if (sseqcs.has("EndOnly"))
+    {
+      std::vector<WxAny> list = sseqcs.template get<std::vector<WxAny> >("EndOnly");
+      for (itr=list.begin(); itr!=list.end(); ++itr)
+      {
+        std::string name = wx_any_cast<std::string>(*itr);
+        const WxCryptSet& ssscs = wxc.getSet(name);
+        ApSubSolverStep<REAL> sss;
+        sss.setup(ssscs);
+        _endOnly.push_back(sss);
+      }
+    }
+    // sequence of steps at each time step
+    if (sseqcs.has("PerStep"))
+    {
+      std::vector<WxAny> list = sseqcs.template get<std::vector<WxAny> >("PerStep");
+      for (itr=list.begin(); itr!=list.end(); ++itr)
+      {
+        std::string name = wx_any_cast<std::string>(*itr);
+        const WxCryptSet& ssscs = wxc.getSet(name);
+        ApSubSolverStep<REAL> sss;
+        sss.setup(ssscs);
+        _perStep.push_back(sss);
+      }
+    }
+    // sequence of steps at before writing out data
+    if (sseqcs.has("WriteOnly"))
+    {
+      std::vector<WxAny> list = sseqcs.template get<std::vector<WxAny> >("WriteOnly");
+      for (itr=list.begin(); itr!=list.end(); ++itr)
+      {
+        std::string name = wx_any_cast<std::string>(*itr);
+        const WxCryptSet& ssscs = wxc.getSet(name);
+        ApSubSolverStep<REAL> sss;
+        sss.setup(ssscs);
+        _writeOnly.push_back(sss);
+      }
+    }
+
+    this->SetupLocalSpace(_dm,_usr);
+    PetscViewerCreate(PetscObjectComm((PetscObject)_dm), &_viewer);
+    PetscViewerSetType(_viewer, PETSCVIEWERVTK);
+    //PetscViewerFileSetName(_viewer, "test.vtu");
 }
 
 template <typename REAL>
-WxSubSolver<REAL>*
+ApSubSolver<REAL>*
 ApSolver<REAL>::getSubSolver(const std::string& name)
 {
   typename SubSolverMap_t::iterator i;
@@ -97,45 +186,19 @@ ApSolver<REAL>::solve()
   REAL tcurr = this->getCurrentTime(); // starting time
   unsigned frame = _startFrame; // frame number
 
-  REAL temp_var;
+  //REAL temp_var;
 
-  unsigned nout;
-  REAL tsize; // time between file output
-
+  //unsigned nout;
+  //REAL tsize; // time between file output
   // write data to file before running main loop
-  //this->writeData(&this->getIo(), frame, tcurr, 0.0);
+  //this->OutputVTK(_dm, frame);
+  //PetscViewerFileSetName(_viewer, "test.vtu");
+
 
   // main solver loop
 
   frame += 1;
-  nout = _nout; //not sure how to take restart into account yet
 
-  REAL timeStep = _dt; // initial time step to use
-  for (unsigned i=0; i<nout; ++i)
-  {
-//    infStrm << "Advancing solution"
-//            << " from time " << tcurr
-//            << " to " << temp_var
-//            << "..."
-//            << std::endl;
-
-    WxTimer advTimer;
-    // advance solution on each block by 'tsize'
-    advTimer.startTimer();
-    advance(tcurr, temp_var, timeStep);
-    advTimer.stopTimer();
-
-    // write solution to file
-//    this->writeData(&this->getIo(), frame, temp_var, advTimer.secondsElapsed());
-
-//    infStrm << "Advance completed in "
-//            << advTimer.timeElapsedAsString()
-//            << std::endl << std::endl;
-
-    // advance tcurr and frame number
-//    tcurr += tsize;
-//    frame += 1;
-  }
 }
 
 template <typename REAL>
@@ -145,11 +208,20 @@ ApSolver<REAL>::step(REAL dt)
   return WxStepperStatus<REAL>();
 }
 
+template <typename REAL>
+void
+ApSolver<REAL>::OutputVTK(DM dm, unsigned frame)
+{
+    // create new file
+    PetscViewerFileSetName(_viewer, "test.vtu");
+    //VecView(_usr.cg_vars,_viewer);
+}
+
 //template <typename REAL>
 //void
 //ApSolver<REAL>::typeCheck()
 //{
-//  WxLogger *log = WxLogger::get("warpx-root.console");
+//  WxLogger *log = WxLogger::get("apollo-root.console");
 //  WxLogStream debStrm = log->getDebugStream();
 //  bool allTypeCheck = true;
 //  std::ostringstream errorMsg;
@@ -284,12 +356,34 @@ ApSolver<REAL>::step(REAL dt)
 
 //}
 
-//template <typename REAL>
-//void
-//ApSolver<REAL>::startOnly()
-//{
+template <typename REAL>
+void
+ApSolver<REAL>::startOnly()
+{
+    WxLogger *log = WxLogger::get("apollo-root.console");
+    WxLogStream debStrm = log->getDebugStream();
 
-//}
+    typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
+    for (itr = _startOnly.begin(); itr!=_startOnly.end(); ++itr)
+    {
+      // run the subsolver step
+      std::vector<std::string>::const_iterator ssitr;
+      for (ssitr = itr->subSolvers.begin(); ssitr != itr->subSolvers.end(); ++ssitr)
+      {
+        debStrm << " SubSolver " << *ssitr << std::endl;
+
+        _subSolvers[*ssitr]->setCurrentTime(this->getCurrentTime());
+        _subSolvers[*ssitr]->setDt(0.0);
+        WxStepperStatus<REAL> res = _subSolvers[*ssitr]->step(0.0);
+        if (res.getStatus() == false)
+        {
+          WxExcept wxe("Subsolver ");
+          wxe << *ssitr << " failed" << std::endl;
+          throw wxe;
+        }
+      }
+    }
+}
 
 //template <typename REAL>
 //void
@@ -309,21 +403,25 @@ template <typename REAL>
 void
 ApSolver<REAL>::init()
 {
-    // Initialize subsolvers
+    WxLogger *log = WxLogger::get("apollo-root.console");
+    WxLogStream debStrm = log->getDebugStream();
 
-  // set current time
-  this->setCurrentTime(_tstart);
-  // set frame number
-  this->setStartFrame(0);
+    // set current time
+    this->setCurrentTime(_tstart);
+    // set frame number
+    this->setStartFrame(0);
 
-  // initialize subsolvers
-  typename SubSolverMap_t::iterator itr;
-  for (itr = _subSolvers.begin(); itr != _subSolvers.end(); ++itr)
-    itr->second->init();
+    // initialize subsolvers
+    typename SubSolverMap_t::iterator itr;
+    for (itr = _subSolvers.begin(); itr != _subSolvers.end(); ++itr)
+        itr->second->init();
 
-  // run startOnly subsolvers
-  // debStrm << "Running StartOnly steps...\n" << std::endl;
-  // startOnly();
+    // run startOnly subsolvers
+    std::string fname = this->runName() + "_0.vtu";
+    _outfname = &fname[0];
+    PetscViewerFileSetName(_viewer, _outfname);
+    debStrm << "Running StartOnly steps...\n" << std::endl;
+    startOnly();
 }
 
 //template <typename REAL>
@@ -349,6 +447,93 @@ void
 ApSolver<REAL>::advance(REAL tstart, REAL tend, REAL&dt)
 {
     // put ts looping structure here
+}
+
+template <typename REAL>
+void
+ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
+{
+    const char    *extGmsh     = ".msh";
+    const char    *extExodus   = ".exo";
+    size_t         len;
+    PetscBool      isGmsh, isExodus;
+    PetscMPIInt    rank;
+
+    PetscFunctionBeginUser;
+    MPI_Comm_rank(comm, &rank);
+    PetscStrlen(_filename, &len);
+    PetscStrncmp(&_filename[PetscMax(0,len-4)], extGmsh,   4, &isGmsh);
+    PetscStrncmp(&_filename[PetscMax(0,len-4)], extExodus, 4, &isExodus);
+
+    WxLogger *log = WxLogger::get("apollo-root.console");
+    WxLogStream debStrm = log->getDebugStream();
+
+    debStrm << "Reading grid file --> " << _filename << std::endl;
+
+    if (isGmsh)
+    {
+        PetscViewer viewer;
+
+        PetscViewerCreate(comm, &viewer);
+        PetscViewerSetType(viewer, PETSCVIEWERASCII);
+        PetscViewerFileSetMode(viewer, FILE_MODE_READ);
+        PetscViewerFileSetName(viewer, _filename);
+        DMPlexCreateGmsh(comm, viewer, PETSC_TRUE, dm);
+        PetscViewerDestroy(&viewer);
+    }
+    else if (isExodus)
+    {
+        DMPlexCreateExodusFromFile(comm, _filename, PETSC_TRUE, dm);
+    }
+    else
+    {
+        std::cerr << "Mesh input filename " << _filename << " not found.  Exiting." << std::endl;
+        exit(1);
+    }
+
+    // Distribute mesh over processes
+    DM dmDist;
+    debStrm << "Partitioning the domain using --> " << _partitioner  << std::endl;
+    DMPlexDistribute(*dm, _partitioner, 0, NULL, &dmDist);
+    if (dmDist){
+        DMDestroy(dm);
+        *dm   = dmDist;}
+    // get any additional parameters for DM from the command line
+    DMSetFromOptions(*dm);
+    // SetUp the data structures
+    DMSetUp(*dm);
+    PetscObjectSetName((PetscObject) *dm, "Mesh");
+}
+
+template<typename REAL>
+void
+ApSolver<REAL>::SetupLocalSpace(DM dm, UserContext usr)
+{
+    PetscSection   stateSection;
+    PetscInt       dof = 1, cStart, cEnd, c;
+
+    DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd);
+    PetscSectionCreate(PetscObjectComm((PetscObject)dm), &stateSection);
+    PetscSectionSetNumFields(stateSection,1);
+    PetscSectionSetFieldComponents(stateSection,0,1);
+    PetscSectionSetChart(stateSection, cStart, cEnd);
+
+    for (c = cStart; c < cEnd; ++c)
+    {
+        PetscSectionSetFieldDof(stateSection,c,0,1);
+        PetscSectionSetDof(stateSection, c, dof);
+    }
+
+//    for (c = cEndInterior; c < cEnd; ++c)
+//        PetscSectionSetConstraintDof(stateSection, c, dof);
+
+//    cind[0] = 0;
+//    for (c = cEndInterior; c < cEnd; ++c)
+//        PetscSectionSetConstraintIndices(stateSection, c, cind);
+
+    PetscSectionSetUp(stateSection);
+    DMSetDefaultSection(dm,stateSection);
+    PetscSectionDestroy(&stateSection);
 }
 
 // instantiations

@@ -6,14 +6,9 @@ Import('env')
 # Directories searched when a project file uses angle bracket #include<file> syntax
 ##
 incs = [
-#	'#computemachine',
-#	'#math_functions',
-	'#lib',
-#	'#geometry',
-#	'#hostactions',
+        '#lib',
         '#solvers',
-#	'#subsolvers',
-#	'#variables',
+	'#subsolvers',
 #	'#hyper',
 #	'#hyperapps',
 	'#xapollo',
@@ -26,13 +21,8 @@ env.Append(CPPPATH = incs)
 objs = []
 objs.append(env.SConscript('xapollo/SConscript', exports='env') )
 objs.append(env.SConscript('lib/SConscript', exports='env') )
-#objs.append(env.SConscript('math_functions/SConscript', exports='env') )
-#objs.append(env.SConscript('geometry/SConscript', exports='env') )
-#objs.append(env.SConscript('computemachine/SConscript', exports='env') )
-#objs.append(env.SConscript('hostactions/SConscript', exports='env') )
 objs.append(env.SConscript('solvers/SConscript', exports='env') )
-#objs.append(env.SConscript('subsolvers/SConscript', exports='env') )
-#objs.append(env.SConscript('variables/SConscript', exports='env') )
+objs.append(env.SConscript('subsolvers/SConscript', exports='env') )
 #objs.append(env.SConscript('hyper/SConscript', exports='env') )
 #objs.append(env.SConscript('hyperapps/SConscript', exports='env') )
 

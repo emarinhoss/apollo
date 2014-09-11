@@ -3,13 +3,21 @@
 
 // WarpX solver includes
 #include <wxsolverbase.h>
-#include <wxsubsolver.h>
-#include <wxsubsolverstep.h>
-#include <petscdmmoab.h>
+#include <apsubsolver.h>
+#include <apsubsolverstep.h>
+
+// PETSc includes
+#include <petscdmplex.h>
 
 // std includes
 #include <map>
 #include <string>
+
+typedef struct {
+  Vec dg_vars;
+  Vec cg_vars;
+  char filename[PETSC_MAX_PATH_LEN];
+} UserContext;
 
 template <typename REAL>
 class ApSolver : public WxSolverBase<REAL>
@@ -46,7 +54,7 @@ class ApSolver : public WxSolverBase<REAL>
  *
  * @param name name of subsolver to return
  */
-    WxSubSolver<REAL>* getSubSolver(const std::string& name);
+    ApSubSolver<REAL>* getSubSolver(const std::string& name);
 
 /**
  * Get initial time-step to use
@@ -81,6 +89,19 @@ class ApSolver : public WxSolverBase<REAL>
  */
     virtual WxStepperStatus<REAL> step(REAL dt);
 
+
+    DM getdatamanagment(){
+        return _dm;
+    }
+
+    UserContext getusercontext(){
+        return _usr;
+    }
+
+    PetscViewer getViewer(){
+        return _viewer;
+    }
+
   private:
 
 /**
@@ -92,7 +113,7 @@ class ApSolver : public WxSolverBase<REAL>
 /**
  * Run startOnly steps
  */
-//    void startOnly();
+    void startOnly();
 
 /**
  * Run writeOnly steps
@@ -106,6 +127,13 @@ class ApSolver : public WxSolverBase<REAL>
  */
 //    void endOnly();
 
+
+/**
+ *  output the data in vtk format
+ *
+ */
+   void OutputVTK(DM dm, unsigned frame);
+
 /**
  * Advance solution from tbeg to tend
  *
@@ -114,6 +142,16 @@ class ApSolver : public WxSolverBase<REAL>
  * @param initial time-step to use. On return the last good time step
  */
     void advance(REAL tbeg, REAL tend, REAL& dt);
+
+/**
+ * Read a mesh and create data management object
+ */
+    void createMesh(MPI_Comm comm, DM *dm);
+
+/**
+ * check the grid
+ */
+    void SetupLocalSpace(DM dm, UserContext usr);
 
 /**
  * Write comboSolver data to node
@@ -126,12 +164,12 @@ class ApSolver : public WxSolverBase<REAL>
 //    void writeData(WxIoBase *io, unsigned frame, REAL tcurr, REAL telapsed);
 
 /** Types of string -> WxSubSolver */
-    typedef std::map<std::string, WxSubSolver<REAL>* > SubSolverMap_t;
-    typedef std::pair<std::string, WxSubSolver<REAL>* > SubSolverPair_t;
+    typedef std::map<std::string, ApSubSolver<REAL>* > SubSolverMap_t;
+    typedef std::pair<std::string, ApSubSolver<REAL>* > SubSolverPair_t;
 
 /** Types of string -> WxSubSolverStep */
-    typedef std::map<std::string, WxSubSolverStep<REAL> > SubSolverStepMap_t;
-    typedef std::pair<std::string, WxSubSolverStep<REAL> > SubSolverStepPair_t;
+    typedef std::map<std::string, ApSubSolverStep<REAL> > SubSolverStepMap_t;
+    typedef std::pair<std::string, ApSubSolverStep<REAL> > SubSolverStepPair_t;
 
 
 /** Start and end time of simulation */
@@ -149,19 +187,26 @@ class ApSolver : public WxSolverBase<REAL>
 /** Subsolvers used */
     SubSolverMap_t _subSolvers;
 /** Steps to apply at start of simulation */
-    std::vector<WxSubSolverStep<REAL> > _startOnly;
+    std::vector<ApSubSolverStep<REAL> > _startOnly;
 /** Steps to apply at end of simulation */
-    std::vector<WxSubSolverStep<REAL> > _endOnly;
+    std::vector<ApSubSolverStep<REAL> > _endOnly;
 /** Steps to apply before writing */
-    std::vector<WxSubSolverStep<REAL> > _writeOnly;
+    std::vector<ApSubSolverStep<REAL> > _writeOnly;
 /** Sequence of steps for each time step */
-    std::vector<WxSubSolverStep<REAL> > _perStep;
+    std::vector<ApSubSolverStep<REAL> > _perStep;
 /** Petsc Data Management object */
     DM _dm;
 /** Petsc error code */
     PetscErrorCode  _ierr;
-/** Grid filename to be read */
-    char _filename[PETSC_MAX_PATH_LEN];
+/** Grid filename to be read and name of output file*/
+    char *_filename, *_outfname;
+/** handle to visualize data */
+    PetscViewer _viewer;
+/** user-defined context */
+    UserContext _usr;
+/** domain partinioner */
+    char *_partitioner;
+
 };
 
 

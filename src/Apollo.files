@@ -119,3 +119,13 @@ solvers/wxsubsolverstep.h
 xapollo/apsimulation.cc
 xapollo/apsimulation.h
 xapollo/xapollo.cc
+solvers/SConscript
+solvers/SConscript
+subsolvers/apsubsolver.cc
+subsolvers/apsubsolver.h
+subsolvers/apsubsolverstep.cc
+subsolvers/apsubsolverstep.h
+subsolvers/SConscript
+subsolvers/apsubsolver_register.cc
+subsolvers/apdomaindecompcheck.h
+subsolvers/apdomaindecompcheck.cc

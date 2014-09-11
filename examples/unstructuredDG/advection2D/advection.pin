@@ -1,26 +1,43 @@
 # -*- python -*- 
 
-TEND = 0.01
-NOUT = 10
-
 <warpx>
 
  ##
  # Basic parameters
  ##
- Simulation = femadvection1d
+ Simulation = advection1d
  # one of debug, info, warning, error, critical, disabled
  Verbosity = debug
 
- <femadvection1d>
+ <advection1d>
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, TEND] # start, end times
-   Out = NOUT # no. of output files to write
-   Dt = DT # initial dt to try
-   Gridname = 'grid.inp'
+   Time = [0.0, 0.1] # start, end times
+   Output_files = 1 # no. of output files to write
+   Dt = 0.1 # initial dt to try
+   Dimensions = 2
+   Gridname = 'sevenside-quad-15.exo'
+   
+   # Check the partition
+   <partition>
+	Type = ApSubSolver
+	Kind = checkDomainDecomp
+   </partition>
+	
+   <stepPartition>
+      Type = WxSubSolverStep
+      SubSolvers = [partition]
+   </stepPartition>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      StartOnly = [stepPartition]
+   </SolverSequence>
 
- </femadvection1d>
+ </advection1d>
 
 </warpx>

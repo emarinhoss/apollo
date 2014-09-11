@@ -1,7 +1,7 @@
 #ifndef __plsimulation__
 #define __plsimulation__
 
-// WarpX lib includes
+// lib includes
 #include <wxobject.h>
 #include <apsolver.h>
 
@@ -11,7 +11,7 @@
 #include <petsc.h>
 
 /**
- * Top level class for WarpX simulations. This class does all the
+ * Top level class for Apollo simulations. This class does all the
  * setup of the simulation and runs it to completion.
  */
 template <typename REAL>
@@ -80,6 +80,8 @@ class ApSimulation : public WxObject
     ApSolver<REAL> *solver;
 /** Name of input file */
     std::string inpFileName;
+/** Mesh file name */
+    char meshFileName[PETSC_MAX_PATH_LEN];
 /** Name of the run */
     std::string runName;
 /** Set to true if output prefix is set */

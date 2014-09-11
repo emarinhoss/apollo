@@ -58,7 +58,7 @@ apolloMain(int argc, char **argv)
 //    }
 
     // simulation is now fully constructed: run it!
-//    sim.simulate();
+       sim.simulate();
   }
   catch (const WxExcept&e )
   { // an error has occured: print message

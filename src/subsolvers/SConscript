@@ -8,9 +8,10 @@ Import('env')
 
 # source files in lib
 sources = [
-        'apsolver.cc',
-        'wxsolverbase.cc',
-        'wxstepper.cc',
+	'apsubsolver.cc',
+	'apsubsolverstep.cc',
+        'apdomaindecompcheck.cc',
+        'apsubsolver_register.cc',
            ]
 
 ##
