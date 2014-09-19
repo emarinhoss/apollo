@@ -8,25 +8,28 @@ Import('env')
 
 # source files in lib
 sources = [
+        'wxfunction_register.cc',
 	'wxobject.cc',
 	'wxcrypt.cc',
 	'wxcryptset.cc',
         #'wxcreator.cc',
 	'wxcryptsetlexer.cc',
 	'wxexcept.cc',
-        #'wxhdf5io.cc',
-        #'wxhdf5iotmpl.cc',
-        #'wxhdf5traits.cc',
-        #'wxiobase.cc',
+        'wxexprfunction.cc',
+        'wxexprparser.cc',
 	'wxlogger.cc',
 	'wxlogstream.cc',
 	'wxlogstreamstrm.cc',
 	'wxmpimsg.cc',
 	'wxmpimsgop.cc',
 	'wxmpimsgtmpl.cc',
-        #'wmnametree.cc',
-        #'wmindexer.cc',
-	#'wmdependencygraph.cc',
+        'mup/muParser.cpp',
+        'mup/muParserBytecode.cpp',
+        'mup/muParserInt.cpp',
+        'mup/muParserTokenReader.cpp',
+        'mup/muParserBase.cpp',
+        'mup/muParserCallback.cpp',
+        'mup/muParserError.cpp',
            ]
 
 ##

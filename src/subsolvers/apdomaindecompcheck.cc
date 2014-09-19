@@ -15,24 +15,6 @@ ApDomainDecompCheck<REAL>::setup(const WxCryptSet& wxc)
 {
   ApSubSolver<REAL>::setup(wxc);
 
-//  _q = wxc.template get<REAL>("charge");
-//  _mi = wxc.template get<REAL>("ionmass");
-//  _me = wxc.template get<REAL>("elcmass");
-//  _eps0 = wxc.template get<REAL>("epsilon0");
-
-  // check if this simulation has transport
-//  if (wxc.has("isTransport"))
-//  {
-//    std::string flg = wxc.template get<std::string>("isTransport");
-//    if (flg == "true")
-//    {
-//      _transport=true;
-//      _gas_gamma = wxc.template get<REAL>("gas_gamma");
-//      _k = wxc.template get<REAL>("boltz");
-//      _dx = wxc.template get<REAL>("dx");
-//    }
-//  }
-
 }
 
 template <typename REAL>
@@ -46,7 +28,7 @@ ApDomainDecompCheck<REAL>::init()
 
 template <typename REAL>
 WxStepperStatus<REAL>
-ApDomainDecompCheck<REAL>::step(REAL dt)
+ApDomainDecompCheck<REAL>::step(REAL dt, Vec in, Vec out)
 {
     PetscInt cStart, cEnd, rank;
     PetscScalar *x;

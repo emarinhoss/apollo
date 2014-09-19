@@ -1,15 +1,18 @@
 ## -*- python -*-
 
 
-Import('env')# objs')
+Import('env')
 ##
-# Build the Apollo executable
+# Apollo hyper files
 ##
 
 # source files in lib
 sources = [
-    'xapollo.cc',
-    'apsimulation.cc',
+        'wxhyperboliceqn.cc',
+        'wxhyperboliceqnset.cc',
+        'wxhyperbolicsrc.cc',
+        'wxhyperbolicsrcset.cc',
+        'aphyperscheme_register.cc',
            ]
 
 ##

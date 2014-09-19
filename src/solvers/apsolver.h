@@ -2,20 +2,20 @@
 #define APSOLVER_H
 
 // WarpX solver includes
-#include <wxsolverbase.h>
+#include "wxsolverbase.h"
 #include <apsubsolver.h>
 #include <apsubsolverstep.h>
 
 // PETSc includes
 #include <petscdmplex.h>
+#include <petscts.h>
 
 // std includes
 #include <map>
 #include <string>
 
 typedef struct {
-  Vec dg_vars;
-  Vec cg_vars;
+  Vec dg_vars, cg_vars, solution;
   char filename[PETSC_MAX_PATH_LEN];
 } UserContext;
 
@@ -87,7 +87,7 @@ class ApSolver : public WxSolverBase<REAL>
  * @param dt time step to advance by
  * @return Status of stepper
  */
-    virtual WxStepperStatus<REAL> step(REAL dt);
+    virtual WxStepperStatus<REAL> step(REAL dt, Vec in, Vec out);
 
 
     DM getdatamanagment(){
@@ -101,6 +101,16 @@ class ApSolver : public WxSolverBase<REAL>
     PetscViewer getViewer(){
         return _viewer;
     }
+
+    std::string getFilename_OutputVTK(){
+        return _outfname;
+    }
+
+    /**
+     *  output the data in vtk format
+     *
+     */
+       void OutputVTK(DM dm, char *filename, PetscViewer *viewer);
 
   private:
 
@@ -129,12 +139,6 @@ class ApSolver : public WxSolverBase<REAL>
 
 
 /**
- *  output the data in vtk format
- *
- */
-   void OutputVTK(DM dm, unsigned frame);
-
-/**
  * Advance solution from tbeg to tend
  *
  * @param tbeg Starting time for advance
@@ -152,6 +156,28 @@ class ApSolver : public WxSolverBase<REAL>
  * check the grid
  */
     void SetupLocalSpace(DM dm, UserContext usr);
+
+/**
+ * Set and get the output file name
+ */
+    void setFilename_OutputVTK(std::string fname){
+        _outfname = fname;
+    }
+
+/**
+ * function that is to be used at every timestep
+ * to display the iteration's progress.
+ *
+ * ts	- the TS context
+ * steps- iteration number (after the final time step the
+ *          monitor routine is called with a step of -1,
+ *          this is at the final time which may have been interpolated to)
+ * time	- current time
+ * u	- current solution iterate
+ * mctx	- [optional] monitoring context
+ */
+
+    PetscErrorCode MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx);
 
 /**
  * Write comboSolver data to node
@@ -194,18 +220,17 @@ class ApSolver : public WxSolverBase<REAL>
     std::vector<ApSubSolverStep<REAL> > _writeOnly;
 /** Sequence of steps for each time step */
     std::vector<ApSubSolverStep<REAL> > _perStep;
-/** Petsc Data Management object */
-    DM _dm;
-/** Petsc error code */
-    PetscErrorCode  _ierr;
-/** Grid filename to be read and name of output file*/
-    char *_filename, *_outfname;
-/** handle to visualize data */
-    PetscViewer _viewer;
-/** user-defined context */
-    UserContext _usr;
-/** domain partinioner */
-    char *_partitioner;
+
+/** Petsc objects */
+    DM _dm; // data management
+    TS _ts; // time stepping scheme
+    char *_filename; // gridfile name
+    std::string _outfname; // output file name
+    PetscViewer _viewer; // viewer for output data
+    UserContext _usr; // user-defined context
+    std::vector<std::string> _fieldNames; // field names
+    std::vector<int> _fieldComponents; // field components
+    //Vec solution;
 
 };
 

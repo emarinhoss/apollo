@@ -3,7 +3,7 @@
 
 Import('env')
 ##
-# WarpM library files
+# Apollo library files
 ##
 
 # source files in lib
@@ -12,6 +12,7 @@ sources = [
 	'apsubsolverstep.cc',
         'apdomaindecompcheck.cc',
         'apsubsolver_register.cc',
+        'apfvm2dscheme.cc',
            ]
 
 ##

@@ -1,0 +1,29 @@
+## -*- python -*-
+
+##
+# Build the various hyperbolic solver applications
+##
+
+Import('env')
+
+# source files
+sources = [
+		 'aphyperapps_register.cc',
+           ]
+
+##
+# compile sources and add them to list of objects built
+##
+objs = []
+for s in sources:
+	o = env.Object(s)
+	objs.append(o)
+
+
+##
+# Primary list of sources collected through hierarchical SConscript calls
+##
+objs.append(env.SConscript('advection/SConscript', exports='env') )
+#objs.append(env.SConscript('euler/SConscript', exports='env') )
+
+Return('objs')

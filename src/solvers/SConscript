@@ -3,7 +3,7 @@
 
 Import('env')
 ##
-# WarpM library files
+# Apollo solvers files
 ##
 
 # source files in lib

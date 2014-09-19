@@ -1,15 +1,17 @@
 ## -*- python -*-
 
+##
+# Build advection equation systems
+##
 
-Import('env')# objs')
-##
-# Build the Apollo executable
-##
+Import('env')
+
+# name of library built with code in this file
+
 
 # source files in lib
 sources = [
-    'xapollo.cc',
-    'apsimulation.cc',
+	'wxadvectioneqn.cc',
            ]
 
 ##
