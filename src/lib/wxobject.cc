@@ -46,7 +46,7 @@ WxObject::setup(const WxCryptSet& wxc)
 }
 
 void
-WxObject::init()
+WxObject::init(Vec X)
 { // by default do nothing
 }
 

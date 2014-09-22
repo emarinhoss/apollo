@@ -6,6 +6,9 @@
 #include <wxmsgbase.h>
 #include <wxcryptset.h>
 
+// PETSc includes
+#include <petsc.h>
+
 // std includes
 #include <iostream>
 #include <string>
@@ -102,7 +105,7 @@ class WxObject
  * from an output file. In this case the load() method is called
  * instead.
  */
-    virtual void init();
+    virtual void init(Vec X);
 
 /**
  * Finish building the object. This is called after the init() or

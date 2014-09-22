@@ -9,6 +9,7 @@
 // PETSc includes
 #include <petscdmplex.h>
 #include <petscts.h>
+#include <wxpetsctimestepping.h>
 
 // std includes
 #include <map>
@@ -17,6 +18,8 @@
 typedef struct {
   Vec dg_vars, cg_vars, solution;
   char filename[PETSC_MAX_PATH_LEN];
+  unsigned nout;
+  std::string runName;
 } UserContext;
 
 template <typename REAL>
@@ -112,6 +115,31 @@ class ApSolver : public WxSolverBase<REAL>
      */
        void OutputVTK(DM dm, char *filename, PetscViewer *viewer);
 
+
+/**
+ * function that is to be used at every timestep
+ * to display the iteration's progress.
+ *
+ * @param ts	- the TS context
+ * @param steps- iteration number (after the final time step the
+ *          monitor routine is called with a step of -1,
+ *          this is at the final time which may have been interpolated to)
+ * @param time	- current time
+ * @param u	- current solution iterate
+ * @param ctx	- [optional] monitoring context
+ */
+    PetscErrorCode MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx);
+
+
+/**
+ * Sets the routine for evaluating the function, where U_t = F(t,u).
+ *@param t	- current timestep
+ *@param u	- input vector
+ *@param F	- function vector
+ *@param ctx	- [optional] user-defined function context
+ */
+    PetscErrorCode ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx);
+
   private:
 
 /**
@@ -137,16 +165,6 @@ class ApSolver : public WxSolverBase<REAL>
  */
 //    void endOnly();
 
-
-/**
- * Advance solution from tbeg to tend
- *
- * @param tbeg Starting time for advance
- * @param tend End time for advance
- * @param initial time-step to use. On return the last good time step
- */
-    void advance(REAL tbeg, REAL tend, REAL& dt);
-
 /**
  * Read a mesh and create data management object
  */
@@ -163,31 +181,6 @@ class ApSolver : public WxSolverBase<REAL>
     void setFilename_OutputVTK(std::string fname){
         _outfname = fname;
     }
-
-/**
- * function that is to be used at every timestep
- * to display the iteration's progress.
- *
- * ts	- the TS context
- * steps- iteration number (after the final time step the
- *          monitor routine is called with a step of -1,
- *          this is at the final time which may have been interpolated to)
- * time	- current time
- * u	- current solution iterate
- * mctx	- [optional] monitoring context
- */
-
-    PetscErrorCode MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx);
-
-/**
- * Write comboSolver data to node
- *
- * @param io Pointer to file node
- * @param frame Frame number to write
- * @param tcurr Time at which data is written
- * @param telapsed Time for this advance
- */
-//    void writeData(WxIoBase *io, unsigned frame, REAL tcurr, REAL telapsed);
 
 /** Types of string -> WxSubSolver */
     typedef std::map<std::string, ApSubSolver<REAL>* > SubSolverMap_t;
@@ -223,14 +216,14 @@ class ApSolver : public WxSolverBase<REAL>
 
 /** Petsc objects */
     DM _dm; // data management
-    TS _ts; // time stepping scheme
+    Vec solution;
     char *_filename; // gridfile name
     std::string _outfname; // output file name
     PetscViewer _viewer; // viewer for output data
     UserContext _usr; // user-defined context
     std::vector<std::string> _fieldNames; // field names
     std::vector<int> _fieldComponents; // field components
-    //Vec solution;
+    WxPetscTimeSteppingSolver<REAL, ApSolver> *tssolver;
 
 };
 

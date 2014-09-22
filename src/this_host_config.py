@@ -14,6 +14,6 @@ import sys
 
 # Generic Ubuntu Install following the Wiki page
 mpi_base = "/usr"
-petsc_base = "/home/sousae/software/petsc-moab"
+petsc_base = "/home/eder/software/petsc-moab"
 
 #---------------------------------------------------

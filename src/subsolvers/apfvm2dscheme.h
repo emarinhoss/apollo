@@ -47,7 +47,7 @@ class ApFVM2Dscheme : public ApSubSolver<REAL>
  * Initialize the subsolver: this is called after the setup() and
  * before the step() methods.
  */
-    void init();
+    void init(Vec out);
 
 /**
  * Step the solver by given time step. If this step failed and if the
@@ -107,6 +107,7 @@ private:
   //PetscViewer viewer;
   Vec qvars;
   WxFunction<REAL>* _initFunc; // initial condition to use
+  std::vector<std::string> _initArrays; // name of arrays to initialize
 
 };
 

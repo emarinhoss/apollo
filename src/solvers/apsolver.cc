@@ -31,15 +31,9 @@ ApSolver<REAL>::~ApSolver()
     delete ssItr->second;
 
   DMDestroy(&_dm);
+  VecDestroy(&solution);
   PetscViewerDestroy(&_viewer);
-  TSDestroy(&_ts);
-}
-
-template <typename REAL>
-void
-ApSolver<REAL>::setStartFrame(unsigned frame)
-{
-  _startFrame = frame;
+  delete tssolver;
 }
 
 template <typename REAL>
@@ -56,7 +50,7 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     _tend = wx_any_cast<REAL>(times[1]);
 
     // number of files to write
-    _nout = wxc.template get<int>("Output_files");
+     _nout = wxc.template get<int>("Output_files"); _usr.nout = _nout;
 
     // time step to take
     _dt = wxc.template get<REAL>("Dt");
@@ -84,7 +78,6 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
       ss->setMsg(this->getMsg());
       ss->setParent(this);
       ss->setup(sscs); // setup the subsolver
-//      ss->declareTypes(); // get to declare its expected variable types
       _subSolvers.insert(SubSolverPair_t(sscs.name(), ss));
     }
 
@@ -167,10 +160,6 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     // Create viewer to output data into grid
     PetscViewerCreate(PetscObjectComm((PetscObject)_dm), &_viewer);
     PetscViewerSetType(_viewer, PETSCVIEWERVTK);
-
-    // create time stepping scheme
-    TSCreate(PETSC_COMM_WORLD, &_ts);
-    TSSetType(_ts, TSSSP);
 }
 
 template <typename REAL>
@@ -186,12 +175,6 @@ ApSolver<REAL>::getSubSolver(const std::string& name)
   throw wxe;
 }
 
-template <typename REAL>
-REAL
-ApSolver<REAL>::getInitDt() const
-{
-  return _dt;
-}
 
 template <typename REAL>
 void
@@ -201,29 +184,9 @@ ApSolver<REAL>::solve()
     // fetch stream for logging messages
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
-    WxLogStream debStrm = log->getDebugStream();
 
-    //REAL tcurr = this->getCurrentTime(); // starting time
-    PetscScalar ftime;
-    PetscInt nsteps;
-    TSConvergedReason reason;
-
-    // function that is to be used at every timestep
-    // to display the iteration's progress.
-    //TSMonitorSet(_ts,*MonitorVTK,NULL,NULL);
-
-    TSSetDuration(_ts,_nout,_tend);
-    TSSetInitialTimeStep(_ts,_tstart,_dt);
-    TSSetFromOptions(_ts);
-    TSSolve(_ts,_usr.solution);
-    TSGetSolveTime(_ts,&ftime);
-    TSGetTimeStepNumber(_ts,&nsteps);
-    TSGetConvergedReason(_ts,&reason);
-
-    infStrm << TSConvergedReasons[reason] << " at time "
-            << ftime << " after "
-            << nsteps << " steps"
-            << std::endl;
+    // solve equation system
+    bool statusPetsc = tssolver->solve(_dt, _tstart, _tend, _nout, solution);
 
 }
 
@@ -252,7 +215,7 @@ ApSolver<REAL>::startOnly()
 
         _subSolvers[*ssitr]->setCurrentTime(this->getCurrentTime());
         _subSolvers[*ssitr]->setDt(0.0);
-        WxStepperStatus<REAL> res = _subSolvers[*ssitr]->step(0.0, NULL, _usr.solution);
+        WxStepperStatus<REAL> res = _subSolvers[*ssitr]->step(0.0, NULL, solution);
         if (res.getStatus() == false)
         {
           WxExcept wxe("Subsolver ");
@@ -270,151 +233,22 @@ ApSolver<REAL>::init()
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream debStrm = log->getDebugStream();
 
-    // relate the timestepping scheme
-    // with the data managenent object
-    TSSetDM(_ts, _dm);
-    TSSetRHSFunction(_ts,NULL,TSComputeRHSFunctionLinear,&_usr);
-
     // Solution vector
-    DMCreateGlobalVector(_dm, &_usr.solution);
-    PetscObjectSetName((PetscObject) _usr.solution, "solution");
+    DMCreateGlobalVector(_dm, &solution);
+    PetscObjectSetName((PetscObject) solution, "solution");
 
-    // set current time
-    this->setCurrentTime(_tstart);
-    // set frame number
-    this->setStartFrame(0);
-
-    std::string fname = this->runName() + "_0.vtu";
-    this->setFilename_OutputVTK(fname);
+    // Initialize the timestepping solver
+    tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PetscObjectComm((PetscObject)_dm));
 
     // initialize subsolvers
     typename SubSolverMap_t::iterator itr;
     for (itr = _subSolvers.begin(); itr != _subSolvers.end(); ++itr)
-        itr->second->init();
+        itr->second->init(solution);
 
     DMCreateGlobalVector(_dm, &_usr.cg_vars);
     // run startOnly subsolvers
     debStrm << "Running StartOnly steps...\n" << std::endl;
     startOnly();
-}
-
-template <typename REAL>
-void
-ApSolver<REAL>::advance(REAL tstart, REAL tend, REAL&dt)
-{
-    // don't do anything if nothing to do
-    if (_perStep.size() == 0) return;
-
-    WxLogger *log = WxLogger::get("apollo-root.console");
-    WxLogStream debStrm = log->getDebugStream();
-    WxLogStream infStrm = log->getInfoStream();
-
-    REAL told, dtLast;
-    REAL t = tstart, myDt = dt, dtNext, oldDt;
-    unsigned nstep = 1, nsteps = 1;
-
-
-    if (_useFixedDt)
-      // the number of steps required to reach the output frame
-      nsteps = unsigned(floor((tend-tstart)/dt));
-
-    typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
-
-    //WxMsgBase& msg = this->getMsg();
-
-    // loop advancing solution using adaptive time-stepping
-    while (1)
-    {
-      dtNext = std::numeric_limits<REAL>::max();
-      told = t;
-      dtLast = myDt;
-
-      // adjust dt to hit tend exactly if we are near the end of the
-      // computation if fuzzy stepper is not used
-      if (!_useFixedDt)
-      {
-        if (told+myDt>tend)
-          myDt = tend-told;
-      }
-
-      redo:
-      // ensure we have minimum time-step between processors
-//      REAL myMinDt;
-//      msg.allReduce(1, &myDt, &myMinDt, WX_MSG_MIN);
-//      myDt = myMinDt;
-      t = told + myDt;
-      this->setCurrentTime(told);
-      // advance solution by calling each substep
-      for (itr=_perStep.begin(); itr!=_perStep.end(); ++itr)
-      {
-        REAL dtStep = itr->dtFrac*myDt;
-        this->setDt(dtStep);
-
-        std::vector<std::string>::const_iterator ssitr;
-        for (ssitr = itr->subSolvers.begin(); ssitr != itr->subSolvers.end(); ++ssitr)
-        {
-          debStrm << " SubSolver " << *ssitr << std::endl;
-          ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
-
-          // set time before calling step
-          ss->setCurrentTime(told);
-          ss->setDt(dtStep);
-          // take this step
-          WxStepperStatus<REAL> res = ss->step(dtStep, _usr.solution, _usr.solution);
-
-          // check if step failed or succeeded.
-          unsigned myStatus = res.getStatus();
-          REAL newDt = res.getSuggestedDt();
-          if (_useFixedDt)
-            newDt = _dt;
-
-          // unsigned status;
-          // find if subsolver on processor failed
-          // msg.allReduce(1, &myStatus, &status, WX_MSG_AND);
-          if (myStatus)
-          {
-            dtNext = std::min(newDt, dtNext);
-          }
-          else
-          {
-            oldDt = myDt;
-            myDt = newDt;
-
-            infStrm << " **** Rejecting step " << nstep << ". Time step  " << oldDt << " too large"
-                    << std::endl;
-            if (_useFixedDt)
-            {
-              infStrm << "Please use " << myDt << ". Exiting simulation ... " << std::endl << std::endl;
-              exit(1);
-            }
-            goto redo;
-          }
-        }
-      }
-      debStrm << " Step " << nstep  << " Time " << t  << " dt " << myDt << std::endl;
-
-      // adjust time step to ensure we are getting proper time step
-      myDt = dtNext;
-
-      nstep += 1;
-      // break if we are done
-      if(_useFixedDt)
-      {
-        if(nstep == nsteps+1)
-          // the fuzzy stepper break is determined based on how many
-          // steps have been taken between tstart and tend, and not
-          // on how close the current time with tend. This is so
-          // because it has been assumed that the time step will
-          // always be constant throughout the simulation
-          break;
-      }
-      else
-      {
-        if( (tend-t) < 5*tend*std::numeric_limits<REAL>::epsilon())
-          break;
-      }
-    }
-    dt = dtLast; // copy last time step
 }
 
 template <typename REAL>
@@ -524,7 +358,8 @@ ApSolver<REAL>::OutputVTK(DM dm, char *filename, PetscViewer *viewer)
 }
 
 template<typename REAL>
-PetscErrorCode ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx)
+PetscErrorCode
+ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx)
 {
     PetscViewer viewer;
 
@@ -535,12 +370,46 @@ PetscErrorCode ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal tim
 
         std::stringstream ss; ss << stepnum;
         std::string fname = this->runName() + "_" + ss.str() + ".vtu";
-        OutputVTK(_dm,&fname[0],&viewer);
+        this->OutputVTK(_dm,&fname[0],&viewer);
         VecView(X,viewer);
         PetscViewerDestroy(&viewer);
       }
 
     PetscFunctionReturn(0);
+}
+
+template<typename REAL>
+PetscErrorCode
+ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
+{
+    // don't do anything if nothing to do
+    if (_perStep.size() == 0) return 0;
+
+    Vec X;
+    VecDuplicate(u,&X);
+
+    WxLogger *log = WxLogger::get("apollo-root.console");
+    WxLogStream debStrm = log->getDebugStream();
+    WxLogStream infStrm = log->getInfoStream();
+    typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
+
+    for (itr=_perStep.begin(); itr!=_perStep.end(); ++itr)
+    {
+        PetscReal dtStep;
+        TSGetTimeStep(ts,&dtStep); REAL dt = dtStep;
+        std::vector<std::string>::const_iterator ssitr;
+
+        for (ssitr = itr->subSolvers.begin(); ssitr != itr->subSolvers.end(); ++ssitr)
+        {
+            debStrm << " SubSolver " << *ssitr << std::endl;
+            ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
+            // take this step
+            ss->step(dt, u, X);
+            VecAXPY(F,1.0, X);
+          }
+    }
+
+    return 0;
 }
 
 // instantiations

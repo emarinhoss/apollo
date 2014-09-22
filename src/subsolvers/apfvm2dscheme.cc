@@ -67,6 +67,11 @@ ApFVM2Dscheme<REAL>::setup(const WxCryptSet& wxc)
   // allocate memory for waves, speeds and fluctuations
   _s = alloc_1d<REAL>(_mwave); // wave speeds
 
+  std::vector<WxAny> initArrays = wxc.template get<std::vector<WxAny> >("Initialize");
+  std::vector<WxAny>::const_iterator iaitr;
+  for (iaitr = initArrays.begin(); iaitr != initArrays.end(); ++iaitr)
+    _initArrays.push_back(wx_any_cast<std::string>(*iaitr));
+
   // create function pointer for initial condition
   const WxCryptSet& initCS = wxc.getSet("InitialCondition");
   std::string kind;
@@ -78,16 +83,12 @@ ApFVM2Dscheme<REAL>::setup(const WxCryptSet& wxc)
 
 template <typename REAL>
 void
-ApFVM2Dscheme<REAL>::init()
+ApFVM2Dscheme<REAL>::init(Vec out)
 {
-    _dm  = this->getParent()->getdatamanagment();
-    _usr = this->getParent()->getusercontext();
-    std::string fname = this->getParent()->getFilename_OutputVTK();
-    PetscViewer viewer;
-    Vec X;
-
-    DMCreateGlobalVector(_dm, &_usr.solution);
-    PetscObjectSetName((PetscObject) _usr.solution, "solution");
+    DM dm;
+    VecGetDM(out, &dm);
+    PetscSection stateSection;
+    DMGetDefaultSection(dm, &stateSection);
 
     // Finite Volume geometry variables
     PetscReal centroid[3], normal[3], vol;
@@ -106,34 +107,32 @@ ApFVM2Dscheme<REAL>::init()
     // Initialize the solution vector
     // ****
     // Get cells in this processor
-    DMPlexGetHeightStratum(_dm, 0, &cStart, &cEnd);
-    DMPlexGetHybridBounds(_dm, &cEndInterior, NULL, NULL, NULL);
-    VecGetArray(_usr.solution, &x);
+    DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd);
+    DMPlexGetHybridBounds(dm, &cEndInterior, NULL, NULL, NULL);
+    VecGetArray(out, &x);
 
-    for (c = cStart; c < cEndInterior; ++c)
+    std::vector<std::string>::const_iterator itr;
+    for (itr = _initArrays.begin(); itr != _initArrays.end(); ++itr)
     {
-        DMPlexComputeCellGeometryFVM(_dm, c, &vol, centroid, normal);
+        for (c = cStart; c < cEndInterior; ++c)
+        {
+            DMPlexComputeCellGeometryFVM(dm, c, &vol, centroid, normal);
+            txo[1] = centroid[0];
+            txo[2] = centroid[1];
+            txo[3] = centroid[2];
 
-        txo[1] = centroid[0];
-        txo[2] = centroid[1];
-        txo[3] = centroid[2];
+            _initFunc->func(3, txo, d);
 
-        _initFunc->func(3, txo, d);
-
-        PetscScalar *xc;
-        // reference this cell to the proper location on the solution
-        // vector
-        DMPlexPointGlobalRef(_dm,c,x,&xc);
-        // assign value returned by the initialization function
-        // to the solution vector
-        if(xc){xc[0] = d[0];}
+            PetscScalar *xc;
+            // reference this cell to the proper location on the solution
+            // vector
+            DMPlexPointGlobalRef(dm,c,x,&xc);
+            // assign value returned by the initialization function
+            // to the solution vector
+            if(xc){xc[0] = d[0];}
+        }
     }
-    VecRestoreArray(_usr.solution, &x);
-    this->getParent()->OutputVTK(_dm,&fname[0],&viewer);
-    VecView(_usr.solution,viewer);
-    //VecView(X,PETSC_VIEWER_STDOUT_WORLD);
-    //VecDestroy(&X);
-    PetscViewerDestroy(&viewer);
+    VecRestoreArray(out, &x);
 }
 
 template <typename REAL>

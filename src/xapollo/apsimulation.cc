@@ -31,6 +31,7 @@ ApSimulation<REAL>::~ApSimulation()
 {
   // delete top level solver object
   delete solver;
+  PetscFinalize();
   // delete message object
   // WxLogger::cleanUp();
 }
@@ -71,26 +72,26 @@ ApSimulation<REAL>::init()
   solver->init();
 }
 
-template <typename REAL>
-void
-ApSimulation<REAL>::load(WxIoBase& io, const WxIoNodeType& grpNode)
-{
-  // open timeData group
-  WxIoNodeType timeGrp = io.openGroup(grpNode, "timeData");
-  // get time at which we are restarting
-  REAL tstart;
-  io.readAttribute<REAL>(timeGrp, "time", tstart);
-  solver->setCurrentTime(tstart);
-  // get frame from which we are starting
-  unsigned frame;
-  io.readAttribute<unsigned>(timeGrp, "step", frame);
-  solver->setStartFrame(frame);
+//template <typename REAL>
+//void
+//ApSimulation<REAL>::load(WxIoBase& io, const WxIoNodeType& grpNode)
+//{
+//  // open timeData group
+//  WxIoNodeType timeGrp = io.openGroup(grpNode, "timeData");
+//  // get time at which we are restarting
+//  REAL tstart;
+//  io.readAttribute<REAL>(timeGrp, "time", tstart);
+//  solver->setCurrentTime(tstart);
+//  // get frame from which we are starting
+//  unsigned frame;
+//  io.readAttribute<unsigned>(timeGrp, "step", frame);
+//  solver->setStartFrame(frame);
 
-  // open solver group
-  WxIoNodeType solverGrp = io.openGroup(grpNode, solver->getSolverName());
-  // load solver into memory
-  solver->load(io, solverGrp);
-}
+//  // open solver group
+//  WxIoNodeType solverGrp = io.openGroup(grpNode, solver->getSolverName());
+//  // load solver into memory
+//  solver->load(io, solverGrp);
+//}
 
 template <typename REAL>
 void

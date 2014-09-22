@@ -70,7 +70,7 @@ class ApSimulation : public WxObject
  * @param io I/O object to use for reading
  * @param grpNode group node to read from
  */
-    virtual void load(WxIoBase& io, const WxIoNodeType& grpNode);
+//    virtual void load(WxIoBase& io, const WxIoNodeType& grpNode);
 
 /** Run simulation */
     void simulate();
