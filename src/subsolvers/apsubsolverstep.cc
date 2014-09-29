@@ -16,7 +16,7 @@
 
 template <typename REAL>
 void
-ApSubSolverStep<REAL>::setup(const WxCryptSet& wxc)
+ApSubSolverStep<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
     WxLogger *l = WxLogger::get("apollo-root.console");
     WxLogStream debStrm = l->getDebugStream();

@@ -14,12 +14,11 @@
    Kind = comboSolver
 
    Time = [0.0, 0.1] # start, end times
-   Output_files = 1 # no. of output files to write
-   Dt = 0.1 # initial dt to try
+   Output_files = 5 # no. of output files to write
+   Dt = 0.001 # initial dt to try
    Dimensions = 2
-   Gridname = 'square_triangles.exo'
-   Variables = [qnew]
-   VariablesComponents = [1]
+   Gridname = 'sparse_tri.exo'
+   NumFileds = 1
    
    # Check the partition
    <hyperbolic>
@@ -28,6 +27,7 @@
 	
 	Equations = [advection]
 	
+	DataStructure = [0,fvm,1]
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc
@@ -37,13 +37,13 @@
 
        exprList = ["pulse"]
 
-       progn = ["pulse = exp(-10.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
 		
 	</InitialCondition>
 	
 	<advection>
 		Type = WxHyperbolicEqn
-		Kind = advectionEqn
+		Kind = advectionUnstEqn
 		
 		ux = 1.0	
 	</advection>

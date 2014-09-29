@@ -43,7 +43,7 @@ class ApSubSolver : public WxStepper<REAL>
  *
  * @param wxc Cryptset to use for setting
  */
-    virtual void setup(const WxCryptSet& wxc);
+    virtual void setup(const WxCryptSet& wxc, DM dm);
 
 /**
  * Set parent solver object
@@ -59,6 +59,11 @@ class ApSubSolver : public WxStepper<REAL>
  */
     ApSolver<REAL>* getParent() const;
 
+///**
+// * get the data structure
+// */
+
+//    std::vector<WxAny> getDataStructure();
 
   private:
     ApSolver<REAL> *_parent; // parent solver

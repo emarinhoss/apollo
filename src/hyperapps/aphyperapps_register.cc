@@ -6,6 +6,10 @@
 WxCreator< WxAdvectionEqn<float>, WxHyperbolicEqn<float> > __advectionEqn_f("advectionEqn");
 WxCreator< WxAdvectionEqn<double>, WxHyperbolicEqn<double> > __advectionEqn_d("advectionEqn");
 
+#include "advection/wxadvectionunstuctured.h"
+WxCreator< WxAdvectionUnstructuredEqn<float>, WxHyperbolicEqn<float> > __advectionUnsEqn_f("advectionUnstEqn");
+WxCreator< WxAdvectionUnstructuredEqn<double>, WxHyperbolicEqn<double> > __advectionUnsEqn_d("advectionUnstEqn");
+
 
 // Euler Equation
 //#include "euler/wmeulereqn.h"

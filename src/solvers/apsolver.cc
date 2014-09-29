@@ -58,6 +58,9 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     // problem dimensions
     _dim = wxc.template get<int>("Dimensions");
 
+    // total number of fields
+    _fieldsNum = wxc.template get<int>("NumFileds");
+
     // grid to be used
     std::string fname = wxc.template get<std::string>("Gridname");
     _filename = &fname[0];
@@ -77,8 +80,15 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
       ss->setIo(this->getIo());
       ss->setMsg(this->getMsg());
       ss->setParent(this);
-      ss->setup(sscs); // setup the subsolver
+      ss->setup(sscs,_dm); // setup the subsolver
       _subSolvers.insert(SubSolverPair_t(sscs.name(), ss));
+      if (sscs.has("DataStructure"))
+      {
+          std::vector<WxAny> datastruc = sscs.get<std::vector<WxAny> >("DataStructure");
+          _fieldsNumber.push_back(wx_any_cast<int>(datastruc[0]));
+          _fieldsName.push_back(wx_any_cast<std::string>(datastruc[1]));
+          _fieldsComponents.push_back(wx_any_cast<int>(datastruc[2]));
+      }
     }
 
     // initialize various solver sequences
@@ -93,7 +103,7 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
         std::string name = wx_any_cast<std::string>(*itr);
         const WxCryptSet& ssscs = wxc.getSet(name);
         ApSubSolverStep<REAL> sss;
-        sss.setup(ssscs);
+        sss.setup(ssscs,_dm);
         _startOnly.push_back(sss);
       }
     }
@@ -106,7 +116,7 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
         std::string name = wx_any_cast<std::string>(*itr);
         const WxCryptSet& ssscs = wxc.getSet(name);
         ApSubSolverStep<REAL> sss;
-        sss.setup(ssscs);
+        sss.setup(ssscs,_dm);
         _endOnly.push_back(sss);
       }
     }
@@ -119,7 +129,7 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
         std::string name = wx_any_cast<std::string>(*itr);
         const WxCryptSet& ssscs = wxc.getSet(name);
         ApSubSolverStep<REAL> sss;
-        sss.setup(ssscs);
+        sss.setup(ssscs,_dm);
         _perStep.push_back(sss);
       }
     }
@@ -132,30 +142,13 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
         std::string name = wx_any_cast<std::string>(*itr);
         const WxCryptSet& ssscs = wxc.getSet(name);
         ApSubSolverStep<REAL> sss;
-        sss.setup(ssscs);
+        sss.setup(ssscs,_dm);
         _writeOnly.push_back(sss);
       }
     }
 
-    // Set up data structure
-    std::vector<WxAny> vars = wxc.template get<std::vector<WxAny> >("Variables");
-    std::vector<WxAny> comp = wxc.template get<std::vector<WxAny> >("VariablesComponents");
-    for(itr=vars.begin();itr!=vars.end();++itr)
-    {
-        std::string variable = wx_any_cast<std::string>(*itr);
-        _fieldNames.push_back(variable);
-    }
-    for(itr=comp.begin();itr!=comp.end();++itr)
-    {
-        int num = wx_any_cast<int>(*itr);
-        _fieldComponents.push_back(num);
-    }
-    if(_fieldComponents.size()!=_fieldNames.size())
-    {
-        std::cerr << "Variables vector and VariableComponents vector must be the same size." << std::endl;
-        exit(1);
-    }
-    this->SetupLocalSpace(_dm,_usr);
+    // Setup data structure
+    this->SetupLocalSpace(&_dm);
 
     // Create viewer to output data into grid
     PetscViewerCreate(PetscObjectComm((PetscObject)_dm), &_viewer);
@@ -316,34 +309,34 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
 
 template<typename REAL>
 void
-ApSolver<REAL>::SetupLocalSpace(DM dm, UserContext usr)
+ApSolver<REAL>::SetupLocalSpace(DM *dm)
 {
     PetscSection   stateSection;
     PetscInt       cStart, cEnd, c;
 
-    DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd);
-    PetscSectionCreate(PetscObjectComm((PetscObject)dm), &stateSection);    
-    PetscSectionSetNumFields(stateSection,_fieldNames.size());
-    for(int k=0; k<_fieldNames.size(); ++k)
-    {
-        PetscSectionSetFieldComponents(stateSection,k,_fieldComponents[k]);
-        std::string tt=_fieldNames[k]; char *fieldN = &tt[0];
-        PetscSectionSetFieldName(stateSection,0,fieldN);
-    }
+    DMPlexGetHeightStratum(*dm, 0, &cStart, &cEnd);
+    PetscSectionCreate(PetscObjectComm((PetscObject)*dm), &stateSection);
+    PetscSectionSetNumFields(stateSection,_fieldsNum);
 
+    for(unsigned k=0; k<_fieldsNum; k++)
+    {
+        PetscSectionSetFieldComponents(stateSection,_fieldsNumber[k],_fieldsComponents[k]);
+        std::string name = _fieldsName[k];
+        PetscSectionSetFieldName(stateSection,_fieldsNumber[k],&name[0]);
+    }
     PetscSectionSetChart(stateSection, cStart, cEnd);
 
     for (c = cStart; c < cEnd; ++c)
     {
-        for(int i=0; i<_fieldNames.size(); i++)
+        for(unsigned kk=0; kk<_fieldsNum; kk++)
         {
-            PetscSectionSetFieldDof(stateSection,c,i,_fieldComponents[i]);
-            PetscSectionSetDof(stateSection, c, _fieldComponents[i]);
+            PetscSectionSetFieldDof(stateSection,c,_fieldsNumber[kk],_fieldsComponents[kk]);
+            PetscSectionSetDof(stateSection, c, _fieldsComponents[kk]);
         }
     }
 
     PetscSectionSetUp(stateSection);
-    DMSetDefaultSection(dm,stateSection);
+    DMSetDefaultSection(*dm,stateSection);
     PetscSectionDestroy(&stateSection);
 }
 
@@ -393,6 +386,8 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
     WxLogStream infStrm = log->getInfoStream();
     typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
 
+    debStrm << " Current simulation time is " << t << std::endl;
+
     for (itr=_perStep.begin(); itr!=_perStep.end(); ++itr)
     {
         PetscReal dtStep;
@@ -405,10 +400,12 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
             // take this step
             ss->step(dt, u, X);
+            //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
           }
     }
 
+    VecDestroy(&X);
     return 0;
 }
 

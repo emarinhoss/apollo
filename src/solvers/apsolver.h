@@ -143,6 +143,11 @@ class ApSolver : public WxSolverBase<REAL>
   private:
 
 /**
+ * Create a section that has all the data structure
+ */
+    void SetupLocalSpace(DM *dm);
+
+/**
  * Type check each subsolver to ensure they have the correct variables
  * specified
  */
@@ -169,11 +174,6 @@ class ApSolver : public WxSolverBase<REAL>
  * Read a mesh and create data management object
  */
     void createMesh(MPI_Comm comm, DM *dm);
-
-/**
- * check the grid
- */
-    void SetupLocalSpace(DM dm, UserContext usr);
 
 /**
  * Set and get the output file name
@@ -221,8 +221,10 @@ class ApSolver : public WxSolverBase<REAL>
     std::string _outfname; // output file name
     PetscViewer _viewer; // viewer for output data
     UserContext _usr; // user-defined context
-    std::vector<std::string> _fieldNames; // field names
-    std::vector<int> _fieldComponents; // field components
+    int _fieldsNum; // Number of fields
+    std::vector<std::string> _fieldsName;
+    std::vector<int> _fieldsComponents;
+    std::vector<int> _fieldsNumber;
     WxPetscTimeSteppingSolver<REAL, ApSolver> *tssolver;
 
 };

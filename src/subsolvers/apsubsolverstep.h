@@ -21,14 +21,12 @@ struct ApSubSolverStep : public WxObject
  *
  * @param wxc Cryptset using which the object is set up.
  */
-    virtual void setup(const WxCryptSet& wxc);
+    virtual void setup(const WxCryptSet& wxc, DM dm);
 
 /** Fraction of time-step to apply */
     REAL dtFrac;
 /** Subsolvers to apply */
     std::vector<std::string> subSolvers;
-/** Variables to synchronize at end of step */
-    std::vector<std::string> syncVars;
 };
 
 #endif //  __apsubsolverstep__h__

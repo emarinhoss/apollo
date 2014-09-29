@@ -28,7 +28,7 @@ class ApDomainDecompCheck : public ApSubSolver<REAL>
  *
  * @param wxc Cryptset to use for setting
  */
-    void setup(const WxCryptSet& wxc);
+    void setup(const WxCryptSet& wxc, DM dm);
 
 /**
  * Initialize the subsolver: this is called after the setup() and

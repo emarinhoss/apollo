@@ -14,13 +14,26 @@
 #include <wxobject.h>
 
 // Petsc includes
-#include <petscfv.h>
 #include <petscts.h>
+#include <petscfv.h>
+#include <petscdmplex.h>
+#include <petscsf.h>
 
 // std includes
 #include <map>
 #include <string>
 #include <vector>
+
+typedef struct {
+    PetscBool setupGeom; /* Flag for geometry setup */
+    PetscBool setupGrad; /* Flag for gradient calculation setup */
+    Vec       facegeom;  /* FaceGeom struct for each face */
+    Vec       cellgeom;  /* CellGeom struct for each cell */
+    DM        dmGrad;    /* Layout for the gradient data */
+    PetscReal minradius; /* Minimum distance from centroid to face */
+    void    (*riemann)(const PetscReal[], const PetscReal[], const PetscScalar[], const PetscScalar[], PetscScalar[], void *);
+    void     *rhsfunctionlocalctx;
+  } FVgeometry;
 
 template <typename REAL>
 class ApFVM2Dscheme : public ApSubSolver<REAL>
@@ -41,7 +54,7 @@ class ApFVM2Dscheme : public ApSubSolver<REAL>
  *
  * @param wxc Cryptset to use for setting
  */
-    void setup(const WxCryptSet& wxc);
+    void setup(const WxCryptSet& wxc, DM dm);
 
 /**
  * Initialize the subsolver: this is called after the setup() and
@@ -69,6 +82,13 @@ class ApFVM2Dscheme : public ApSubSolver<REAL>
       return _eqnSet.totalEqns();
     }
 
+/**
+ * Returns the format of the dataStruture in this subsolver
+ */
+    std::vector<WxAny> getDataStructure(){
+        return _dataStruct;
+    }
+
  /**
  * Compute the RHS using CG spatial discretization.
  *
@@ -79,6 +99,10 @@ class ApFVM2Dscheme : public ApSubSolver<REAL>
    //WxStepperStatus<REAL> computeRhs(REAL dt, WxArray<REAL>& q, WxArray<REAL> &src);
 
 private:
+
+/**
+ * Calculate the faces and cell geometry
+ */
 
 /** Time step to use */
   REAL _dt;
@@ -95,19 +119,25 @@ private:
 /** Arrays for passing to and from from Reimann solver */
   REAL *_df;
   REAL *_s; // speed
+  REAL *_apdq, *_amdq, *_apdqx, *_amdqx, *_sx, **_waveax; // fluctuations and waves
+  REAL *_fsx; // second order fluxes
 /** Equations and waves */
   unsigned _meqn, _mwave;
+  REAL **_wave; // waves
 /** element length, dx **/
   REAL _dx;
 /** need to access status from step function */
   WxStepperStatus<REAL> _status;
-/** data management and user-defined context */
-  DM _dm;
-  UserContext _usr;
-  //PetscViewer viewer;
-  Vec qvars;
   WxFunction<REAL>* _initFunc; // initial condition to use
-  std::vector<std::string> _initArrays; // name of arrays to initialize
+  std::vector<WxAny> _dataStruct;
+
+/** Stuff need for the FV calculations */
+  DM _dm;
+  PetscFV _fvm;
+  PetscLimiter _lim;
+  FVgeometry *_fvgeom;
+
+
 
 };
 

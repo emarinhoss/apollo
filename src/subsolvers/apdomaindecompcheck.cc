@@ -11,9 +11,9 @@
 
 template <typename REAL>
 void
-ApDomainDecompCheck<REAL>::setup(const WxCryptSet& wxc)
+ApDomainDecompCheck<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
-  ApSubSolver<REAL>::setup(wxc);
+  ApSubSolver<REAL>::setup(wxc, dm);
 
 }
 

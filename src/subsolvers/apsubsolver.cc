@@ -30,7 +30,7 @@ ApSubSolver<REAL>::type() const
 
 template <typename REAL>
 void
-ApSubSolver<REAL>::setup(const WxCryptSet& wxc)
+ApSubSolver<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
 //  std::stringstream ss;
   WxLogger *l = WxLogger::get("apollo-root.console");
@@ -52,6 +52,11 @@ ApSolver<REAL> *ApSubSolver<REAL>::getParent() const
 {
   return _parent;
 }
+
+//template <typename REAL>
+//std::vector<WxAny> ApSubSolver<REAL>::getDataStructure()
+//{
+//}
 
 // instantiations
 template class ApSubSolver<float>;

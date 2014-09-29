@@ -70,7 +70,7 @@ class WxPetscTimeSteppingSolver {
         TSConvergedReason reason;
 
 
-        TSSetDuration(solver,nout,tend);
+        TSSetDuration(solver,1000,tend);
         TSSetInitialTimeStep(solver,tstart,dt);
         TSSetSolution(solver,X);
         TSSetFromOptions(solver);
