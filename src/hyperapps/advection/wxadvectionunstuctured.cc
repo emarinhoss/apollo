@@ -99,7 +99,7 @@ void
 WxAdvectionUnstructuredEqn<REAL>::rotateToLocalFrame(REAL norm[3], REAL *vin, REAL *vout)
 {
   // rotation function to rotate 'vin' to local coordinate system
-  vout[0] = vin[0]; //*norm[0] + vin[0]*norm[1];
+  vout[0] = vin[0]*norm[0] + vin[0]*norm[1];
 
 }
 
@@ -107,7 +107,7 @@ template <typename REAL>
 void
 WxAdvectionUnstructuredEqn<REAL>::rotateToGlobalFrame(REAL norm[3], REAL *vin, REAL *vout)
 {
-  vout[0] = vin[0]*norm[0]; // - vin[0]*norm[1];
+  vout[0] = vin[0]*norm[0] - vin[0]*norm[1];
 }
 
 template<typename REAL>

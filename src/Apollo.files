@@ -153,3 +153,5 @@ subsolvers/apfvm2dscheme.cc
 subsolvers/apfvm2dscheme.h
 lib/SConscript
 subsolvers/wxpetsctimestepping.h
+hyperapps/advection/wxadvectionunstuctured.h
+hyperapps/advection/wxadvectionunstuctured.cc

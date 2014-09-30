@@ -153,10 +153,10 @@ WxStepperStatus<REAL>
 ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 {
 //    VecView(in,PETSC_VIEWER_STDOUT_WORLD);
-    Vec locX, locCorr;
+    Vec locX, locF;
     WxStepperStatus<REAL> status;
     const PetscScalar *x;
-    PetscScalar *ot;
+    PetscScalar *ot, *fl;
     // data for right/left rotated data
     std::vector<REAL> qrLocal(_meqn), qlLocal(_meqn);
     // data for wave in local and global coordinates
@@ -172,12 +172,12 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 
     // create local vector
     DMGetLocalVector(_dm, &locX);
-    //DMGetLocalVector(_dm, &locCorr);
+    DMGetLocalVector(_dm, &locF);
 
     // zero entries of the vectors that will be used to store
     // information
     VecZeroEntries(locX);
-    //VecZeroEntries(locCorr);
+    VecZeroEntries(locF);
     VecZeroEntries(out);
 
     // get local values of the global vector in into locX
@@ -191,24 +191,21 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
     PetscFVGetLimiter(_fvm, &_lim);
 
     // get start and end of faces
-    PetscInt fStart, fEnd;
+    PetscInt fStart, fEnd, fEndInterior;
     DMPlexGetHeightStratum(_dm, 1, &fStart, &fEnd);
-    //VecGetDM(_fvgeom->facegeom, &dmFace);
-    //VecGetDM(_fvgeom->cellgeom, &dmCell);
-    //VecGetArrayRead(_fvgeom->facegeom, &facegeom);
-    //VecGetArrayRead(_fvgeom->cellgeom, &cellgeom);
+    DMPlexGetHybridBounds(_dm, NULL, &fEndInterior, NULL, NULL);
     VecGetArrayRead(locX, &x);
-    //VecGetArray(locCorr, &f);
+    VecGetArray(locF, &fl);
     VecGetArray(out, &ot);
 
     for(PetscInt face = fStart; face < fEnd; ++face)
     {
         // is this a ghost cell face?
-        PetscInt ghost;
-        DMLabelGetValue(faceS, face, &ghost);
+        // PetscInt ghost;
+        // DMLabelGetValue(ghostLabel, face, &ghost);
 
-        if(ghost>=0)
-        {
+        //if(ghost>=0)
+        //{
             // NOT QUITE SURE WHY THIS IS NEED ---- DOUBLE CHECK
             PetscBool boundary;
             DMPlexIsBoundaryPoint(_dm, face, &boundary);
@@ -297,24 +294,53 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 
 //                /** LIMITER GOES SOMEWHERE HERE */
 
-//                // compute second order corrections to fluxes
+                // compute second order corrections to fluxes
 //                REAL cellVol = 0.5*(volumeL+volumeR); // average volume
 //                REAL areaVavg = area/cellVol;
 
 
-//                for (unsigned m=0; m<_meqn; ++m)
-//                {
-//                  _fsx[m] = 0.0;
-//                  for (unsigned mw=0; mw<_mwave; ++mw)
-//                  {
+//                for (unsigned m=0; m<_meqn; ++m){
+//                  for (unsigned mw=0; mw<_mwave; ++mw){
 //                    REAL sabs = fabs(_s[mw]);
 //                    REAL corr = 0.5*sabs*(1.0 - sabs*dt*areaVavg)*_waveax[m][mw];
-//                    _fsx[m] += corr; // compute second order correction
+//                    fl[m] += corr;
 //                  }
 //                }
             }
-        }
+        //}
     }
+
+//    for(PetscInt face = fStart; face < fEnd; ++face)
+//    {
+//        PetscBool boundary;
+//        DMPlexIsBoundaryPoint(_dm, face, &boundary);
+//        if (!boundary)
+//        {
+//            const PetscInt *cells;
+//            PetscReal cgL[3], cgR[3];
+//            DMPlexGetSupport(_dm, face, &cells);
+//            PetscReal volumeL, volumeR;
+//            DMPlexComputeCellGeometryFVM(_dm, cells[0], &volumeL, cgL, NULL);
+//            DMPlexComputeCellGeometryFVM(_dm, cells[1], &volumeR, cgR, NULL);
+
+//            PetscReal area;
+//            DMPlexComputeCellGeometryFVM(_dm, face, &area, NULL, NULL);
+
+//            PetscScalar *fL, *fR, *ql, *qr;
+
+//            DMPlexPointLocalRef(_dm, cells[0], fl, &fL);
+//            DMPlexPointLocalRef(_dm, cells[1], fl, &fR);
+
+//            DMPlexPointGlobalRef(_dm, cells[0], ot, &ql);
+//            DMPlexPointGlobalRef(_dm, cells[1], ot, &qr);
+
+//            for(unsigned kk=0; kk<_meqn; kk++)
+//            {
+//                ql[kk] += -area*(fL[kk]/volumeL-fR[kk]/volumeR);
+//                qr[kk] += area*(fL[kk]/volumeL-fR[kk]/volumeR);
+//            }
+//        }
+//    }
 
     PetscInt eStart, eEnd, eEndInterior;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
@@ -329,6 +355,7 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 
     DMRestoreLocalVector(_dm, &locX);
     VecRestoreArray(out, &ot);
+    VecRestoreArray(locF, &fl);
     //VecView(out,PETSC_VIEWER_STDOUT_WORLD);
 
     status.setStatus(true);
