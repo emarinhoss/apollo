@@ -159,8 +159,8 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
     PetscScalar *ot, *fl;
     // data for right/left rotated data
     std::vector<REAL> qrLocal(_meqn), qlLocal(_meqn);
-    // data for wave in local and global coordinates
-    std::vector<REAL> waveLocal(_meqn), waveGlobal(_meqn);
+    std::vector<REAL> apdqLocal(_meqn), amdqLocal(_meqn);
+    std::vector<REAL> frLocal(_meqn), flLocal(_meqn);
 
     // get the data managent object from the input vector
     VecGetDM(in,&_dm);
@@ -237,11 +237,13 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
                 REAL xl[4], xr[4];
                 for(unsigned k=0; k<3; k++){
                     xl[k] = cgL[k];
-                    xr[k] = cgR[k];
-                }
+                    xr[k] = cgR[k];}
 
                 _eqnSet.rotateToLocalFrame(normal, qL, &qrLocal[0]);
                 _eqnSet.rotateToLocalFrame(normal, qR, &qlLocal[0]);
+                // compute left and right fluxes in global coordinates
+                _eqnSet.flux(0, xl, &qlLocal[0], 0, &flLocal[0]);
+                _eqnSet.flux(0, xr, &qrLocal[0], 0, &frLocal[0]);
 
                 // compute jump
                 for (unsigned m=0; m<_meqn; ++m)
@@ -249,98 +251,24 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 
                 // call Riemann problem solver to get waves
                 _eqnSet.riemann(0, xl, xr, &qlLocal[0], &qrLocal[0],
-                                normal, 0, _df, _wave, _s, _amdqx, _apdqx);
+                                normal, 0, _df, _wave, _s, &amdqLocal[0], &apdqLocal[0]);
 
-                // rotate wave back to global coordinate
-                for (unsigned mw=0; mw<_mwave; ++mw)
-                {
-                  // copy wave into temporary array
-                  for (unsigned m=0; m<_meqn; ++m)
-                    waveLocal[m] = _wave[m][mw];
-                  // rotate it
-                  _eqnSet.rotateToGlobalFrame(normal, &waveLocal[0], &waveGlobal[0]);
-                  // copy it into array
-                  for (unsigned m=0; m<_meqn; ++m)
-                    _waveax[m][mw] = waveGlobal[m];
+                _eqnSet.rotateToGlobalFrame(normal, &amdqLocal[0], _amdq);
+                _eqnSet.rotateToGlobalFrame(normal, &apdqLocal[0], _apdq);
+                _eqnSet.rotateToGlobalFrame(normal, &flLocal[0], _fl);
+                _eqnSet.rotateToGlobalFrame(normal, &frLocal[0], _fr);
+
+                PetscScalar *uL, *uR;
+                DMPlexPointGlobalRef(_dm,cells[0],ot,&uL);
+                DMPlexPointGlobalRef(_dm,cells[1],ot,&uR);
+
+                for(unsigned kk=0; kk<_meqn; kk++){
+                    uL[kk] += 0.5*(_fl[kk]+_fr[kk])-0.5*(_apdq[kk]-_amdq[kk]);
+                    uR[kk] -= 0.5*(_fl[kk]+_fr[kk])-0.5*(_apdq[kk]-_amdq[kk]);
                 }
 
-                // now compute fluctuations in global coordinates
-                for (unsigned m=0; m<_meqn; ++m)
-                {
-                  _amdq[m] = 0.0;
-                  _apdq[m] = 0.0;
-                  for (unsigned mw=0; mw<_mwave; ++mw)
-                  {
-                    if (_s[mw] < 0.0)
-                      _amdq[m] += _s[mw]*_waveax[m][mw];
-                    else
-                      _apdq[m] += _s[mw]*_waveax[m][mw];
-                  }
-                }
-
-                // compute Area/Volume ratios ratios
-                REAL areaVol = area/volumeL;
-                REAL areaVol1 = area/volumeR;
-
-                // write first order Gudonov updates
-                PetscScalar *fL, *fR;
-                DMPlexPointGlobalRef(_dm, cells[0], ot, &fL);
-                DMPlexPointGlobalRef(_dm, cells[1], ot, &fR);
-                for(unsigned m=0; m<_meqn; ++m)
-                {
-                    fL[m] += areaVol*_apdq[m];
-                    fR[m] += areaVol1*_amdq[m];
-                }
-
-//                /** LIMITER GOES SOMEWHERE HERE */
-
-                // compute second order corrections to fluxes
-//                REAL cellVol = 0.5*(volumeL+volumeR); // average volume
-//                REAL areaVavg = area/cellVol;
-
-
-//                for (unsigned m=0; m<_meqn; ++m){
-//                  for (unsigned mw=0; mw<_mwave; ++mw){
-//                    REAL sabs = fabs(_s[mw]);
-//                    REAL corr = 0.5*sabs*(1.0 - sabs*dt*areaVavg)*_waveax[m][mw];
-//                    fl[m] += corr;
-//                  }
-//                }
             }
-        //}
     }
-
-//    for(PetscInt face = fStart; face < fEnd; ++face)
-//    {
-//        PetscBool boundary;
-//        DMPlexIsBoundaryPoint(_dm, face, &boundary);
-//        if (!boundary)
-//        {
-//            const PetscInt *cells;
-//            PetscReal cgL[3], cgR[3];
-//            DMPlexGetSupport(_dm, face, &cells);
-//            PetscReal volumeL, volumeR;
-//            DMPlexComputeCellGeometryFVM(_dm, cells[0], &volumeL, cgL, NULL);
-//            DMPlexComputeCellGeometryFVM(_dm, cells[1], &volumeR, cgR, NULL);
-
-//            PetscReal area;
-//            DMPlexComputeCellGeometryFVM(_dm, face, &area, NULL, NULL);
-
-//            PetscScalar *fL, *fR, *ql, *qr;
-
-//            DMPlexPointLocalRef(_dm, cells[0], fl, &fL);
-//            DMPlexPointLocalRef(_dm, cells[1], fl, &fR);
-
-//            DMPlexPointGlobalRef(_dm, cells[0], ot, &ql);
-//            DMPlexPointGlobalRef(_dm, cells[1], ot, &qr);
-
-//            for(unsigned kk=0; kk<_meqn; kk++)
-//            {
-//                ql[kk] += -area*(fL[kk]/volumeL-fR[kk]/volumeR);
-//                qr[kk] += area*(fL[kk]/volumeL-fR[kk]/volumeR);
-//            }
-//        }
-//    }
 
     PetscInt eStart, eEnd, eEndInterior;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
