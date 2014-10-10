@@ -259,12 +259,12 @@ ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
                 _eqnSet.rotateToGlobalFrame(normal, &frLocal[0], _fr);
 
                 PetscScalar *uL, *uR;
-                DMPlexPointGlobalRef(_dm,cells[0],ot,&uL);
-                DMPlexPointGlobalRef(_dm,cells[1],ot,&uR);
+                DMPlexPointLocalRef(_dm,cells[0],ot,&uL);
+                DMPlexPointLocalRef(_dm,cells[1],ot,&uR);
 
                 for(unsigned kk=0; kk<_meqn; kk++){
-                    uL[kk] += 0.5*(_fl[kk]+_fr[kk])-0.5*(_apdq[kk]-_amdq[kk]);
-                    uR[kk] -= 0.5*(_fl[kk]+_fr[kk])-0.5*(_apdq[kk]-_amdq[kk]);
+                    uL[kk] += 0.5*(_fl[kk]+_fr[kk])-0.5*(_apdq[kk]-_amdq[kk])*area/volumeL;
+                    uR[kk] -= 0.5*(_fl[kk]+_fr[kk])-0.5*(_apdq[kk]-_amdq[kk])*area/volumeR;
                 }
 
             }
