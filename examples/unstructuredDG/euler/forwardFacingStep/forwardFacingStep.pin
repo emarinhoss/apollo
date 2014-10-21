@@ -1,0 +1,73 @@
+# -*- python -*- 
+
+GAMMA = 2./3.
+spatialOrder = 1
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = advection1d
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = debug
+
+ <ffstep>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, 0.1] # start, end times
+   Output_files = 5 # no. of output files to write
+   Dt = 0.001 # initial dt to try
+   Dimensions = 2
+   Gridname = 'sparse_tri.exo'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = fv2dscheme
+	
+	Equations = [advection]
+	
+	// setup data structure, [fieldNumber,FieldName]
+	DataStructure = [0,dg]
+	
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		XC = 0.0
+		YC = 0.0
+
+       exprList = ["pulse"]
+
+       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+		
+	</InitialCondition>
+	
+	<advection>
+		Type = WxHyperbolicEqn
+		Kind = eulerEqn
+		
+		gas_gamma = GAMMA
+	</advection>
+	
+   </hyperbolic>
+	
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </ffsted>
+
+</warpx>

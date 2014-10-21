@@ -39,6 +39,9 @@ vars.AddVariables(
 	('petsc_base', 'Base directory for PETSC package',''),
 	('petsc_includedir', 'include directory for PETSC package',''),
 	('petsc_libdir', 'Library directory for PETSC package',''),
+        ('boost_base', 'Base directory for BOOST package',''),
+        ('boost_includedir', 'include directory for BOOST package',''),
+        ('boost_libdir', 'Library directory for BOOST package',''),
 )
 
 #uhg, PGI compiler is not even working for me right now, and I don't see how to work this into this_host_config.py
@@ -61,6 +64,7 @@ if not warpMConstructionEnv.GetOption('clean'):
 	# setup build for external libraries
 	SConscript('buildconf/config_mpi.py',     exports='warpMConstructionEnv')
 	SConscript('buildconf/config_petsc.py',   exports='warpMConstructionEnv')
+        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
 
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
