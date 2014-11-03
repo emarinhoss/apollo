@@ -16,42 +16,23 @@ WxpDGGeometry<REAL>::WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor)
     _r = alloc_1d<REAL>(_NpE);
     _s = alloc_1d<REAL>(_NpE);
 
-    p_Dr = alloc_2d_c<REAL>(_NpE,_NpE);
-    p_Ds = alloc_2d_c<REAL>(_NpE,_NpE);
-    p_LIFT = alloc_2d_c<REAL>(_NpE,_NpF*_NfE);
-    p_Fmask = alloc_2d_c<int>(_NfE,_NpF);
+    _Dr = alloc_1d<REAL>(_NpE*_NpE);
+    _Ds = alloc_1d<REAL>(_NpE*_NpE);
+    _LIFT = alloc_1d<REAL>(_NpE*_NpF*_NfE);
+    _Fmask = alloc_1d<int>(_NfE*_NpF);
 
-    //matrices
-    _Dr = matrix_REAL(_NpE,_NpE);
-    _Ds = matrix_REAL(_NpE,_NpE);
-    _LIFT = matrix_REAL(_NpE,_NpF*_NfE);
-    _Fmask = matrix_INT(_NfE,_NpF);
-
-    nodalDGfunctions(_SpOr, _r, _s, p_Dr, p_Ds, p_LIFT, p_Fmask);
-
-    for(unsigned i=0; i<_NpE; i++){
-        for(unsigned j=0; j<_NpE; j++){
-            _Dr(i,j) = p_Dr[i][j];
-            _Ds(i,j) = p_Ds[i][j];}
-
-        for(unsigned k=0; k<_NpF*_NfE; k++)
-            _LIFT(i,k) = p_LIFT[i][k];
-    }
-
-    for(unsigned i=0; i<_NfE; i++)
-        for(unsigned j=0; j<_NpF; j++)
-            _Fmask(i,j) = p_Fmask[i][j];
+    nodalDGfunctions(_SpOr, _r, _s, _Dr, _Ds, _LIFT, _Fmask);
 
     PetscInt eStart, eEnd, vStart, vEnd;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
     DMPlexGetDepthStratum(_dm, 0, &vStart, &vEnd);
     _Klocal = eEnd - eStart;
-    _Vlocal = vStart - vEnd;
+    _Vlocal = vEnd - vStart;
 
     /* find element-element connections */
-    _EtoV = alloc_2d_c<unsigned>(_Klocal,_Vlocal);
-    _EToE = alloc_2d_c<unsigned>(_Klocal,_NfE);
-    _EToF = alloc_2d_c<unsigned>(_Klocal,_NfE);
+    _EtoV = alloc_2d_c<int>(_Klocal,_Vlocal);
+    _EToE = alloc_2d_c<int>(_Klocal,_NfE);
+    _EToF = alloc_2d_c<int>(_Klocal,_NfE);
     FacePair2d(_dm);
 
     // Find node coordinates
@@ -66,15 +47,15 @@ WxpDGGeometry<REAL>::~WxpDGGeometry()
 {
     delete [] _r;
     delete [] _s;
+    delete [] _Dr;
+    delete [] _Ds;
+    delete [] _LIFT;
+    delete [] _Fmask;
     free_2d_c(_EtoV, _Klocal, _Vlocal);
     free_2d_c(_EToE, _Klocal, _NfE);
     free_2d_c(_EToF, _Klocal, _NfE);
     free_2d_c(_xcoord, _Klocal, _NpE);
     free_2d_c(_ycoord, _Klocal, _NpE);
-    free_2d_c(p_Dr, _NpE, _NpE);
-    free_2d_c(p_Ds, _NpE, _NpE);
-    free_2d_c(p_LIFT, _NpE, _NpF*_NfE);
-    free_2d_c(p_Fmask, _NfE, _NpF);
 }
 
 template <typename REAL>
@@ -103,10 +84,12 @@ void
 WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
 {
     Vec coordinates;
+    PetscSection coordSection;
     PetscScalar *coords;
+    PetscInt coordSize;
 
-    DMGetCoordinatesLocal(dm, &coordinates);
-    int _dim = 2;
+    DMGetCoordinates(dm, &coordinates);
+    DMGetCoordinateSection(dm, &coordSection);
 
     PetscInt eStart, eEnd;
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
@@ -114,22 +97,66 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
     VecGetArray(coordinates, &coords);
     for(unsigned K=eStart; K<eEnd; K++)
     {
+        DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
+        // coords is returned as coords[x1,y1,x2,y2,x3,y3]
         for(unsigned node=0; node<_NpE; node++)
         {
             REAL r = _r[node];
             REAL s = _s[node];
-            REAL Gx1 = coords[_EtoV[K][0]*_dim];
-            REAL Gx2 = coords[_EtoV[K][1]*_dim];
-            REAL Gx3 = coords[_EtoV[K][2]*_dim];
-            REAL Gy1 = coords[_EtoV[K][0]*_dim+1];
-            REAL Gy2 = coords[_EtoV[K][1]*_dim+1];
-            REAL Gy3 = coords[_EtoV[K][2]*_dim+1];
 
-            _xcoord[K][node] = 0.5*(-Gx1*(r+s) + Gx2*(1.+r) + Gx3*(1.+ s));
-            _ycoord[K][node] = 0.5*(-Gy1*(r+s) + Gy2*(1.+r) + Gy3*(1.+ s));
+            _xcoord[K][node] = 0.5*(-coords[0]*(r+s) + coords[2]*(1.+r) + coords[4]*(1.+ s));
+            _ycoord[K][node] = 0.5*(-coords[1]*(r+s) + coords[3]*(1.+r) + coords[5]*(1.+ s));
         }
+        //DMPlexVecRestoreClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
     }
     VecRestoreArray(coordinates, &coords);
+}
+
+template <typename REAL>
+void
+WxpDGGeometry<REAL>::GeometricFactors2d(int k, REAL *drdx, REAL *dsdx, REAL *drdy, REAL *dsdy, REAL *J)
+{
+    REAL x1 = _xcoord[k][0], y1 =  _ycoord[k][0];
+    REAL x2 = _xcoord[k][1], y2 =  _ycoord[k][1];
+    REAL x3 = _xcoord[k][2], y3 =  _ycoord[k][2];
+
+    REAL dxdr = (x2-x1)/2,  dxds = (x3-x1)/2;
+    REAL dydr = (y2-y1)/2,  dyds = (y3-y1)/2;
+
+    /* Jacobian of coordinate mapping */
+    *J = -dxds*dydr + dxdr*dyds;
+
+    if(*J<0)
+      printf("warning: J = %lg\n", *J);
+
+    /* inverted Jacobian matrix for coordinate mapping */
+    *drdx =  dyds/(*J);
+    *dsdx = -dydr/(*J);
+    *drdy = -dxds/(*J);
+    *dsdy =  dxdr/(*J);
+}
+
+template <typename REAL>
+void
+WxpDGGeometry<REAL>::Normals2d(int k, REAL *nx, REAL *ny, REAL *sJ)
+{
+    int f;
+
+    REAL x1 = _xcoord[k][0], y1 = _ycoord[k][0];
+    REAL x2 = _xcoord[k][1], y2 = _ycoord[k][1];
+    REAL x3 = _xcoord[k][2], y3 = _ycoord[k][2];
+
+    nx[0] =  (y2-y1);  ny[0] = -(x2-x1);
+    nx[1] =  (y3-y2);  ny[1] = -(x3-x2);
+    nx[2] =  (y1-y3);  ny[2] = -(x1-x3);
+
+    for(f=0;f<_NfE;++f)
+    {
+      sJ[f] = sqrt(nx[f]*nx[f]+ny[f]*ny[f]);
+      nx[f] /= sJ[f];
+      ny[f] /= sJ[f];
+      sJ[f] /= 2.;
+    }
 }
 
 // instantiations

@@ -4,8 +4,8 @@
 // WarpX lib includes
 #include <wxindexer.h>
 #include <petscdmplex.h>
-#include <boost/numeric/ublas/vector.hpp>
-#include <boost/numeric/ublas/matrix.hpp>
+//#include <boost/numeric/ublas/vector.hpp>
+//#include <boost/numeric/ublas/matrix.hpp>
 
 // std includes
 #include <vector>
@@ -23,9 +23,29 @@ class WxpDGGeometry
  */
     WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor);
 
-/** Dtor */
+/** Destroctor */
     virtual ~WxpDGGeometry();
 
+/** return the number of nodes per element */
+    unsigned NpElem(){
+        return _NpE;
+    }
+
+/** return the x-coordinate for element K node N */
+    REAL Xcoordinate(unsigned K, unsigned N){
+        return _xcoord[K][N];
+    }
+
+/** return the x-coordinate for element K node N */
+    REAL Ycoordinate(unsigned K, unsigned N){
+        return _ycoord[K][N];
+    }
+
+/** calculate the  geometric factors for element k*/
+    void GeometricFactors2d(int k, REAL *drdx, REAL *dsdx, REAL *drdy, REAL *dsdy, REAL *J);
+
+/** calculate the face normals for a given element k*/
+    void Normals2d(int k, REAL *nx, REAL *ny, REAL *sJ);
 
   private:
 /**
@@ -39,8 +59,8 @@ class WxpDGGeometry
  */
     void CalculateNodeCoordinates2d(DM dm);
 
-    typedef boost::numeric::ublas::matrix<REAL> matrix_REAL;
-    typedef boost::numeric::ublas::matrix<REAL> matrix_INT;
+//    typedef boost::numeric::ublas::matrix<REAL> matrix_REAL;
+//    typedef boost::numeric::ublas::matrix<REAL> matrix_INT;
 
 /** No of equations */
     unsigned _meqn;
@@ -49,22 +69,20 @@ class WxpDGGeometry
 /** Data management */
     DM _dm;
 
-unsigned _NpE; // number of points/nodes per element
-unsigned _NpF; // number of points/nodes per face
-unsigned _NfE;  // number of faces per element
-REAL *_r, *_s, *_t;  // (r,s,t) coordinates of reference nodes
-matrix_REAL _Ds, _Dr, _LIFT; // element matrices
-matrix_INT _Fmask;
-REAL **p_Dr, **p_Ds, **p_LIFT;
-int **p_Fmask;
-unsigned **_EtoV; // element to vertecies connectivity matrix
-unsigned **_EToE; /* element to neighbor element (elements numbered by their proc) */
-unsigned **_EToF; /* element to neighbor face    (element local number 0,1,2) */
-unsigned _Klocal; // number of elements in this processor
-unsigned _Vlocal; // number of nodes in this processor
-REAL **_xcoord; // node x-coordinates
-REAL **_ycoord; // node y-coordinates
-REAL **_zcoord; // node z-coordinates
+    int _NpE; // number of points/nodes per element
+    int _NpF; // number of points/nodes per face
+    int _NfE;  // number of faces per element
+    REAL *_r, *_s, *_t;  // (r,s,t) coordinates of reference nodes
+    REAL *_Ds, *_Dr,*_LIFT; // element matrices
+    int *_Fmask;
+    int **_EtoV; // element to verticies connectivity matrix
+    int **_EToE; /* element to neighbor element (elements numbered by their proc) */
+    int **_EToF; /* element to neighbor face    (element local number 0,1,2) */
+    int _Klocal; // number of elements in this processor
+    int _Vlocal; // number of nodes in this processor
+    REAL **_xcoord; // node x-coordinates
+    REAL **_ycoord; // node y-coordinates
+    REAL **_zcoord; // node z-coordinates
 
 };
 

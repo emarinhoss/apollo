@@ -88,7 +88,6 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
           _fieldsNumber.push_back(wx_any_cast<int>(datastruc[0]));
           _fieldsName.push_back(wx_any_cast<std::string>(datastruc[1]));
           _fieldsComponents.push_back(wx_any_cast<int>(datastruc[2]));
-          _fieldsDof.push_back(wx_any_cast<int>(datastruc[3]));
       }
     }
 
@@ -331,8 +330,8 @@ ApSolver<REAL>::SetupLocalSpace(DM *dm)
     {
         for(unsigned kk=0; kk<_fieldsNum; kk++)
         {
-            PetscSectionSetFieldDof(stateSection,c,_fieldsNumber[kk],_fieldsDof[kk]);
-            PetscSectionSetDof(stateSection, c, _fieldsDof[kk]);
+            PetscSectionSetFieldDof(stateSection,c,_fieldsNumber[kk],_fieldsComponents[kk]);
+            PetscSectionSetDof(stateSection, c, _fieldsComponents[kk]);
         }
     }
 

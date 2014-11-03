@@ -24,6 +24,6 @@ for s in sources:
 # Primary list of sources collected through hierarchical SConscript calls
 ##
 objs.append(env.SConscript('advection/SConscript', exports='env') )
-#objs.append(env.SConscript('euler/SConscript', exports='env') )
+objs.append(env.SConscript('euler/SConscript', exports='env') )
 
 Return('objs')

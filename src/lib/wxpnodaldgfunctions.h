@@ -3,7 +3,7 @@
 
 template<typename REAL>
 void
-dataN01(int N, REAL *pr, REAL *ps, REAL **pDr, REAL **pDs, REAL **pLIFT, int **pFmask)
+dataN01(int N, REAL *pr, REAL *ps, REAL *pDr, REAL *pDs, REAL *pLIFT, int *pFmask)
 {
     #include "dataN01.h"
     int NpE = (N+1)*(N+2)/2;
@@ -16,24 +16,27 @@ dataN01(int N, REAL *pr, REAL *ps, REAL **pDr, REAL **pDs, REAL **pLIFT, int **p
       ps[n] = p_s[n];
     }
 
+    int sk = 0;
     /* load Dr, Ds */
     for(int n=0;n<NpE;++n){
       for(int m=0;m<NpE;++m){
-        pDr[n][m] = p_Dr[n][m];
-        pDs[n][m] = p_Ds[n][m];
+        pDr[sk] = p_Dr[n][m];
+        pDs[sk++] = p_Ds[n][m];
       }
     }
 
+    sk = 0;
     /* load LIFT */
     for(int n=0;n<NpE;++n){
       for(int m=0;m<NpF*NfE;++m){
-        pLIFT[n][m] = p_LIFT[n][m];
+        pLIFT[sk++] = p_LIFT[n][m];
       }
     }
 
+    sk = 0;
     for(int n=0;n<NfE;++n){
       for(int m=0;m<NpF;++m){
-        pFmask[n][m] = p_Fmask[n][m];
+        pFmask[sk++] = p_Fmask[n][m];
       }
     }
 }
@@ -42,7 +45,7 @@ dataN01(int N, REAL *pr, REAL *ps, REAL **pDr, REAL **pDs, REAL **pLIFT, int **p
 
 template<typename REAL>
 void
-nodalDGfunctions(unsigned N, REAL *p_r, REAL *p_s, REAL **p_Dr, REAL **p_Ds, REAL **p_LIFT, int **p_Fmask)
+nodalDGfunctions(unsigned N, REAL *p_r, REAL *p_s, REAL *p_Dr, REAL *p_Ds, REAL *p_LIFT, int *p_Fmask)
 {
     switch (N) {
     case 1:

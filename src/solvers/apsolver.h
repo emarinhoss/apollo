@@ -225,7 +225,6 @@ class ApSolver : public WxSolverBase<REAL>
     std::vector<std::string> _fieldsName;
     std::vector<int> _fieldsComponents;
     std::vector<int> _fieldsNumber;
-    std::vector<int> _fieldsDof;
     WxPetscTimeSteppingSolver<REAL, ApSolver> *tssolver;
 
 };

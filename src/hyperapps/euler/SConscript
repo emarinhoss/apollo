@@ -1,19 +1,17 @@
 ## -*- python -*-
 
+##
+# Build advection equation systems
+##
 
 Import('env')
-##
-# Apollo library files
-##
+
+# name of library built with code in this file
+
 
 # source files in lib
 sources = [
-	'apsubsolver.cc',
-	'apsubsolverstep.cc',
-        'apdomaindecompcheck.cc',
-        'apsubsolver_register.cc',
-        'apfvm2dscheme.cc',
-        'wxpgd2dscheme.cc',
+	'wxeulereqn.cc',
            ]
 
 ##

@@ -70,10 +70,8 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _s = alloc_1d<REAL>(_mwave); // wave speeds
 
   _dataStruct = wxc.template get<std::vector<WxAny> >("DataStructure");
-  // add number of components
-  _dataStruct.push_back(_meqn);
-  // add total number of dofs
-  _dataStruct.push_back((_spatialOrder+1)*(_spatialOrder+2)/2);
+  // add total number of components
+  // _dataStruct.push_back((_spatialOrder+1)*(_spatialOrder+2)/2*_meqn);
 
   // create function pointer for initial condition
   const WxCryptSet& initCS = wxc.getSet("InitialCondition");
@@ -94,10 +92,7 @@ WxpDG2Dscheme<REAL>::init(Vec out)
     VecGetDM(out, &dm);
     PetscSection stateSection;
     DMGetDefaultSection(dm, &stateSection);
-    PetscInt secComp = wx_any_cast<int>(_dataStruct[2]);
 
-    // Finite Volume geometry variables
-    PetscReal centroid[3], normal[3], vol;
     PetscScalar *x;
 
     PetscInt kStart, kEnd, k, kEndInterior;
@@ -119,33 +114,74 @@ WxpDG2Dscheme<REAL>::init(Vec out)
 
     for (k = kStart; k < kEndInterior; ++k)
     {
-        DMPlexComputeCellGeometryFVM(dm, c, &vol, centroid, normal);
-        txo[1] = centroid[0];
-        txo[2] = centroid[1];
-        txo[3] = centroid[2];
+        int arrPos = 0;
+        for(unsigned node=0; node<_quad->NpElem(); node++){
+            txo[1] = _quad->Xcoordinate(k,node);
+            txo[2] = _quad->Ycoordinate(k,node);
 
-        _initFunc->func(3, txo, d);
-        PetscScalar *xc;
+            _initFunc->func(3, txo, d);
+            PetscScalar *xc;
 
-        // reference this cell to the proper location on the solution
-        // vector
-        DMPlexPointGlobalRef(dm,c,x,&xc);
-        // assign value returned by the initialization function
-        // to the solution vector
-        if(xc){
-            for(unsigned kk=0; kk<secComp; kk++)
-                xc[kk] = d[kk];
+            // reference this cell to the proper location on the solution
+            // vector
+            DMPlexPointGlobalRef(dm,k,x,&xc);
+            // assign value returned by the initialization function
+            // to the solution vector
+            if(xc){
+                for(unsigned kk=0; kk<_meqn; kk++)
+                    xc[arrPos++] = d[kk];}
         }
     }
     VecRestoreArray(out, &x);
-
 }
 
 template <typename REAL>
 WxStepperStatus<REAL>
 WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 {
+    DM dm;
+    VecGetDM(in, &dm);
+    const PetscScalar *u;
+    PetscScalar *ot, *rhs;
 
+    // local vectors
+    Vec locU, locRHS;
+    // create local vector
+    DMGetLocalVector(dm, &locU);
+    DMGetLocalVector(dm, &locRHS);
+
+    // zero entries of the vectors that will be used to store
+    // information
+    VecZeroEntries(locU);
+    VecZeroEntries(locRHS);
+    VecZeroEntries(out);
+
+    // get local values of the global vector in into locX
+    DMGlobalToLocalBegin(dm, in, INSERT_VALUES, locU);
+    DMGlobalToLocalEnd(dm, in, INSERT_VALUES, locU);
+
+    // get start and end of faces
+    PetscInt kStart, kEnd, kEndInterior;
+    DMPlexGetHeightStratum(dm, 0, &kStart, &kEnd);
+    DMPlexGetHybridBounds(dm, NULL, &kEndInterior, NULL, NULL);
+    VecGetArrayRead(locU, &u);
+    VecGetArray(locRHS, &rhs);
+    VecGetArray(out, &ot);
+
+    for(unsigned k=kStart; k<kEndInterior; k++)
+    {
+        REAL *qVal;
+        DMPlexPointLocalRead(dm, k, u, &qVal);
+
+        // Element geometric factors
+        REAL drdx, dsdx, drdy, dsdy, J;
+        _quad->GeometricFactors2d(k,&drdx,&dsdx,&drdy,&dsdy,&J);
+
+        // Element face normals
+        REAL *nxk, *nyk, *sJk;
+        _quad->Normals2d(k,nxk,nyk,sJk);
+
+    }
 }
 
 // instantiations

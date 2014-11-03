@@ -1,14 +1,15 @@
 # -*- python -*- 
 
 GAMMA = 2./3.
-spatialOrder = 1
+SP_ORDER = 1
+PI = 3.141592654
 
 <warpx>
 
  ##
  # Basic parameters
  ##
- Simulation = advection1d
+ Simulation = ffstep
  # one of debug, info, warning, error, critical, disabled
  Verbosity = debug
 
@@ -20,38 +21,46 @@ spatialOrder = 1
    Output_files = 5 # no. of output files to write
    Dt = 0.001 # initial dt to try
    Dimensions = 2
-   Gridname = 'sparse_tri.exo'
+   Gridname = 'ffstep.exo'
    NumFields = 1
    
    # Check the partition
    <hyperbolic>
 	Type = ApSubSolver
-	Kind = fv2dscheme
+	Kind = dg2dscheme
 	
-	Equations = [advection]
+	spatialOrder = SP_ORDER
+	
+	Equations = [euler]
 	
 	// setup data structure, [fieldNumber,FieldName]
-	DataStructure = [0,dg]
+	DataStructure = [0,dg,(SP_ORDER+1)*(SP_ORDER+2)/2*5]
 	
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc
 		
-		XC = 0.0
-		YC = 0.0
+		XC = 1.0
+		YC = 0.5
+		pic = PI
 
-       exprList = ["pulse"]
+       exprList = ["pulse", \
+					"0.0", \
+					"0.0", \
+					"0.0", \
+					"energy"]
 
-       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))", \
+				"energy = sin(2.*pic*x)*sin(2.*pic*y)"]
 		
 	</InitialCondition>
 	
-	<advection>
+	<euler>
 		Type = WxHyperbolicEqn
 		Kind = eulerEqn
 		
 		gas_gamma = GAMMA
-	</advection>
+	</euler>
 	
    </hyperbolic>
 	
@@ -68,6 +77,6 @@ spatialOrder = 1
       PerStep = [stepHyper]
    </SolverSequence>
 
- </ffsted>
+ </ffstep>
 
 </warpx>
