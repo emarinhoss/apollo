@@ -10,6 +10,9 @@ WxCreator< WxAdvectionEqn<double>, WxHyperbolicEqn<double> > __advectionEqn_d("a
 WxCreator< WxAdvectionUnstructuredEqn<float>, WxHyperbolicEqn<float> > __advectionUnsEqn_f("advectionUnstEqn");
 WxCreator< WxAdvectionUnstructuredEqn<double>, WxHyperbolicEqn<double> > __advectionUnsEqn_d("advectionUnstEqn");
 
+#include "advection/wxgridfixedbc.h"
+WxCreator< WxGridFixedBC<float>, WxGridBC<float> > __fixedVBC_f("gridFixedBC");
+WxCreator< WxGridFixedBC<float>, WxGridBC<float> > __fixedVBC_d("gridFixedBC");
 
 // Euler Equation
 #include "euler/wxeulereqn.h"

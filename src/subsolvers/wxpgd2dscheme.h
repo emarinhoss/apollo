@@ -8,6 +8,7 @@
 // WarpX subsolver includes
 #include <apsolver.h>
 #include "apsubsolver.h"
+#include <wxgridbc.h>
 
 // WarpX lib includes
 #include <wxfunction.h>
@@ -78,6 +79,11 @@ class WxpDG2Dscheme : public ApSubSolver<REAL>
         return _dataStruct;
     }
 
+/**
+ *  Apply boundary conditions
+ */
+    void applyBc(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut);
+
  /**
  * Compute the RHS using CG spatial discretization.
  *
@@ -86,6 +92,14 @@ class WxpDG2Dscheme : public ApSubSolver<REAL>
  * @param rhs Right hand side using
  */
    //WxStepperStatus<REAL> computeRhs(REAL dt, WxArray<REAL>& q, WxArray<REAL> &src);
+
+/**
+ * Checks to see if any the norm of a vector is infinity of not-a-number
+ *
+ * @param f - input petsc vector
+ */
+
+   PetscErrorCode isInfinityOrNAN(Vec f, std::string location);
 
 private:
 
@@ -105,15 +119,15 @@ private:
   WxHyperbolicSrcSet<REAL> _srcSet;
 /** Arrays for passing to and fro from Reimann solver */
   // jumps, cons. var in left and right of edge i
-  REAL *_ql, *_qr, *_fl, *_fr, *_qauxl, *_qauxr;
+  REAL *_ql, *_qr, *_fl, *_fr, *_gl, *_gr, *_qauxl, *_qauxr;
+  REAL *_apdq, *_amdq; // fluctuations
+  REAL *_sx, *_sy; // speeds
+  REAL **_wave; // waves
   REAL *_src; // source
 /** Arrays for passing to and from from Reimann solver */
   REAL *_df;
-  REAL *_s; // speed
-  REAL *_fsx; // second order fluxes
 /** Equations and waves */
   unsigned _meqn, _mwave;
-  REAL **_wave;
 /** element length, dx **/
   REAL _dx;
 /** need to access status from step function */
@@ -124,6 +138,8 @@ private:
   WxpDGGeometry<REAL> *_quad;
 /** Stuff need for the FV calculations */
   DM _dm;
+/** list of BC subsolvers */
+  std::vector<std::string> _bcSubSolvers;
 
 };
 

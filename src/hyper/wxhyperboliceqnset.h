@@ -2,7 +2,7 @@
 #define __wxhyperboliceqnset__
 
 // WarpX hyper includes
-#include <wxhyperboliceqn.h>
+#include "wxhyperboliceqn.h"
 
 // WarpX lib includes
 #include <wxobject.h>
@@ -143,6 +143,20 @@ class WxHyperbolicEqnSet : public WxObject
  * @param f [out] Flux along direction 'd'
  */
     void edgefluxgengeom(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f);
+
+/**
+ * For an equation of the form Q_t = div(F) return the RHS
+ *
+ * @param N spatial order
+ * @param geometry - [dr/dx, ds/dx, dr/dy, ds/dy]
+ * @param normals - [nx1, nx2, nx3, ny1, ny2, ny3]
+ * @param Dr - differentiation matrix in r-direction
+ * @param Ds - differentiation matrix in s-direction
+ * @param q [in] Conserved variable
+ * @param dq [in] Conserved variable jump at element interface
+ * @param rhs [out] div(F) evaluation
+ */
+    void calulateRHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs);
 
 /**
  * Solves the Reimann problem for individual systems and assembles

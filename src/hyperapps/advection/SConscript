@@ -12,7 +12,8 @@ Import('env')
 # source files in lib
 sources = [
 	'wxadvectioneqn.cc',
-        'wxadvectionunstuctured.cc'
+        'wxadvectionunstuctured.cc',
+        'wxgridfixedbc.cc',
            ]
 
 ##

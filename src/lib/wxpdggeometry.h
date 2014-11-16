@@ -31,6 +31,22 @@ class WxpDGGeometry
         return _NpE;
     }
 
+/** return the number of nodes per element */
+    unsigned NpFaces(){
+        return _NpF;
+    }
+
+/** return the number of nodes per element */
+    unsigned NfElem(){
+        return _NfE;
+    }
+
+/** return Fmask, the nodes numbers along each face */
+    void returnFmask(int *fmask){
+        for(unsigned k=0; k<_NfE*_NpF; k++)
+            fmask[k] = _Fmask[k];
+    }
+
 /** return the x-coordinate for element K node N */
     REAL Xcoordinate(unsigned K, unsigned N){
         return _xcoord[K][N];
@@ -41,11 +57,23 @@ class WxpDGGeometry
         return _ycoord[K][N];
     }
 
+/** Return Face to Face connnectivity */
+    void ElementTOElementANDFace(unsigned K, int *ftf){
+        for(unsigned ff=0; ff<6; ff++)
+            ftf[ff] = _ETETF[K][ff];
+    }
+
 /** calculate the  geometric factors for element k*/
-    void GeometricFactors2d(int k, REAL *drdx, REAL *dsdx, REAL *drdy, REAL *dsdy, REAL *J);
+    void GeometricFactors2d(int k, REAL geom[]);
 
 /** calculate the face normals for a given element k*/
-    void Normals2d(int k, REAL *nx, REAL *ny, REAL *sJ);
+    void Normals2d(int k, REAL norms[]);
+
+/** LIFT the flux: calculate the flux through the element boundaries */
+    void LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *norms);
+
+/** Calculate the weak derivatives */
+    void weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL *Gflux);
 
   private:
 /**
@@ -78,6 +106,8 @@ class WxpDGGeometry
     int **_EtoV; // element to verticies connectivity matrix
     int **_EToE; /* element to neighbor element (elements numbered by their proc) */
     int **_EToF; /* element to neighbor face    (element local number 0,1,2) */
+    int **_ETETF; // stores the element and face connections (Element K's face number F is connected to
+                  // elmement K2's face number F2
     int _Klocal; // number of elements in this processor
     int _Vlocal; // number of nodes in this processor
     REAL **_xcoord; // node x-coordinates

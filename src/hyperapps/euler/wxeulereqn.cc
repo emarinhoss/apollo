@@ -981,6 +981,14 @@ eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev)
   lev[4][4]  = c2h*gas_gamma1;
 }
 
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs)
+{
+
+}
+
 // instantiations
 template class WxEulerEqn<float>;
 template class WxEulerEqn<double>;

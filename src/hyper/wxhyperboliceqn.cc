@@ -1,5 +1,5 @@
 // hyper includes
-#include <wxhyperboliceqn.h>
+#include "wxhyperboliceqn.h"
 
 template <typename REAL>
 WxHyperbolicEqn<REAL>::WxHyperbolicEqn(const std::string& name)
@@ -119,6 +119,16 @@ WxHyperbolicEqn<REAL>::edgefluxgengeom(unsigned d, REAL *x, REAL *q, REAL *qaux,
   wxe << "Edge flux gen geom function flux() of equation system" << _name
       << " not implemented." << std::endl;
   throw wxe;        
+}
+
+template <typename REAL>
+void
+WxHyperbolicEqn<REAL>::RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs)
+{
+  WxExcept wxe;
+  wxe << "RHS calculations for equation system" << _name
+      << " not implemented." << std::endl;
+  throw wxe;
 }
 
 template <typename REAL>

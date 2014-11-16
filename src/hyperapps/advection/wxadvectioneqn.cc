@@ -216,6 +216,14 @@ eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev)
   lev[0][0]  = 1.;
 } 
 
+template<typename REAL>
+void
+WxAdvectionEqn<REAL>::
+RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs)
+{
+
+}
+
 // instantiations
 template class WxAdvectionEqn<float>;
 template class WxAdvectionEqn<double>;

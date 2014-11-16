@@ -11,6 +11,7 @@ sources = [
         'apsolver.cc',
         'wxsolverbase.cc',
         'wxstepper.cc',
+        'wxgridbc.cc',
            ]
 
 ##

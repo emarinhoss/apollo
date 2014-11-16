@@ -1,0 +1,73 @@
+# -*- python -*- 
+
+SP_ORDER = 1
+
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = advection1d
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = debug
+
+ <advection1d>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, 0.0002] # start, end times
+   Output_files = 1 # no. of output files to write
+   Dt = 0.0001 # initial dt to try
+   Dimensions = 2
+   Gridname = 'sparse_tri.exo'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = dg2dscheme
+	
+	Equations = [advection]
+	
+	spatialOrder = SP_ORDER
+	
+	DataStructure = [0,dg,(SP_ORDER+1)*(SP_ORDER+2)/2]
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		XC = -2.5
+		YC = 0.0
+
+       exprList = ["0.0"]
+
+       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+		
+	</InitialCondition>
+	
+	<advection>
+		Type = WxHyperbolicEqn
+		Kind = advectionEqn
+		
+		ux = 1.0	
+	</advection>
+	
+   </hyperbolic>
+	
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </advection1d>
+
+</warpx>

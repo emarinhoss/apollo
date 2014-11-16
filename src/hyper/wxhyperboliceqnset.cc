@@ -1,5 +1,5 @@
 // WarpX hyper includes
-#include <wxhyperboliceqnset.h>
+#include "wxhyperboliceqnset.h"
 
 // WarpX lib includes
 #include <wxlogger.h>
@@ -226,6 +226,28 @@ WxHyperbolicEqnSet<REAL>::edgefluxgengeom(unsigned d, REAL *x, REAL *q, REAL *qa
     mloc += meqn;
   }
 }
+
+template<typename REAL>
+void
+WxHyperbolicEqnSet<REAL>::calulateRHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs)
+{
+  unsigned mloc = 0;
+  unsigned meqn;
+
+  // loop over each equation system, computing fluxes. Fluxes from
+  // each equation are accumulated to compute the full flux
+  typename std::vector<WxHyperbolicEqn<REAL>* >::const_iterator i;
+  for (i=_eqnSys.begin(); i!=_eqnSys.end(); ++i)
+  {
+    meqn = (*i)->meqn();
+    // call RHS for the equation
+    (*i)->RHS(N, geometry, normals, quad, q+mloc, dq+mloc, rhs+mloc);
+
+    // move location pointer
+    mloc += meqn*(N+1)*(N+2)/2;
+  }
+}
+
 
 template<typename REAL>
 void

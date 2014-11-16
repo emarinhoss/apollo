@@ -21,8 +21,17 @@ WxpDG2Dscheme<REAL>::~WxpDG2Dscheme() {
     delete [] _qr;
     delete [] _fl;
     delete [] _fr;
+    delete [] _gl;
+    delete [] _gr;
     delete [] _src;
     delete [] _df;
+    delete [] _amdq;
+    delete [] _apdq;
+    delete [] _sx;
+    delete [] _sy;
+    delete [] _qauxl;
+    delete [] _qauxr;
+    free_2d_c(_wave,_meqn,_mwave);
 }
 
 template <typename REAL>
@@ -64,10 +73,14 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _src = alloc_1d<REAL>(_meqn);
   _fl = alloc_1d<REAL>(_meqn);
   _fr = alloc_1d<REAL>(_meqn);
-  _wave = alloc_2d_c<REAL>(_meqn, _mwave); // waves
-
+  _gl = alloc_1d<REAL>(_meqn);
+  _gr = alloc_1d<REAL>(_meqn);
   // allocate memory for waves, speeds and fluctuations
-  _s = alloc_1d<REAL>(_mwave); // wave speeds
+  _apdq = alloc_1d<REAL>(_meqn); // positive fluctuation
+  _amdq = alloc_1d<REAL>(_meqn); // negative fluctuation
+  _sx = alloc_1d<REAL>(_mwave); // wave speeds
+  _sy = alloc_1d<REAL>(_mwave); // wave speeds
+  _wave = alloc_2d_c<REAL>(_meqn, _mwave); // waves
 
   _dataStruct = wxc.template get<std::vector<WxAny> >("DataStructure");
   // add total number of components
@@ -82,6 +95,13 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _initFunc->setup(initCS);
 
   _quad = new WxpDGGeometry<REAL>(dm, _meqn, _spatialOrder);
+
+  // read list of BC subsolvers
+//  std::vector<WxAny> bcs;
+//  bcs = wxc.template get<std::vector<WxAny> >("boundaryConditions");
+//  std::vector<WxAny>::const_iterator i;
+//  for (i=bcs.begin(); i!=bcs.end(); ++i)
+//      _bcSubSolvers.push_back( wx_any_cast<std::string>(*i) );
 }
 
 template <typename REAL>
@@ -114,7 +134,6 @@ WxpDG2Dscheme<REAL>::init(Vec out)
 
     for (k = kStart; k < kEndInterior; ++k)
     {
-        int arrPos = 0;
         for(unsigned node=0; node<_quad->NpElem(); node++){
             txo[1] = _quad->Xcoordinate(k,node);
             txo[2] = _quad->Ycoordinate(k,node);
@@ -129,19 +148,24 @@ WxpDG2Dscheme<REAL>::init(Vec out)
             // to the solution vector
             if(xc){
                 for(unsigned kk=0; kk<_meqn; kk++)
-                    xc[arrPos++] = d[kk];}
+                    xc[node*_meqn+kk] = d[kk];}
         }
     }
     VecRestoreArray(out, &x);
+
+    isInfinityOrNAN(out, "NAN/INF in initialization");
 }
 
 template <typename REAL>
 WxStepperStatus<REAL>
 WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 {
+    isInfinityOrNAN(in, "NAN/INF in input Vector to time-stepper DG");
+
+    WxStepperStatus<REAL> status;
     DM dm;
     VecGetDM(in, &dm);
-    const PetscScalar *u;
+    PetscScalar *u;
     PetscScalar *ot, *rhs;
 
     // local vectors
@@ -163,25 +187,144 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
     // get start and end of faces
     PetscInt kStart, kEnd, kEndInterior;
     DMPlexGetHeightStratum(dm, 0, &kStart, &kEnd);
-    DMPlexGetHybridBounds(dm, NULL, &kEndInterior, NULL, NULL);
-    VecGetArrayRead(locU, &u);
-    VecGetArray(locRHS, &rhs);
+    DMPlexGetHybridBounds(dm, &kEndInterior, NULL , NULL, NULL);
+    VecGetArray(locU, &u);
     VecGetArray(out, &ot);
+
+    int NpF = _quad->NpFaces(); // Number of nodes per Face
+    int NpE = _quad->NpElem(); // Number of nodes per Element
+    int NfE = _quad->NfElem(); // Number of faces per Element
+    int f_Fmask[NpF*NfE];
+    _quad->returnFmask(f_Fmask);
+
+    for(unsigned kk=kEndInterior; kk<kEnd; kk++)
+    {
+        PetscScalar *oo;
+        DMPlexPointGlobalRef(dm, kk, u, &oo);
+        for(unsigned me=0; me<_meqn*NpE; me++)
+            oo[me] = 0.0;
+    }
 
     for(unsigned k=kStart; k<kEndInterior; k++)
     {
-        REAL *qVal;
-        DMPlexPointLocalRead(dm, k, u, &qVal);
+        PetscScalar *qVal, *qOut;
+        REAL normals[3*NfE], xc[4];
+        int connect[2*NfE];
+        REAL num_flux[NfE*NpF*_meqn];
+        REAL fluxRHS[NpE*_meqn], volumeRHS[NpE*_meqn], Gflux[NpE*_meqn], Fflux[NpE*_meqn];
 
+        DMPlexPointGlobalRef(dm, k, u, &qVal);
         // Element geometric factors
-        REAL drdx, dsdx, drdy, dsdy, J;
-        _quad->GeometricFactors2d(k,&drdx,&dsdx,&drdy,&dsdy,&J);
-
+        //_quad->GeometricFactors2d(k,geom);
         // Element face normals
-        REAL *nxk, *nyk, *sJk;
-        _quad->Normals2d(k,nxk,nyk,sJk);
+        _quad->Normals2d(k,normals);
+        // Element to Element to Faces connection
+        _quad->ElementTOElementANDFace(k,connect);
 
+        // =========== Compute n*Flux ===========
+        for(unsigned F=0; F<NfE; F++){
+            for(unsigned nodes=0; nodes<NpF; nodes++){
+                DMPlexPointGlobalRef(dm, connect[2*F], u, &qOut);
+                int F2 = connect[2*F+1];
+                for(unsigned comp=0; comp<_meqn; comp++){
+                    _qr[comp] = qOut[f_Fmask[F*NpF+nodes]*_meqn+comp];
+                    _ql[comp] = qVal[f_Fmask[F2*NpF+NpF-nodes-1]*_meqn+comp];}
+
+                // evaluate fluxes
+                _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
+                _eqnSet.flux(0, xc, _qr, _qauxr, _fr);
+                _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
+                _eqnSet.flux(1, xc, _qr, _qauxr, _gr);
+
+                // compute jump in Q (q-wave)
+                for (unsigned m=0; m<_meqn; ++m)
+                  _df[m] = _qr[m] - _ql[m];
+
+                // call Riemann problem solver to get flucuations
+                _eqnSet.riemann(0, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sx, _amdq, _apdq);
+                _eqnSet.riemann(1, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sy, _amdq, _apdq);
+
+                // compute the fastest propagating wave speed
+                REAL lambda = 0.;
+                for (unsigned mw=0; mw<_mwave; ++mw)
+                  lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
+                lambda = sqrt(lambda);
+
+                // Currently using Lax-Frederick fluxes
+                for(unsigned comp=0; comp<_meqn; comp++){
+                    num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fr[comp])
+                                                       + normals[NfE*F+1]*(_gl[comp]+_gr[comp])
+                                                       + lambda*(_ql[comp]-_qr[comp]));}
+            }
+        }
+
+        // LIFT Fluxes
+        _quad->LIFT_flux(fluxRHS,num_flux,normals);
+
+        // =========== Compute Volume Integrals ===========
+        for(unsigned nodes=0; nodes<NpE; nodes++){
+            for(unsigned comp=0; comp<_meqn; comp++)
+                _ql[comp] = qOut[nodes*_meqn+comp];
+
+            _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
+            _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
+
+            for(unsigned comp=0; comp<_meqn; comp++){
+                Gflux[nodes*_meqn+comp] = _gl[comp];
+                Fflux[nodes*_meqn+comp] = _fl[comp];}
+        }
+        // Calculate Weak Derivatives
+        _quad->weakDericatives(k,volumeRHS,Fflux,Gflux);
+
+        // add all contributions to conserved variable
+        DMPlexPointLocalRef(dm,k,ot,&rhs);
+        for(unsigned kne=0; kne<NpE; kne++)
+            rhs[kne] = volumeRHS[kne]-fluxRHS[kne];
     }
+
+    DMRestoreLocalVector(dm, &locU);
+    VecRestoreArray(out, &ot);
+    //VecView(out,PETSC_VIEWER_STDOUT_WORLD);
+    isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG time-stepper");
+
+    status.setStatus(true);
+    status.setSuggestedDt(0.01);
+    return status;
+}
+
+template<typename REAL>
+void
+WxpDG2Dscheme<REAL>::applyBc(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut)
+{
+  // apply boundary conditions get to get correct values in ghost
+  // cells
+  std::vector<std::string>::const_iterator ssi;
+  for (ssi=_bcSubSolvers.begin(); ssi!=_bcSubSolvers.end(); ++ssi) {
+    // get hold of our sibling BC subsolver
+    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( *ssi );
+    // ss->setCurrentTime(Out);
+    // cast this to the a grid BC and call step function
+    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(quad, dt, inOut);
+  }
+}
+
+template <typename REAL>
+PetscErrorCode
+WxpDG2Dscheme<REAL>::isInfinityOrNAN(Vec f, std::string location)
+{
+    PetscReal fnorm;
+    PetscErrorCode ierr;
+    ierr = VecNormBegin(f,NORM_2,&fnorm);CHKERRQ(ierr);	/* fnorm <- ||F||  */
+    ierr = VecNormEnd(f,NORM_2,&fnorm);CHKERRQ(ierr);
+    if (PetscIsInfOrNanReal(fnorm)){
+        //VecView(f,PETSC_VIEWER_STDOUT_WORLD);
+        //REAL test = 0.0;
+        WxLogger *l = WxLogger::get("apollo-root.console");
+        WxLogStream errStrm = l->getErrorStream();
+        errStrm << location ;
+        exit(1); // abort execution
+    }
+    return 0;
 }
 
 // instantiations
