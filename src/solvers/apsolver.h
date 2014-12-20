@@ -10,6 +10,7 @@
 #include <petscdmplex.h>
 #include <petscts.h>
 #include <wxpetsctimestepping.h>
+#include <petscviewerhdf5.h>
 
 // std includes
 #include <map>

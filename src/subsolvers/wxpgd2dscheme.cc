@@ -143,7 +143,7 @@ WxpDG2Dscheme<REAL>::init(Vec out)
 
             // reference this cell to the proper location on the solution
             // vector
-            DMPlexPointGlobalRef(dm,k,x,&xc);
+            DMPlexPointLocalRef(dm,k,x,&xc);
             // assign value returned by the initialization function
             // to the solution vector
             if(xc){
@@ -213,7 +213,7 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
         REAL num_flux[NfE*NpF*_meqn];
         REAL fluxRHS[NpE*_meqn], volumeRHS[NpE*_meqn], Gflux[NpE*_meqn], Fflux[NpE*_meqn];
 
-        DMPlexPointGlobalRef(dm, k, u, &qVal);
+        DMPlexPointLocalRef(dm, k, u, &qVal);
         // Element geometric factors
         //_quad->GeometricFactors2d(k,geom);
         // Element face normals
@@ -227,6 +227,9 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
                 DMPlexPointGlobalRef(dm, connect[2*F], u, &qOut);
                 int F2 = connect[2*F+1];
                 for(unsigned comp=0; comp<_meqn; comp++){
+                    // ***** Problem with parallel run is happening here ****
+                    // Segmentation Violation, probably memory access out of range
+                    // ******************************************************
                     _qr[comp] = qOut[f_Fmask[F*NpF+nodes]*_meqn+comp];
                     _ql[comp] = qVal[f_Fmask[F2*NpF+NpF-nodes-1]*_meqn+comp];}
 

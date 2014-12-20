@@ -1,0 +1,119 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 24 15:42:19 2014
+
+@author: sousae
+"""
+import os
+from vtk import *
+from numpy import *
+from vtk.util.numpy_support import vtk_to_numpy
+from pyvisfile.vtk import ( 
+    UnstructuredGrid, DataArray,
+    AppendedDataXMLGenerator,
+    VTK_VERTEX, VF_LIST_OF_VECTORS, VF_LIST_OF_COMPONENTS)
+
+class WxDGArray:
+    r"""WxDGArray(fname, frame, spOrd) -> WxDGArray
+
+    WxArray objects behave like python arrays and hence support the
+    python slice syntax. Note that only on array access is any data
+    read from the HDF5 file."""
+
+    def __init__(self, fname, spOrd):
+        self.filename = fname
+        self.order = spOrd
+        # get pointer to data from open file handle
+        #fq = arrayName
+        #dps = 'self.wxdata.fh.root.%s' % comboSolver
+        #dps = dps + '.__getattr__("%s")' % fq
+        #self.dp = eval(dps)
+        #self.dp.flavor = flavor
+        #self.name = self.dp._v_name
+        #self.fullShape = self.dp.shape
+        #self.numComponents = self.fullShape[-1]
+        #self.shape = self.fullShape[:-1]
+        #self.onGrid = self.dp._v_attrs.vsMesh
+        
+        reader = vtk.vtkXMLUnstructuredGridReader()
+        # tell the reader what is the filename to be read
+        reader.SetFileName(self.filename)
+        reader.Update()
+        
+        data = reader.GetOutput()
+        self.nodesPerElem = (self.order+1)*(self.order+2)/2 # number of nodes per Element
+        self.TotNumElements = data.GetNumberOfCells() # Total number of Elements
+        self.NumArrays  = data.GetCellData().GetNumberOfArrays() # Total number of arrays
+        self.NumComp    = (self.NumArrays-1)/self.nodesPerElem # number of components per node
+        self.gridPoints = zeros((self.TotNumElements*self.nodesPerElem,3))
+        self.variables  = zeros((self.TotNumElements*self.nodesPerElem,self.NumComp))
+        
+        if(self.order==1):
+            r = array([-1.,1.,-1.])
+            s = array([-1.,-1.,1.])
+        elif(order==2):
+            r = array([-1.,0,1.,-1.,0,-1.])
+            s = array([-1.,-1.,-1.,0,0.,1.])
+        elif(order==3):
+            r = array([-1.,-0.447213595499958,0.447213595499958,1,-1,-0.333333333333333,0.447213595499958,-1.,-0.447213595499958,-1.])
+            s = array([-1.,-1.,-1.,-1.,-0.447213595499958,-0.333333333333333,-0.447213595499958,0.447213595499958,0.447213595499958,1.])
+        
+        #r, s = elemtNodalPoints(self.order)
+        
+        for k in range(data.GetNumberOfCells()):
+            cid=data.GetCell(k)
+            
+            p1 = data.GetPoint(cid.GetPointId(0))
+            p2 = data.GetPoint(cid.GetPointId(1))
+            p3 = data.GetPoint(cid.GetPointId(2))
+            
+            for np in range(len(r)):
+                self.gridPoints[k*self.nodesPerElem+np,0] = 0.5*(-p1[0]*(r[np]+s[np]) + p2[0]*(1.+r[np]) + p3[0]*(1.+ s[np]))
+                self.gridPoints[k*self.nodesPerElem+np,1] = 0.5*(-p1[1]*(r[np]+s[np]) + p2[1]*(1.+r[np]) + p3[1]*(1.+ s[np]))
+                for cmps in range(self.NumComp):
+                    value = vtk_to_numpy(data.GetCellData().GetArray(self.NumComp*np+cmps))
+                    self.variables[k*self.nodesPerElem+np,cmps] = value[k]
+                    
+        
+        self.res = self.variables
+
+class WxVisData:
+    r"""WxData(base : string, frm : int, flavor : string) -> WxData
+
+    Provides an interface to read data from a WarpX hyperbolic solver
+    simulation with base name ``base`` and  ``frm``.  Optionally
+    the array ``flavor`` can be specified to select the kind of array
+    to use (one of numpy or numeric).
+    """
+    
+    def __init__(self, base, frm, flavor='numpy'):
+        self.base = base
+        self.frame = frm
+        self.flavor = flavor
+        fn = base + "_%d.vtu" % frm
+
+        # ensure file exist
+        if not os.path.exists(fn):
+            raise "WxData::__init__ : Dump %d of run %s not exist" % (frm, base)
+            
+        self.fname = fn
+        # read in simulation time
+        # self.time = float(self.fh.root.timeData._v_attrs.time)
+
+    def close(self):
+        r"""close() -> None
+
+        Closes the file
+        """
+        self.fh.close()
+        
+    def readDG(self, spOrd):
+        r"""readDG(name : string, spOrd : int) -> WxDGArray
+
+        Read an array from the output file for a discontinuous
+        galerkin simulation with ``meqn`` number of equations.  If
+        ``comboSolver`` is specified it should be the name of the top
+        comboSolver in the simulation.
+        """
+
+        return WxDGArray(self.fname, spOrd)

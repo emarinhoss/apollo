@@ -273,12 +273,12 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
         PetscViewerSetType(viewer, PETSCVIEWERASCII);
         PetscViewerFileSetMode(viewer, FILE_MODE_READ);
         PetscViewerFileSetName(viewer, _filename);
-        DMPlexCreateGmsh(comm, viewer, PETSC_TRUE, dm);
+        DMPlexCreateGmsh(comm, viewer, PETSC_FALSE, dm);
         PetscViewerDestroy(&viewer);
     }
     else if (isExodus)
     {
-        DMPlexCreateExodusFromFile(comm, _filename, PETSC_TRUE, dm);
+        DMPlexCreateExodusFromFile(comm, _filename, PETSC_FALSE, dm);
     }
     else
     {
@@ -347,7 +347,6 @@ ApSolver<REAL>::OutputVTK(DM dm, char *filename, PetscViewer *viewer)
     PetscViewerCreate(PetscObjectComm((PetscObject)dm), viewer);
     PetscViewerSetType(*viewer, PETSCVIEWERVTK);
     PetscViewerFileSetName(*viewer, filename);
-
 }
 
 template<typename REAL>
@@ -363,11 +362,12 @@ ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void 
 
         std::stringstream ss; ss << stepnum;
         std::string fname = this->runName() + "_" + ss.str() + ".vtu";
+        //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
         this->OutputVTK(_dm,&fname[0],&viewer);
         VecView(X,viewer);
-        PetscViewerDestroy(&viewer);
       }
 
+    PetscViewerDestroy(&viewer);
     PetscFunctionReturn(0);
 }
 

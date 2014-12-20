@@ -66,9 +66,10 @@ template <typename REAL>
 void
 WxpDGGeometry<REAL>::FacePair2d(DM dm)
 {
-    PetscInt eStart, eEnd;
+    PetscInt eStart, eEnd, eEndInt;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
-    for(PetscInt K=eStart; K<eEnd; K++)
+    DMPlexGetHybridBounds(dm, &eEndInt, NULL, NULL, NULL);
+    for(PetscInt K=eStart; K<eEndInt; K++)
     {
         const PetscInt *faces, *cells, *vertex;
         DMPlexGetCone(dm, K, &faces);
@@ -100,33 +101,44 @@ void
 WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
 {
     Vec coordinates;
-    PetscSection coordSection;
+    PetscSection coordSection, defaultSec;
     PetscScalar *coords;
-    PetscInt coordSize, off;
+    const PetscInt *pcone;
+    //PetscInt coordSize;
 
-    DMGetCoordinates(dm, &coordinates);
+    DMGetCoordinatesLocal(dm, &coordinates);
     DMGetCoordinateSection(dm, &coordSection);
+    DMGetDefaultSection(dm, &defaultSec);
 
-    PetscInt eStart, eEnd;
+    PetscInt eStart, eEnd, eEndInt;
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
+    DMPlexGetHybridBounds(dm, &eEndInt, NULL, NULL, NULL);
 
     VecGetArray(coordinates, &coords);
-    for(unsigned K=eStart; K<eEnd; K++)
+    for(unsigned K=eStart; K<eEndInt; K++)
     {
-        DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
-        //PetscSectionGetOffset(coordSection, K, &off);
+        //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
+        //PetscSectionGetOffset(defaultSec, K, &off);
         // coords is returned as coords[x1,y1,x2,y2,x3,y3]
+        DMPlexGetCone(dm,K,&pcone);
+        REAL p1x = coords[2*(pcone[0]-eEndInt)];
+        REAL p1y = coords[2*(pcone[0]-eEndInt)+1];
+        REAL p2x = coords[2*(pcone[1]-eEndInt)];
+        REAL p2y = coords[2*(pcone[1]-eEndInt)+1];
+        REAL p3x = coords[2*(pcone[2]-eEndInt)];
+        REAL p3y = coords[2*(pcone[2]-eEndInt)+1];
+
         for(unsigned node=0; node<_NpE; node++)
         {
             REAL r = _r[node];
             REAL s = _s[node];
 
-            _xcoord[K][node] = 0.5*(-coords[0]*(r+s) + coords[2]*(1.+r) + coords[4]*(1.+ s));
-            _ycoord[K][node] = 0.5*(-coords[1]*(r+s) + coords[3]*(1.+r) + coords[5]*(1.+ s));
+            _xcoord[K][node] = 0.5*(-p1x*(r+s) + p2x*(1.+r) + p3x*(1.+ s));
+            _ycoord[K][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
         }
         //DMPlexVecRestoreClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
     }
-    VecRestoreArray(coordinates, &coords);
+    //VecRestoreArray(coordinates, &coords);
 }
 
 template <typename REAL>
