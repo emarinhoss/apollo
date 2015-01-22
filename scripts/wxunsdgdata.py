@@ -71,7 +71,7 @@ class WxDGArray:
                 self.gridPoints[k*self.nodesPerElem+np,0] = 0.5*(-p1[0]*(r[np]+s[np]) + p2[0]*(1.+r[np]) + p3[0]*(1.+ s[np]))
                 self.gridPoints[k*self.nodesPerElem+np,1] = 0.5*(-p1[1]*(r[np]+s[np]) + p2[1]*(1.+r[np]) + p3[1]*(1.+ s[np]))
                 for cmps in range(self.NumComp):
-                    value = vtk_to_numpy(data.GetCellData().GetArray(self.NumComp*np+cmps))
+                    value = vtk_to_numpy(data.GetCellData().GetArray(self.NumComp*np+cmps+1))
                     self.variables[k*self.nodesPerElem+np,cmps] = value[k]
                     
         

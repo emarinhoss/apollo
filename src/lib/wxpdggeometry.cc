@@ -31,11 +31,12 @@ WxpDGGeometry<REAL>::WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor)
     _Klocal = eEnd - eStart;
     _Vlocal = vEnd - vStart;
 
-    /* find element-element connections */
-    _EtoV = alloc_2d_c<int>(_Klocal,_Vlocal);
-    _EToE = alloc_2d_c<int>(_Klocal,_NfE);
-    _EToF = alloc_2d_c<int>(_Klocal,_NfE);
-    _ETETF = alloc_2d_c<int>(_Klocal,2*_NfE);
+    /* find element to element connections */
+    _EtoV   = alloc_2d_c<int>(_Klocal,_Vlocal);
+    _FToV   = alloc_2d_c<int>(_NfE*_Klocal,_Vlocal);
+    _FToV_t = alloc_2d_c<int>(_Vlocal,_NfE*_Klocal);
+    _FToF   = alloc_2d_c<int>(_NfE*_Klocal,_NfE*_Klocal);
+    _ETETF  = alloc_2d_c<int>(_Klocal,2*_NfE);
     FacePair2d(_dm);
 
     // Find node coordinates
@@ -55,8 +56,9 @@ WxpDGGeometry<REAL>::~WxpDGGeometry()
     delete [] _LIFT;
     delete [] _Fmask;
     free_2d_c(_EtoV, _Klocal, _Vlocal);
-    free_2d_c(_EToE, _Klocal, _NfE);
-    free_2d_c(_EToF, _Klocal, _NfE);
+    free_2d_c(_FToV, _NfE*_Klocal, _Vlocal);
+    free_2d_c(_FToV_t, _Vlocal, _NfE*_Klocal);
+    free_2d_c(_FToF, _NfE*_Klocal, _NfE*_Klocal);
     free_2d_c(_ETETF, _Klocal,2*_NfE);
     free_2d_c(_xcoord, _Klocal, _NpE);
     free_2d_c(_ycoord, _Klocal, _NpE);
@@ -66,34 +68,115 @@ template <typename REAL>
 void
 WxpDGGeometry<REAL>::FacePair2d(DM dm)
 {
+    // Build the Element connectivity matrix, EtoV
     PetscInt eStart, eEnd, eEndInt;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
     DMPlexGetHybridBounds(dm, &eEndInt, NULL, NULL, NULL);
     for(PetscInt K=eStart; K<eEndInt; K++)
     {
-        const PetscInt *faces, *cells, *vertex;
-        DMPlexGetCone(dm, K, &faces);
-        for(PetscInt F=0; F<_NfE; F++)
-        {
-            _EToF[K][F] = faces[F];
-            DMPlexGetSupport(dm, faces[F], &cells);
-            _EToE[K][F] = cells[0]==K? cells[1]: cells[0];
-            DMPlexGetCone(dm, faces[F], &vertex);
-            _EtoV[K][F] = vertex[0];
+        const PetscInt *vertex;
+        DMPlexGetCone(dm, K, &vertex);
+        for(unsigned vert=0; vert<3; vert++)
+            _EtoV[K][vert] = vertex[vert]-_Klocal+1;
+    }
 
-            int num = cells[0]==K? cells[1]: cells[0];
-            _ETETF[K][2*F] = num;
-            const PetscInt *ff, *cc;
-            DMPlexGetCone(dm, num, &ff);
-            for(PetscInt face=0; face<_NfE; face++)
+    /** ===================================== */
+    /** Build Face to Vertex connection, FtoV */
+    /** ===================================== */
+
+    // zero values
+    for(int K=0; K<_Klocal*_NfE; K++)
+        for(int V=0; V<_Vlocal; V++)
+        {
+            _FToV[K][V] = 0;
+            _FToV_t[V][K] = 0;
+        }
+
+    // Build connection
+    int vn[3][2] = {{0,1},{1,2},{2,0}};
+    int sk = 0;
+    for(unsigned elem=0; elem<_Klocal; elem++)
+        for(unsigned face=0; face<_NfE; face++)
+        {
+            for(unsigned node=0; node<2; node++)
             {
-                DMPlexGetSupport(dm, ff[face], &cc);
-                if(cc[0]==K || cc[1]==K)
-                    _ETETF[K][2*F+1] = face;
+                _FToV[sk][_EtoV[elem][vn[face][node]]-1]   = 1;
+                _FToV_t[_EtoV[elem][vn[face][node]]-1][sk] = 1;
+            }
+            sk++;
+        }
+
+    /** ===================================== */
+    /** Build Face to Face connection, FtoF */
+    /** ===================================== */
+
+    // zero values
+    for(unsigned K=0; K<_NfE*_Klocal; K++)
+        for(unsigned V=0; V<_NfE*_Klocal; V++)
+            _FToF[K][V] = 0;
+
+    // Build connection
+    for(int K1=0; K1<_NfE*_Klocal; K1++)
+        for(int K2=0; K2<_NfE*_Klocal; K2++)
+            for(int V1=0; V1<_Vlocal; V1++)
+                _FToF[K1][K2] += _FToV[K1][V1]*_FToV_t[V1][K2];
+
+    // substract diagonal contribution
+    for(unsigned K1=0; K1<_NfE*_Klocal; K1++)
+        _FToF[K1][K1] += -2;
+
+    /** =====================================
+     * Build Element to Element to Face connection, _ETETF.
+     * The rows represent a specific element K, the two first columns
+     * tell information about the first face (zeroth face), the next 2
+     * about the next face and so on ...
+     * For the zeroth face, the first number tells the element on the outside
+     * of the face, and the second number represents the face number of the outside
+     * element.
+     * Element |  Face0  |  Face1  |  Face2  |
+     * ---------------------------------
+     *     k   | e1 | f1 | ....
+     *
+     * Face 0 of element k is connect to element e1 at face f1 (of element e1).
+     * If the values of values of e1 and f1 are negative (-1), this face connects to
+     * physical boundary and a boundary condition must be applied at this face.
+     * ===================================== */
+
+    //
+    int f1[_NfE*_Klocal], f2[_NfE*_Klocal];
+    _totNFace = 0;
+    for(unsigned K1=0; K1<_NfE*_Klocal; K1++)
+        for(unsigned K2=0; K2<_NfE*_Klocal; K2++)
+            if(_FToF[K1][K2]==2)
+            {
+                f1[_totNFace] = K1;
+                f2[_totNFace++] = K2;
             }
 
-        }
+    int elem1[_totNFace], elem2[_totNFace], face1[_totNFace], face2[_totNFace];
+    for(unsigned face=0; face<_totNFace; face++)
+    {
+        elem1[face] = floor(f1[face]/_NfE);
+        elem2[face] = floor(f2[face]/_NfE);
+
+        face1[face] = f1[face]%_NfE;
+        face2[face] = f2[face]%_NfE;
     }
+
+    // Make all values -1. Only the faces not at physical boundaries are changed.
+    for(unsigned k1=0; k1<_Klocal; k1++)
+        for(unsigned f1=0; f1<2*_NfE; f1++)
+        {
+            _ETETF[k1][f1] = -1;
+        }
+
+    // assign values
+    for(unsigned kk=0; kk<_totNFace; kk++)
+    {
+        _ETETF[elem1[kk]][2*face1[kk]]   = elem2[kk];
+        _ETETF[elem1[kk]][2*face1[kk]+1] = face2[kk];
+    }
+
 }
 
 template <typename REAL>

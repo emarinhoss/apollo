@@ -16,11 +16,11 @@ SP_ORDER = 1
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.0002] # start, end times
+   Time = [0.0, 0.001] # start, end times
    Output_files = 1 # no. of output files to write
    Dt = 0.0001 # initial dt to try
    Dimensions = 2
-   Gridname = 'sparse_tri.exo'
+   Gridname = 'test.msh' # square.msh
    NumFields = 1
    
    # Check the partition
@@ -37,12 +37,14 @@ SP_ORDER = 1
 		Type = WxFunction
 		Kind = exprFunc
 		
-		XC = -2.5
-		YC = 0.0
+		XC = 0.2
+		YC = 0.2
 
-       exprList = ["0.0"]
+       exprList = ["pulse"]
 
-       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+       progn = ["pulse = exp(-10.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+       ##progn = ["pulse = if(sqrt(x*x+y*y)>0.5,0.0,1.0)"]
+       ##progn = ["pulse = x"]
 		
 	</InitialCondition>
 	

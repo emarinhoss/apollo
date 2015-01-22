@@ -9,6 +9,27 @@ Created on Tue Dec 16 14:02:45 2014
 import wxunsdgdata
 from numpy import *
 from tvtk.api import tvtk
+from optparse import OptionParser
+
+# set command line options
+parser = OptionParser()
+parser.add_option('-i', '--input', action = 'store',
+                  dest = 'inputFile',
+                  help = 'Base name of simulation')
+parser.add_option('-f', '--frame', action = 'store',
+                  dest = 'frame',
+                  help = 'Last frame number to plot',
+                  default = 0)
+parser.add_option('-v', '--variable', action = 'store',
+                  dest = 'variable',
+                  help = 'Index of variable to plot, q(variable)')
+parser.add_option('-s', '--spOrder', action = 'store',
+                  dest = 'spatialOrder',
+                  help = 'Spatial order of the polynomial interpolation function.')                  
+
+(options, args) = parser.parse_args()
+
+
 
 def save_xml(ug, file_name):
     """Shows how you can save the unstructured grid dataset to a VTK
@@ -16,43 +37,33 @@ def save_xml(ug, file_name):
     w = tvtk.XMLUnstructuredGridWriter(input=ug, file_name=file_name)
     w.write()
 
-filename = 'advection'
+
 # polynomial expansion order
-spOrd = 1
+spOrd = int(options.spatialOrder)
+component = int(options.variable)
+frame = int(options.frame)
+filename = options.inputFile
 
-dh = wxunsdgdata.WxVisData(filename,0)
-dd = dh.readDG(spOrd)
-var= dd.variables[:,0]
-
-#xmin = min(dd.gridPoints[:,0])
-#xmax = max(dd.gridPoints[:,0])
-#ymin = min(dd.gridPoints[:,1])
-#ymax = max(dd.gridPoints[:,1])
-#ss = shape(dd.gridPoints)
-#res = round(sqrt(ss[0]))
-#res = 100
-#points = 1.e-8*random.rand(ss[0], 2)
-#grid = dd.gridPoints+points
-#grid_x, grid_y = np.mgrid[xmin:xmax:res*1j, ymin:ymax:res*1j]
-#grid_z2 = griddata(grid, var, (grid_x, grid_y), method='cubic')
-#imshow(grid_z2.T, extent=(0,1,0,1), origin='lower')
-#show()
-
-# number of nodes per element
-nodesP = (spOrd+1)*(spOrd+2)/2
-# element Type
-elem_type = tvtk.Triangle().cell_type
-# 
-tris = zeros((dd.TotNumElements,3),'int')
-sk = 0
-for K in range(dd.TotNumElements):
-    for pots in range(3):
-        tris[K,pots] = sk
-        sk += 1
-
-ug = tvtk.UnstructuredGrid(points=dd.gridPoints)        
-ug.set_cells(elem_type, tris)
-ug.point_data.scalars = var
-ug.point_data.scalars.name = 'Q_var'
-
-save_xml(ug, 'file.vtu')
+for n in range(0,frame+1):
+	dh = wxunsdgdata.WxVisData(filename,n)
+	dd = dh.readDG(spOrd)
+	var= dd.variables[:,component]
+	
+	# number of nodes per element
+	nodesP = (spOrd+1)*(spOrd+2)/2
+	# element Type
+	elem_type = tvtk.Triangle().cell_type
+	tris = zeros((dd.TotNumElements,3),'int')
+	sk = 0
+	
+	for K in range(dd.TotNumElements):
+		for pots in range(3):
+			tris[K,pots] = sk
+			sk += 1
+	
+	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
+	ug.set_cells(elem_type, tris)
+	ug.point_data.scalars = var
+	ug.point_data.scalars.name = 'Q_var'
+	outfile = filename + '_Comp_' + str(component) + '_' + str('%03d' % n)  + '.vtu'
+	save_xml(ug, outfile)

@@ -100,12 +100,14 @@ class WxpDGGeometry
     int _NpE; // number of points/nodes per element
     int _NpF; // number of points/nodes per face
     int _NfE;  // number of faces per element
+    int _totNFace;  // total number of interior faces
     REAL *_r, *_s, *_t;  // (r,s,t) coordinates of reference nodes
     REAL *_Ds, *_Dr,*_LIFT; // element matrices
     int *_Fmask;
     int **_EtoV; // element to verticies connectivity matrix
-    int **_EToE; /* element to neighbor element (elements numbered by their proc) */
-    int **_EToF; /* element to neighbor face    (element local number 0,1,2) */
+    int **_FToV; // face to vertice connectivity
+    int **_FToV_t; // transpose face to vertice connectivity
+    int **_FToF; // face to face connectivity
     int **_ETETF; // stores the element and face connections (Element K's face number F is connected to
                   // elmement K2's face number F2
     int _Klocal; // number of elements in this processor

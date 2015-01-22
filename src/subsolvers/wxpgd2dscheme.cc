@@ -197,14 +197,6 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
     int f_Fmask[NpF*NfE];
     _quad->returnFmask(f_Fmask);
 
-    for(unsigned kk=kEndInterior; kk<kEnd; kk++)
-    {
-        PetscScalar *oo;
-        DMPlexPointGlobalRef(dm, kk, u, &oo);
-        for(unsigned me=0; me<_meqn*NpE; me++)
-            oo[me] = 0.0;
-    }
-
     for(unsigned k=kStart; k<kEndInterior; k++)
     {
         PetscScalar *qVal, *qOut;
@@ -221,43 +213,64 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
         // Element to Element to Faces connection
         _quad->ElementTOElementANDFace(k,connect);
 
+        int k1 = connect[0];
+        int f1 = connect[1];
+        int k2 = connect[2];
+        int f2 = connect[3];
+        int k3 = connect[4];
+        int f3 = connect[5];
+
         // =========== Compute n*Flux ===========
-        for(unsigned F=0; F<NfE; F++){
-            for(unsigned nodes=0; nodes<NpF; nodes++){
-                DMPlexPointGlobalRef(dm, connect[2*F], u, &qOut);
-                int F2 = connect[2*F+1];
-                for(unsigned comp=0; comp<_meqn; comp++){
-                    // ***** Problem with parallel run is happening here ****
-                    // Segmentation Violation, probably memory access out of range
-                    // ******************************************************
-                    _qr[comp] = qOut[f_Fmask[F*NpF+nodes]*_meqn+comp];
-                    _ql[comp] = qVal[f_Fmask[F2*NpF+NpF-nodes-1]*_meqn+comp];}
+        for(unsigned F=0; F<NfE; F++)
+        {
+            if(connect[2*F+1]>=0)
+            {
+                for(unsigned nodes=0; nodes<NpF; nodes++)
+                {
+                    DMPlexPointLocalRef(dm, connect[2*F], u, &qOut);
+                    int F2 = connect[2*F+1];
+                    for(unsigned comp=0; comp<_meqn; comp++)
+                    {
+                        // ***** Problem with parallel run is happening here ****
+                        // Segmentation Violation, probably memory access out of range
+                        // ******************************************************
+                        int nout = f_Fmask[F2*NpF+nodes];
+                        int nin  = f_Fmask[F*NpF+nodes];
+                        _qr[comp] = qOut[nout*_meqn+comp];
+                        _ql[comp] = qVal[nin*_meqn+comp];
+                    }
 
-                // evaluate fluxes
-                _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
-                _eqnSet.flux(0, xc, _qr, _qauxr, _fr);
-                _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
-                _eqnSet.flux(1, xc, _qr, _qauxr, _gr);
+                    // evaluate fluxes
+                    _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
+                    _eqnSet.flux(0, xc, _qr, _qauxr, _fr);
+                    _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
+                    _eqnSet.flux(1, xc, _qr, _qauxr, _gr);
 
-                // compute jump in Q (q-wave)
-                for (unsigned m=0; m<_meqn; ++m)
-                  _df[m] = _qr[m] - _ql[m];
+                    // compute jump in Q (q-wave)
+                    for (unsigned m=0; m<_meqn; ++m)
+                        _df[m] = _qr[m] - _ql[m];
 
-                // call Riemann problem solver to get flucuations
-                _eqnSet.riemann(0, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sx, _amdq, _apdq);
-                _eqnSet.riemann(1, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sy, _amdq, _apdq);
+                    // call Riemann problem solver to get flucuations
+                    _eqnSet.riemann(0, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sx, _amdq, _apdq);
+                    _eqnSet.riemann(1, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sy, _amdq, _apdq);
 
-                // compute the fastest propagating wave speed
-                REAL lambda = 0.;
-                for (unsigned mw=0; mw<_mwave; ++mw)
-                  lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
-                lambda = sqrt(lambda);
+                    // compute the fastest propagating wave speed
+                    REAL lambda = 0.;
 
-                // Currently using Lax-Frederick fluxes
-                for(unsigned comp=0; comp<_meqn; comp++){
-                    num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fr[comp])
-                                                       + normals[NfE*F+1]*(_gl[comp]+_gr[comp])
-                                                       + lambda*(_ql[comp]-_qr[comp]));}
+                    for (unsigned mw=0; mw<_mwave; ++mw)
+                        lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
+                    lambda = sqrt(lambda);
+
+                    // Currently using Lax-Frederick fluxes
+                    for(unsigned comp=0; comp<_meqn; comp++){
+                        num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fr[comp])
+                                + normals[NfE*F+1]*(_gl[comp]+_gr[comp])
+                                + lambda*(_ql[comp]-_qr[comp]));}
+                }
+            }
+            else
+            {
+                // Apply Boundary Conditions
             }
         }
 

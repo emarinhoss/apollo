@@ -164,11 +164,11 @@ rpt(unsigned td, unsigned d, REAL *ql, REAL* qr,
 
     REAL uout[3], vtrans;
 
-    bool xface = ((fabs(norm[0])==1.0)&&((norm[1])==0.0)&&((norm[2])==0.0));
-    bool yface = ((fabs(norm[1])==1.0)&&((norm[0])==0.0)&&((norm[2])==0.0));
-    bool zface = ((fabs(norm[2])==1.0)&&((norm[1])==0.0)&&((norm[0])==0.0));
-    bool faceisnotcartesian = ((xface!=1)&&(yface!=1)&&(zface!=1));
-    bool havefluctuation = (apdq[0]!=0.0)||(amdq[0]!=0.0);
+    //bool xface = ((fabs(norm[0])==1.0)&&((norm[1])==0.0)&&((norm[2])==0.0));
+    //bool yface = ((fabs(norm[1])==1.0)&&((norm[0])==0.0)&&((norm[2])==0.0));
+    //bool zface = ((fabs(norm[2])==1.0)&&((norm[1])==0.0)&&((norm[0])==0.0));
+    //bool faceisnotcartesian = ((xface!=1)&&(yface!=1)&&(zface!=1));
+    //bool havefluctuation = (apdq[0]!=0.0)||(amdq[0]!=0.0);
 
 //	if (d==0)
 //		std::cout << "d = " << d << ",\t norm = (" << norm[0] << ", " << norm[1] << "," << norm[2] << "), tan1 = (" << tan1[0] << "," << tan1[1] << "," << tan1[2] << "), tan2 = (" << tan2[0] << "," << tan2[1] << ","<<  tan2[2] << ")" << std::endl;
