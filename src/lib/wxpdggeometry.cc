@@ -284,17 +284,27 @@ WxpDGGeometry<REAL>::Normals2d(int k, REAL norms[])
 
 template <typename REAL>
 void
-WxpDGGeometry<REAL>::LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *norms)
+WxpDGGeometry<REAL>::LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *Fscale)
 {
     for(unsigned K=0; K<_NpE*_meqn; K++)
         nflux[K] = 0.0;
 
-    for(unsigned K=0; K<_NpE; K++)
-        for(unsigned f1=0; f1<_NfE; f1++)
-            for(unsigned f2=0; f2<_NpF; f2++)
-                for(unsigned cp=0; cp<_meqn; cp++)
-                    nflux[K*_meqn+cp] += _LIFT[f1*_NpF+f2]*nFrhs[(f1*_NpF+f2)*
-                            _meqn+cp]/norms[_NfE*f1+2];
+//    for(unsigned points=0; points<_NpF; points++)
+//        for(unsigned faces=0; faces<_NfE; faces++)
+//            for(unsigned comp=0; comp<_meqn; comp++)
+//                nFrhs[faces*_NpF*_meqn+faces*_meqn+comp] = nFrhs[faces*_NpF*_meqn+faces*_meqn+comp]/norms[_NfE*faces+2];
+
+//    for(unsigned nodes=0; nodes<_NpE; nodes++)
+//        for(unsigned faceNode=0; faceNode<_NpF*_NfE; faceNode++)
+//            for(unsigned comp=0; comp<_meqn; comp++)
+//                nflux[nodes*_meqn+comp] += _LIFT[nodes*_NpF*_NfE+faceNode]*nFrhs[faceNode*_meqn+comp];
+
+    for(unsigned Epoints=0; Epoints<_NpE; Epoints++) // loop over all element nodes
+        for(unsigned faces=0; faces<_NfE; faces++) // loop over faces/edges
+            for(unsigned Fpoints=0; Fpoints<_NpF; Fpoints++) // loop over nodes on faces/edges
+                for(unsigned cp=0; cp<_meqn; cp++) // loop over components
+                    nflux[Epoints*_meqn+cp] += _LIFT[faces*_NpF+Fpoints]*nFrhs[(faces*_NpF+Fpoints)*
+                            _meqn+cp]/Fscale[faces];
 }
 
 template <typename REAL>
@@ -330,16 +340,14 @@ WxpDGGeometry<REAL>::weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL 
         sy[m]=  xr[m]/J[m];
     }
 
-    for(unsigned comp=0; comp<_meqn; comp++){
-        for(unsigned nk=0; nk<_NpE; nk++){
-            for(unsigned mk=0; mk<_NpE; mk++){
-                DxnDy[nk*_meqn+comp] += rx[nk]*_Dr[nk*_NpE+mk]*Fflux[mk]+
-                                        sx[nk]*_Ds[nk*_NpE+mk]*Fflux[mk]+
-                                        ry[nk]*_Dr[nk*_NpE+mk]*Gflux[mk]+
-                                        sy[nk]*_Ds[nk*_NpE+mk]*Gflux[mk];
-            }
-        }
-    }
+    for(unsigned nk=0; nk<_NpE; nk++)
+        for(unsigned mk=0; mk<_NpE; mk++)
+            for(unsigned comp=0; comp<_meqn; comp++)
+                DxnDy[nk*_meqn+comp] += rx[mk]*_Dr[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
+                                        sx[mk]*_Ds[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
+                                        ry[mk]*_Dr[nk*_NpE+mk]*Gflux[mk*_meqn+comp]+
+                                        sy[mk]*_Ds[nk*_NpE+mk]*Gflux[mk*_meqn+comp];
+
 }
 
 // instantiations

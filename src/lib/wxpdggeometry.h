@@ -70,7 +70,7 @@ class WxpDGGeometry
     void Normals2d(int k, REAL norms[]);
 
 /** LIFT the flux: calculate the flux through the element boundaries */
-    void LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *norms);
+    void LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *Fscale);
 
 /** Calculate the weak derivatives */
     void weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL *Gflux);

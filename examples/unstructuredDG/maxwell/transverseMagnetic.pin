@@ -37,7 +37,7 @@ SP_ORDER = 1
 	
 	spatialOrder = SP_ORDER
 	
-	DataStructure = [0,dg,(SP_ORDER+1)*(SP_ORDER+2)/2]
+	DataStructure = [0,dg,8*(SP_ORDER+1)*(SP_ORDER+2)/2]
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc

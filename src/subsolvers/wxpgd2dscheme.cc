@@ -200,25 +200,30 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
     for(unsigned k=kStart; k<kEndInterior; k++)
     {
         PetscScalar *qVal, *qOut;
-        REAL normals[3*NfE], xc[4];
+        REAL normals[3*NfE], xc[4], geom[5], Fscale[NfE];
         int connect[2*NfE];
         REAL num_flux[NfE*NpF*_meqn];
         REAL fluxRHS[NpE*_meqn], volumeRHS[NpE*_meqn], Gflux[NpE*_meqn], Fflux[NpE*_meqn];
 
         DMPlexPointLocalRef(dm, k, u, &qVal);
         // Element geometric factors
-        //_quad->GeometricFactors2d(k,geom);
+        _quad->GeometricFactors2d(k,geom);
         // Element face normals
         _quad->Normals2d(k,normals);
+
+        // calculate scaling (face length)/(element Jacobian)
+        for(unsigned sc=0; sc<NfE; sc++)
+            Fscale[sc] = normals[sc*NfE+2]/geom[4];
+
         // Element to Element to Faces connection
         _quad->ElementTOElementANDFace(k,connect);
 
-        int k1 = connect[0];
-        int f1 = connect[1];
-        int k2 = connect[2];
-        int f2 = connect[3];
-        int k3 = connect[4];
-        int f3 = connect[5];
+//        int k1 = connect[0];
+//        int f1 = connect[1];
+//        int k2 = connect[2];
+//        int f2 = connect[3];
+//        int k3 = connect[4];
+//        int f3 = connect[5];
 
         // =========== Compute n*Flux ===========
         for(unsigned F=0; F<NfE; F++)
@@ -248,7 +253,7 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 
                     // compute jump in Q (q-wave)
                     for (unsigned m=0; m<_meqn; ++m)
-                        _df[m] = _qr[m] - _ql[m];
+                        _df[m] = _ql[m] - _qr[m];
 
                     // call Riemann problem solver to get flucuations
                     _eqnSet.riemann(0, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sx, _amdq, _apdq);
@@ -265,22 +270,61 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
                     for(unsigned comp=0; comp<_meqn; comp++){
                         num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fr[comp])
                                 + normals[NfE*F+1]*(_gl[comp]+_gr[comp])
-                                + lambda*(_ql[comp]-_qr[comp]));}
+                                + lambda*(_qr[comp]-_ql[comp]));}
                 }
             }
             else
             {
+                // ================================================
                 // Apply Boundary Conditions
+                // ================================================
+                // ================================================
+                // ================================================
+                // ======== Zero Flux BC hardcoded atm ============
+                for(unsigned nodes=0; nodes<NpF; nodes++)
+                {
+                    DMPlexPointLocalRef(dm, connect[2*F], u, &qOut);
+                    for(unsigned comp=0; comp<_meqn; comp++)
+                    {
+                        int nin  = f_Fmask[F*NpF+nodes];
+                        _ql[comp] = qVal[nin*_meqn+comp];
+                    }
+
+                    // evaluate fluxes
+                    _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
+                    _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
+
+                    // compute jump in Q (q-wave)
+                    for (unsigned m=0; m<_meqn; ++m)
+                        _df[m] = 0.0;
+
+                    // call Riemann problem solver to get flucuations
+                    _eqnSet.riemann(0, xc, xc, _ql, _ql, _qauxl, _qauxl, _df, _wave, _sx, _amdq, _apdq);
+                    _eqnSet.riemann(1, xc, xc, _ql, _ql, _qauxl, _qauxl, _df, _wave, _sy, _amdq, _apdq);
+
+                    // compute the fastest propagating wave speed
+                    REAL lambda = 0.;
+
+                    for (unsigned mw=0; mw<_mwave; ++mw)
+                        lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
+                    lambda = sqrt(lambda);
+
+                    // Currently using Lax-Frederick fluxes
+                    for(unsigned comp=0; comp<_meqn; comp++)
+                        num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fl[comp])
+                                + normals[NfE*F+1]*(_gl[comp]+_gl[comp]));
+                }
             }
         }
 
         // LIFT Fluxes
-        _quad->LIFT_flux(fluxRHS,num_flux,normals);
+        _quad->LIFT_flux(fluxRHS,num_flux,Fscale);
 
         // =========== Compute Volume Integrals ===========
-        for(unsigned nodes=0; nodes<NpE; nodes++){
+        for(unsigned nodes=0; nodes<NpE; nodes++)
+        {
             for(unsigned comp=0; comp<_meqn; comp++)
-                _ql[comp] = qOut[nodes*_meqn+comp];
+                _ql[comp] = qVal[nodes*_meqn+comp];
 
             _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
             _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
@@ -295,7 +339,7 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
         // add all contributions to conserved variable
         DMPlexPointLocalRef(dm,k,ot,&rhs);
         for(unsigned kne=0; kne<NpE; kne++)
-            rhs[kne] = volumeRHS[kne]-fluxRHS[kne];
+            rhs[kne] = -(volumeRHS[kne]-fluxRHS[kne]);
     }
 
     DMRestoreLocalVector(dm, &locU);
@@ -332,7 +376,8 @@ WxpDG2Dscheme<REAL>::isInfinityOrNAN(Vec f, std::string location)
     PetscErrorCode ierr;
     ierr = VecNormBegin(f,NORM_2,&fnorm);CHKERRQ(ierr);	/* fnorm <- ||F||  */
     ierr = VecNormEnd(f,NORM_2,&fnorm);CHKERRQ(ierr);
-    if (PetscIsInfOrNanReal(fnorm)){
+    if (PetscIsInfOrNanReal(fnorm))
+    {
         //VecView(f,PETSC_VIEWER_STDOUT_WORLD);
         //REAL test = 0.0;
         WxLogger *l = WxLogger::get("apollo-root.console");
