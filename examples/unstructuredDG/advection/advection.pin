@@ -4,7 +4,7 @@ import math
 
 PI = math.pi
 
-SP_ORDER = 1
+P_ORDER = 1
 
 
 <warpx>
@@ -20,7 +20,7 @@ SP_ORDER = 1
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.001] # start, end times
+   Time = [0.0, 0.01] # start, end times
    Output_files = 1 # no. of output files to write
    Dt = 0.0001 # initial dt to try
    Dimensions = 2
@@ -35,9 +35,10 @@ SP_ORDER = 1
 	
 	Equations = [advection]
 	
-	spatialOrder = SP_ORDER
+	polynomialOrder = P_ORDER
+	cfl = 1.0/((2.*(P_ORDER+1)-1))
 	
-	DataStructure = [0,dg,(SP_ORDER+1)*(SP_ORDER+2)/2]
+	DataStructure = [0,dg,(P_ORDER+1)*(P_ORDER+2)/2]
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc
@@ -48,10 +49,11 @@ SP_ORDER = 1
 
        exprList = ["pulse"]
 
-       progn = ["pulse = exp(-10.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
+       progn = ["pulse = exp(-10.0*((x-XC)*(x-XC)))"]
        ##progn = ["pulse = 1.0"]
        ##progn = ["pulse = x"]
-       ##progn = ["pulse = sin(2*pi*x)"]
+       ##progn = ["r = abs(x)",\
+	   ##         "pulse = if(r>0.5,0.0,sin(2*pi*x))"]
 		
 	</InitialCondition>
 	

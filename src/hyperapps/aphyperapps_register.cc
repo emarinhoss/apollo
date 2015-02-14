@@ -18,3 +18,8 @@ WxCreator< WxGridFixedBC<float>, WxGridBC<float> > __fixedVBC_d("gridFixedBC");
 #include "euler/wxeulereqn.h"
 WxCreator< WxEulerEqn<float>, WxHyperbolicEqn<float> > __eulerEqn_f("eulerEqn");
 WxCreator< WxEulerEqn<double>, WxHyperbolicEqn<double> > __eulerEqn_d("eulerEqn");
+
+// Maxwell Equation
+#include "maxwell/wxphmaxwelleqn.h"
+WxCreator< WxPHMaxwellEqn<float>, WxHyperbolicEqn<float> > __maxwellEqn_f("phMaxwellEqn");
+WxCreator< WxPHMaxwellEqn<double>, WxHyperbolicEqn<double> > __maxwellEqn_d("phMaxwellEqn");

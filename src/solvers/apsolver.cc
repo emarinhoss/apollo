@@ -179,7 +179,7 @@ ApSolver<REAL>::solve()
     WxLogStream infStrm = log->getInfoStream();
 
     // solve equation system
-    bool statusPetsc = tssolver->solve(_dt, _tstart, _tend, _nout, solution);
+    bool statusPetsc = tssolver->solve(solution);
 
 }
 
@@ -225,18 +225,19 @@ ApSolver<REAL>::init()
 {
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream debStrm = log->getDebugStream();
+    PetscReal suggestedDt;
 
     // Solution vector
     DMCreateGlobalVector(_dm, &solution);
     PetscObjectSetName((PetscObject) solution, "solution");
 
-    // Initialize the timestepping solver
-    tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PetscObjectComm((PetscObject)_dm));
-
     // initialize subsolvers
     typename SubSolverMap_t::iterator itr;
     for (itr = _subSolvers.begin(); itr != _subSolvers.end(); ++itr)
-        itr->second->init(solution);
+        itr->second->init(suggestedDt, solution);
+
+    // Initialize the timestepping solver
+    tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PetscObjectComm((PetscObject)_dm),_tstart,_tend,_dt);
 
     DMCreateGlobalVector(_dm, &_usr.cg_vars);
     // run startOnly subsolvers
@@ -399,10 +400,14 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             debStrm << " SubSolver " << *ssitr << std::endl;
             ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
             // take this step
-            ss->step(dt, u, X);
+            WxStepperStatus<REAL> status = ss->step(dt, u, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
-          }
+            PetscReal dt = status.getSuggestedDt();
+
+            if(_tend-t<dt){dt = _tend-t;}
+            TSSetTimeStep(ts,dt);
+        }
     }
 
     VecDestroy(&X);

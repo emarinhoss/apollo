@@ -50,7 +50,7 @@ class WxpDG2Dscheme : public ApSubSolver<REAL>
  * Initialize the subsolver: this is called after the setup() and
  * before the step() methods.
  */
-    void init(Vec out);
+    void init(PetscReal newDt, Vec out);
 
 /**
  * Step the solver by given time step. If this step failed and if the
@@ -111,15 +111,18 @@ private:
   REAL _dt;
 /** Array to modify the directions when doing cartesian v/s radial */
   unsigned _dirs[3];
-/** Spacial Order  */
-  int _spatialOrder;
+/** Polynomial Order  */
+  int _polyOrder;
+/** cfl number */
+  REAL _cfl;
+
 /** Set of hyperbolic equations to solve */
   WxHyperbolicEqnSet<REAL> _eqnSet;
 /** Set of source terms in equation system */
   WxHyperbolicSrcSet<REAL> _srcSet;
 /** Arrays for passing to and fro from Reimann solver */
   // jumps, cons. var in left and right of edge i
-  REAL *_ql, *_qr, *_fl, *_fr, *_gl, *_gr, *_qauxl, *_qauxr;
+  REAL *_qM, *_qP, *_fM, *_fP, *_gM, *_gP, *_qauxM, *_qauxP;
   REAL *_apdq, *_amdq; // fluctuations
   REAL *_sx, *_sy; // speeds
   REAL **_wave; // waves

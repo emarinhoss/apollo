@@ -22,7 +22,7 @@ class WxPetscTimeSteppingSolver {
  * @param cls Pointer to class providing functionality
  */
 
-    WxPetscTimeSteppingSolver(DM dm, CLS *cls, MPI_Comm comm)
+    WxPetscTimeSteppingSolver(DM dm, CLS *cls, MPI_Comm comm, REAL tstart, REAL tend, REAL dt)
     : dm(dm), cls(cls) {
 
       WxLogStream debStrm = WxLogger::get("warpx-root.console")->getDebugStream();
@@ -37,6 +37,10 @@ class WxPetscTimeSteppingSolver {
       // with the data managenent object
       TSSetDM(solver, dm);
       TSSetRHSFunction(solver,NULL,WxPetscTimeSteppingSolver::ComputeRHSforTS,(void*) cls);
+
+      TSSetDuration(solver,1000,tend);
+      TSSetInitialTimeStep(solver,tstart,dt);
+
     }
 
 /**
@@ -58,7 +62,7 @@ class WxPetscTimeSteppingSolver {
  * @param qout Output solution
  * @return flag indicating if solution converged
  */
-    bool solve(REAL dt, REAL tstart, REAL tend, int nout, Vec X) {
+    bool solve(Vec X) {
 
         WxLogger *log = WxLogger::get("apollo-root.console");
         WxLogStream debStrm = log->getDebugStream();
@@ -69,9 +73,6 @@ class WxPetscTimeSteppingSolver {
         PetscInt nsteps;
         TSConvergedReason reason;
 
-
-        TSSetDuration(solver,1000,tend);
-        TSSetInitialTimeStep(solver,tstart,dt);
         TSSetSolution(solver,X);
         TSSetFromOptions(solver);
         TSSolve(solver,X);

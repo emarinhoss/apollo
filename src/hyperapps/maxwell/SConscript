@@ -1,0 +1,25 @@
+## -*- python -*-
+
+##
+# Build advection equation systems
+##
+
+Import('env')
+
+# name of library built with code in this file
+
+
+# source files in lib
+sources = [
+        'wxphmaxwelleqn.cc',
+           ]
+
+##
+# compile sources and add them to list of objects built
+##
+objs = []
+for s in sources:
+    o = env.Object(s)
+    objs.append(o)
+
+Return('objs')

@@ -65,15 +65,26 @@ class WxpDGGeometry
 
 /** calculate the  geometric factors for element k*/
     void GeometricFactors2d(int k, REAL geom[]);
+    void GeomFacs2d(int k, REAL *rx, REAL *sx, REAL *ry, REAL *sy, REAL *J);
 
 /** calculate the face normals for a given element k*/
     void Normals2d(int k, REAL norms[]);
+    void FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REAL *Fscale);
 
 /** LIFT the flux: calculate the flux through the element boundaries */
-    void LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *Fscale);
+    void LIFT_flux(int k, REAL *nflux, REAL *nFrhs, REAL *Fscale);
 
 /** Calculate the weak derivatives */
     void weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL *Gflux);
+
+/** return minimun radius of inscribed circle */
+    REAL dtscale2D(){
+        return _dtscale;
+    }
+/** return minimun radius of inscribed circle */
+    REAL rMin(){
+        return _rmin;
+   }
 
   private:
 /**
@@ -102,7 +113,7 @@ class WxpDGGeometry
     int _NfE;  // number of faces per element
     int _totNFace;  // total number of interior faces
     REAL *_r, *_s, *_t;  // (r,s,t) coordinates of reference nodes
-    REAL *_Ds, *_Dr,*_LIFT; // element matrices
+    REAL *_Ds, *_Dr, *_Dsw, *_Drw,*_LIFT; // element matrices
     int *_Fmask;
     int **_EtoV; // element to verticies connectivity matrix
     int **_FToV; // face to vertice connectivity
@@ -115,6 +126,8 @@ class WxpDGGeometry
     REAL **_xcoord; // node x-coordinates
     REAL **_ycoord; // node y-coordinates
     REAL **_zcoord; // node z-coordinates
+    REAL _dtscale; // minimun value of element_radius/(element_perimeter/2)
+    REAL _rmin; // minimun spacing between nodes
 
 };
 

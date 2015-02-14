@@ -4,7 +4,8 @@ import math
 
 PI = math.pi
 
-SP_ORDER = 1
+P_ORDER = 1
+LIGHT = 1.0
 
 
 <warpx>
@@ -20,11 +21,10 @@ SP_ORDER = 1
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.001] # start, end times
+   Time = [0.0, 0.1] # start, end times
    Output_files = 1 # no. of output files to write
-   Dt = 0.0001 # initial dt to try
+   Dt = 0.01 # initial dt to try
    Dimensions = 2
-   #Gridname = 'test.msh'
    Gridname = 'square.msh'
    NumFields = 1
    
@@ -33,11 +33,12 @@ SP_ORDER = 1
 	Type = ApSubSolver
 	Kind = dg2dscheme
 	
-	Equations = [advection]
+	Equations = [maxwell]
 	
-	spatialOrder = SP_ORDER
+	polynomialOrder = P_ORDER
+	cfl = 0.5/((2.*(P_ORDER+1)-1))
 	
-	DataStructure = [0,dg,8*(SP_ORDER+1)*(SP_ORDER+2)/2]
+	DataStructure = [0,dg,8*(P_ORDER+1)*(P_ORDER+2)/2]
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc
@@ -46,22 +47,25 @@ SP_ORDER = 1
 		YC = 0.0
 		pi = PI
 
-       exprList = ["pulse"]
+       exprList = ["0.0", \
+				   "0.0", \
+				   "Ez",  \
+				   "0.0", \
+				   "0.0", \
+				   "0.0", \
+				   "0.0", \
+				   "0.0"]
 
-       progn = ["pulse = exp(-10.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
-       ##progn = ["pulse = 1.0"]
-       ##progn = ["pulse = x"]
-       ##progn = ["pulse = sin(2*pi*x)"]
+       progn = ["Ez = sin(pi*x)*sin(pi*y)"]
 		
 	</InitialCondition>
 	
-	<advection>
+	<maxwell>
 		Type = WxHyperbolicEqn
-		Kind = advectionEqn
+		Kind = phMaxwellEqn
 		
-		ux = 1.0
-		##uy = 1.0
-	</advection>
+		c0 = LIGHT
+	</maxwell>
 	
    </hyperbolic>
 	

@@ -105,7 +105,7 @@ class WxObject
  * from an output file. In this case the load() method is called
  * instead.
  */
-    virtual void init(Vec X);
+    virtual void init(PetscReal dt, Vec X);
 
 /**
  * Finish building the object. This is called after the init() or

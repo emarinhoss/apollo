@@ -20,10 +20,14 @@ WxpDGGeometry<REAL>::WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor)
 
     _Dr = alloc_1d<REAL>(_NpE*_NpE);
     _Ds = alloc_1d<REAL>(_NpE*_NpE);
+    _Drw = alloc_1d<REAL>(_NpE*_NpE);
+    _Dsw = alloc_1d<REAL>(_NpE*_NpE);
     _LIFT = alloc_1d<REAL>(_NpE*_NpF*_NfE);
     _Fmask = alloc_1d<int>(_NfE*_NpF);
 
-    nodalDGfunctions(_SpOr, _r, _s, _Dr, _Ds, _LIFT, _Fmask);
+    nodalDGfunctions(_SpOr, _r, _s, _Dr, _Ds, _Drw, _Dsw, _LIFT, _Fmask);
+    //
+    _rmin = fabs(_r[1]-_r[0]);
 
     PetscInt eStart, eEnd, vStart, vEnd;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
@@ -53,6 +57,8 @@ WxpDGGeometry<REAL>::~WxpDGGeometry()
     delete [] _s;
     delete [] _Dr;
     delete [] _Ds;
+    delete [] _Drw;
+    delete [] _Dsw;
     delete [] _LIFT;
     delete [] _Fmask;
     free_2d_c(_EtoV, _Klocal, _Vlocal);
@@ -93,7 +99,7 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
         }
 
     // Build connection
-    int vn[3][2] = {{0,1},{1,2},{2,0}};
+    int vn[3][2] = {{0,1},{1,2},{0,2}};
     int sk = 0;
     for(unsigned elem=0; elem<_Klocal; elem++)
         for(unsigned face=0; face<_NfE; face++)
@@ -188,6 +194,7 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
     PetscScalar *coords;
     const PetscInt *pcone;
     //PetscInt coordSize;
+    _dtscale = 1000.0;
 
     DMGetCoordinatesLocal(dm, &coordinates);
     DMGetCoordinateSection(dm, &coordSection);
@@ -220,8 +227,17 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
             _ycoord[K][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
         }
         //DMPlexVecRestoreClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
+        REAL len1 = sqrt(pow(_xcoord[K][1]-_xcoord[K][2],2)+pow(_ycoord[K][1]-_ycoord[K][2],2));
+        REAL len2 = sqrt(pow(_xcoord[K][2]-_xcoord[K][3],2)+pow(_ycoord[K][2]-_ycoord[K][3],2));
+        REAL len3 = sqrt(pow(_xcoord[K][3]-_xcoord[K][1],2)+pow(_ycoord[K][3]-_ycoord[K][1],2));
+        REAL sper = 0.5*(len1+len2+len3);
+        REAL Area = sqrt(sper*(sper-len1)*(sper-len2)*(sper-len3));
+
+        // Compute minimum scale using radius of inscribed circle
+        _dtscale = dmin(_dtscale,Area/sper);
     }
     //VecRestoreArray(coordinates, &coords);
+
 }
 
 template <typename REAL>
@@ -255,6 +271,38 @@ WxpDGGeometry<REAL>::GeometricFactors2d(int k, REAL geom[])
 
 template <typename REAL>
 void
+WxpDGGeometry<REAL>::GeomFacs2d(int k, REAL *rx, REAL *sx, REAL *ry, REAL *sy, REAL *J)
+{
+    REAL x[_NpE], y[_NpE];
+    REAL xr[_NpE], yr[_NpE], xs[_NpE], ys[_NpE];
+
+    for(unsigned n=0; n<_NpE; n++){
+        x[n] = _xcoord[k][n];
+        y[n] = _ycoord[k][n];
+        xr[n]=0.0; yr[n]=0.0; xs[n]=0.0; ys[n]=0.0; J[n]=0.0;
+        rx[n]=0.0; ry[n]=0.0; sx[n]=0.0; sy[n]=0.0;
+    }
+
+    // Do matrix vector products
+    for(unsigned m=0; m<_NpE; m++)
+        for(unsigned n=0; n<_NpE; n++){
+            xr[m] += _Dr[m*_NpE+n]*x[n];
+            xs[m] += _Ds[m*_NpE+n]*x[n];
+            yr[m] += _Dr[m*_NpE+n]*y[n];
+            ys[m] += _Ds[m*_NpE+n]*y[n];
+        }
+
+    for(unsigned m=0; m<_NpE; m++){
+        J[m] = -xs[m]*yr[m]+xr[m]*ys[m];
+        rx[m]=  ys[m]/J[m];
+        sx[m]= -yr[m]/J[m];
+        ry[m]= -xs[m]/J[m];
+        sy[m]=  xr[m]/J[m];
+    }
+}
+
+template <typename REAL>
+void
 WxpDGGeometry<REAL>::Normals2d(int k, REAL norms[])
 {
     int f;
@@ -284,27 +332,78 @@ WxpDGGeometry<REAL>::Normals2d(int k, REAL norms[])
 
 template <typename REAL>
 void
-WxpDGGeometry<REAL>::LIFT_flux(REAL *nflux, REAL *nFrhs, REAL *Fscale)
+WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REAL *Fscale)
+{
+    REAL x[_NpE], y[_NpE];
+    REAL xr[_NpE], yr[_NpE], xs[_NpE], ys[_NpE], J[_NpE];
+    int Fmask[_NpF*_NfE];
+
+    returnFmask(Fmask);
+
+    for(unsigned n=0; n<_NpE; n++){
+        x[n] = _xcoord[k][n];
+        y[n] = _ycoord[k][n];
+        xr[n]=0.0; yr[n]=0.0; xs[n]=0.0; ys[n]=0.0; J[n]=0.0;
+    }
+
+    // Do matrix vector products
+    for(unsigned m=0; m<_NpE; m++)
+        for(unsigned n=0; n<_NpE; n++){
+            xr[m] += _Dr[m*_NpE+n]*x[n];
+            xs[m] += _Ds[m*_NpE+n]*x[n];
+            yr[m] += _Dr[m*_NpE+n]*y[n];
+            ys[m] += _Ds[m*_NpE+n]*y[n];
+        }
+
+    for(unsigned m=0; m<_NpE; m++)
+            J[m] = -xs[m]*yr[m]+xr[m]*ys[m];
+
+    // Face 1
+    for(unsigned fid=0; fid<_NpF; fid++)
+    {
+        nx[fid] = yr[Fmask[fid]];
+        ny[fid] = -xr[Fmask[fid]];
+    }
+
+    // Face 2
+    for(unsigned fid=_NpF; fid<2*_NpF; fid++)
+    {
+        nx[fid] = ys[Fmask[fid]]-yr[Fmask[fid]];
+        ny[fid] = -xs[Fmask[fid]]+xr[Fmask[fid]];
+    }
+
+    // Face 3
+    for(unsigned fid=2*_NpF; fid<3*_NpF; fid++)
+    {
+        nx[fid] = -ys[Fmask[fid]];
+        ny[fid] = xs[Fmask[fid]];
+    }
+
+    for(unsigned fid=0; fid<_NpF*_NfE; fid++)
+    {
+        sJ[fid]  = sqrt(nx[fid]*nx[fid]+ny[fid]*ny[fid]);
+        nx[fid] /= sJ[fid];
+        ny[fid] /= sJ[fid];
+
+        Fscale[fid] = sJ[fid]/J[Fmask[fid]];
+    }
+
+}
+
+template <typename REAL>
+void
+WxpDGGeometry<REAL>::LIFT_flux(int k, REAL *nflux, REAL *nFrhs, REAL *Fscale)
 {
     for(unsigned K=0; K<_NpE*_meqn; K++)
         nflux[K] = 0.0;
 
-//    for(unsigned points=0; points<_NpF; points++)
-//        for(unsigned faces=0; faces<_NfE; faces++)
-//            for(unsigned comp=0; comp<_meqn; comp++)
-//                nFrhs[faces*_NpF*_meqn+faces*_meqn+comp] = nFrhs[faces*_NpF*_meqn+faces*_meqn+comp]/norms[_NfE*faces+2];
+    REAL nx[_NpE*_NfE],ny[_NpE*_NfE],sJ[_NpE*_NfE],FSCALE[_NpE*_NfE];
+    FaceNodesNormals2d(k,nx,ny,sJ,FSCALE);
 
-//    for(unsigned nodes=0; nodes<_NpE; nodes++)
-//        for(unsigned faceNode=0; faceNode<_NpF*_NfE; faceNode++)
-//            for(unsigned comp=0; comp<_meqn; comp++)
-//                nflux[nodes*_meqn+comp] += _LIFT[nodes*_NpF*_NfE+faceNode]*nFrhs[faceNode*_meqn+comp];
-
-    for(unsigned Epoints=0; Epoints<_NpE; Epoints++) // loop over all element nodes
-        for(unsigned faces=0; faces<_NfE; faces++) // loop over faces/edges
-            for(unsigned Fpoints=0; Fpoints<_NpF; Fpoints++) // loop over nodes on faces/edges
-                for(unsigned cp=0; cp<_meqn; cp++) // loop over components
-                    nflux[Epoints*_meqn+cp] += _LIFT[faces*_NpF+Fpoints]*nFrhs[(faces*_NpF+Fpoints)*
-                            _meqn+cp]/Fscale[faces];
+    for(unsigned nodes=0; nodes<_NpE; nodes++)
+        for(unsigned faceNode=0; faceNode<_NpF*_NfE; faceNode++)
+            for(unsigned comp=0; comp<_meqn; comp++)
+                nflux[nodes*_meqn+comp] += _LIFT[nodes*_NpF*_NfE+faceNode]*nFrhs[faceNode*_meqn+comp]*FSCALE[faceNode];
 }
 
 template <typename REAL>
@@ -319,9 +418,10 @@ WxpDGGeometry<REAL>::weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL 
         x[n] = _xcoord[K][n];
         y[n] = _ycoord[K][n];
         xr[n]=0.0; yr[n]=0.0; xs[n]=0.0; ys[n]=0.0; J[n]=0.0;
-        rx[n]=0.0; ry[n]=0.0; sx[n]=0.0; sy[n]=0.0;
-        DxnDy[n] = 0.0;
-    }
+        rx[n]=0.0; ry[n]=0.0; sx[n]=0.0; sy[n]=0.0;}
+
+    for(unsigned nk=0; nk<_NpE*_meqn; nk++)
+        DxnDy[nk] = 0.0;
 
     // Do matrix vector products
     for(unsigned m=0; m<_NpE; m++)
@@ -343,10 +443,10 @@ WxpDGGeometry<REAL>::weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL 
     for(unsigned nk=0; nk<_NpE; nk++)
         for(unsigned mk=0; mk<_NpE; mk++)
             for(unsigned comp=0; comp<_meqn; comp++)
-                DxnDy[nk*_meqn+comp] += rx[mk]*_Dr[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
-                                        sx[mk]*_Ds[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
-                                        ry[mk]*_Dr[nk*_NpE+mk]*Gflux[mk*_meqn+comp]+
-                                        sy[mk]*_Ds[nk*_NpE+mk]*Gflux[mk*_meqn+comp];
+                DxnDy[nk*_meqn+comp] += rx[nk]*_Drw[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
+                                        sx[nk]*_Dsw[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
+                                        ry[nk]*_Drw[nk*_NpE+mk]*Gflux[mk*_meqn+comp]+
+                                        sy[nk]*_Dsw[nk*_NpE+mk]*Gflux[mk*_meqn+comp];
 
 }
 

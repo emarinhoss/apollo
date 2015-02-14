@@ -17,20 +17,20 @@
 
 template <typename REAL>
 WxpDG2Dscheme<REAL>::~WxpDG2Dscheme() {
-    delete [] _ql;
-    delete [] _qr;
-    delete [] _fl;
-    delete [] _fr;
-    delete [] _gl;
-    delete [] _gr;
+    delete [] _qM;
+    delete [] _qP;
+    delete [] _fM;
+    delete [] _fP;
+    delete [] _gM;
+    delete [] _gP;
     delete [] _src;
     delete [] _df;
     delete [] _amdq;
     delete [] _apdq;
     delete [] _sx;
     delete [] _sy;
-    delete [] _qauxl;
-    delete [] _qauxr;
+    delete [] _qauxM;
+    delete [] _qauxP;
     free_2d_c(_wave,_meqn,_mwave);
 }
 
@@ -41,7 +41,8 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
   // call base class setup first
   ApSubSolver<REAL>::setup(wxc, dm);
 
-  _spatialOrder = wxc.template get<int>("spatialOrder");
+  _polyOrder = wxc.template get<int>("polynomialOrder");
+  _cfl = wxc.template get<REAL>("cfl");
 
   _dirs[0] = 0;
   _dirs[1] = 1;
@@ -65,16 +66,16 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _srcSet.setNumEqns(_meqn); // set no of equations
   _srcSet.setup(wxc);
 
-  _ql = alloc_1d<REAL>(_meqn);
-  _qr = alloc_1d<REAL>(_meqn);
-  _qauxl = alloc_1d<REAL>(_meqn);
-  _qauxr = alloc_1d<REAL>(_meqn);
+  _qM = alloc_1d<REAL>(_meqn);
+  _qP = alloc_1d<REAL>(_meqn);
+  _qauxM = alloc_1d<REAL>(_meqn);
+  _qauxP = alloc_1d<REAL>(_meqn);
   _df = alloc_1d<REAL>(_meqn); // jump
   _src = alloc_1d<REAL>(_meqn);
-  _fl = alloc_1d<REAL>(_meqn);
-  _fr = alloc_1d<REAL>(_meqn);
-  _gl = alloc_1d<REAL>(_meqn);
-  _gr = alloc_1d<REAL>(_meqn);
+  _fM = alloc_1d<REAL>(_meqn);
+  _fP = alloc_1d<REAL>(_meqn);
+  _gM = alloc_1d<REAL>(_meqn);
+  _gP = alloc_1d<REAL>(_meqn);
   // allocate memory for waves, speeds and fluctuations
   _apdq = alloc_1d<REAL>(_meqn); // positive fluctuation
   _amdq = alloc_1d<REAL>(_meqn); // negative fluctuation
@@ -84,7 +85,7 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
   _dataStruct = wxc.template get<std::vector<WxAny> >("DataStructure");
   // add total number of components
-  // _dataStruct.push_back((_spatialOrder+1)*(_spatialOrder+2)/2*_meqn);
+  // _dataStruct.push_back((_polyOrder+1)*(_polyOrder+2)/2*_meqn);
 
   // create function pointer for initial condition
   const WxCryptSet& initCS = wxc.getSet("InitialCondition");
@@ -94,7 +95,7 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
   // setup this function
   _initFunc->setup(initCS);
 
-  _quad = new WxpDGGeometry<REAL>(dm, _meqn, _spatialOrder);
+  _quad = new WxpDGGeometry<REAL>(dm, _meqn, _polyOrder);
 
   // read list of BC subsolvers
 //  std::vector<WxAny> bcs;
@@ -106,7 +107,7 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxpDG2Dscheme<REAL>::init(Vec out)
+WxpDG2Dscheme<REAL>::init(PetscReal newDt, Vec out)
 {
     DM dm;
     VecGetDM(out, &dm);
@@ -160,13 +161,14 @@ template <typename REAL>
 WxStepperStatus<REAL>
 WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 {
-    isInfinityOrNAN(in, "NAN/INF in input Vector to time-stepper DG");
+    isInfinityOrNAN(in, "NAN/INF in input Vector to DG step-function");
 
     WxStepperStatus<REAL> status;
     DM dm;
     VecGetDM(in, &dm);
     PetscScalar *u;
     PetscScalar *ot, *rhs;
+    REAL maxSpeed=0.0;
 
     // local vectors
     Vec locU, locRHS;
@@ -228,127 +230,105 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
         // =========== Compute n*Flux ===========
         for(unsigned F=0; F<NfE; F++)
         {
-            if(connect[2*F+1]>=0)
+            for(unsigned nodes=0; nodes<NpF; nodes++)
             {
-                for(unsigned nodes=0; nodes<NpF; nodes++)
+                DMPlexPointLocalRef(dm, connect[2*F], u, &qOut);
+                int F2 = connect[2*F+1];
+                for(unsigned comp=0; comp<_meqn; comp++)
                 {
-                    DMPlexPointLocalRef(dm, connect[2*F], u, &qOut);
-                    int F2 = connect[2*F+1];
+                    // ***** Problem with parallel run is happening here ****
+                    // Segmentation Violation, probably memory access out of range
+                    // ******************************************************
+                        int nM  = f_Fmask[F*NpF+nodes];
+                        _qM[comp] = qVal[nM*_meqn+comp];
+                }
+
+                // Apply Boundary conditions
+                if(connect[2*F+1]<0)
+                {
+                    // Advection
+                    _qP[0] = _qM[0];
+                    // Maxwell
+//                    _qP[0] = 0.0;
+//                    _qP[1] = 0.0;
+//                    _qP[2] = -_qM[2];
+//                    _qP[3] = _qM[3];
+//                    _qP[4] = _qM[4];
+//                    _qP[5] = _qM[5];
+                }
+                else
+                {
                     for(unsigned comp=0; comp<_meqn; comp++)
                     {
-                        // ***** Problem with parallel run is happening here ****
-                        // Segmentation Violation, probably memory access out of range
-                        // ******************************************************
-                        int nout = f_Fmask[F2*NpF+nodes];
-                        int nin  = f_Fmask[F*NpF+nodes];
-                        _qr[comp] = qOut[nout*_meqn+comp];
-                        _ql[comp] = qVal[nin*_meqn+comp];
+                        int nP = f_Fmask[F2*NpF+nodes];
+                        _qP[comp] = qOut[nP*_meqn+comp];
                     }
 
-                    // evaluate fluxes
-                    _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
-                    _eqnSet.flux(0, xc, _qr, _qauxr, _fr);
-                    _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
-                    _eqnSet.flux(1, xc, _qr, _qauxr, _gr);
-
-                    // compute jump in Q (q-wave)
-                    for (unsigned m=0; m<_meqn; ++m)
-                        _df[m] = _ql[m] - _qr[m];
-
-                    // call Riemann problem solver to get flucuations
-                    _eqnSet.riemann(0, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sx, _amdq, _apdq);
-                    _eqnSet.riemann(1, xc, xc, _ql, _qr, _qauxl, _qauxr, _df, _wave, _sy, _amdq, _apdq);
-
-                    // compute the fastest propagating wave speed
-                    REAL lambda = 0.;
-
-                    for (unsigned mw=0; mw<_mwave; ++mw)
-                        lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
-                    lambda = sqrt(lambda);
-
-                    // Currently using Lax-Frederick fluxes
-                    for(unsigned comp=0; comp<_meqn; comp++){
-                        num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fr[comp])
-                                + normals[NfE*F+1]*(_gl[comp]+_gr[comp])
-                                + lambda*(_qr[comp]-_ql[comp]));}
                 }
-            }
-            else
-            {
-                // ================================================
-                // Apply Boundary Conditions
-                // ================================================
-                // ================================================
-                // ================================================
-                // ======== Zero Flux BC hardcoded atm ============
-                for(unsigned nodes=0; nodes<NpF; nodes++)
-                {
-                    DMPlexPointLocalRef(dm, connect[2*F], u, &qOut);
-                    for(unsigned comp=0; comp<_meqn; comp++)
-                    {
-                        int nin  = f_Fmask[F*NpF+nodes];
-                        _ql[comp] = qVal[nin*_meqn+comp];
-                    }
 
-                    // evaluate fluxes
-                    _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
-                    _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
+                // evaluate fluxes
+                _eqnSet.flux(0, xc, _qM, _qauxM, _fM);
+                _eqnSet.flux(0, xc, _qP, _qauxP, _fP);
+                _eqnSet.flux(1, xc, _qM, _qauxM, _gM);
+                _eqnSet.flux(1, xc, _qP, _qauxP, _gP);
+                // compute jump in Q (q-wave)
+                for (unsigned m=0; m<_meqn; ++m)
+                    _df[m] = _qP[m] - _qM[m];
 
-                    // compute jump in Q (q-wave)
-                    for (unsigned m=0; m<_meqn; ++m)
-                        _df[m] = 0.0;
+                // call Riemann problem solver to get flucuations
+                _eqnSet.riemann(0, xc, xc, _qM, _qP, 0, 0, _df, _wave, _sx, _amdq, _apdq);
+                _eqnSet.riemann(1, xc, xc, _qM, _qP, 0, 0, _df, _wave, _sy, _amdq, _apdq);
 
-                    // call Riemann problem solver to get flucuations
-                    _eqnSet.riemann(0, xc, xc, _ql, _ql, _qauxl, _qauxl, _df, _wave, _sx, _amdq, _apdq);
-                    _eqnSet.riemann(1, xc, xc, _ql, _ql, _qauxl, _qauxl, _df, _wave, _sy, _amdq, _apdq);
+                // compute the fastest propagating wave speed
+                REAL lambda = 0.;
+                for (unsigned mw=0; mw<_mwave; ++mw)
+                    lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
+                lambda = sqrt(lambda);
 
-                    // compute the fastest propagating wave speed
-                    REAL lambda = 0.;
+                // find maximum propagation speed in the entire domain
+                maxSpeed = dmax(maxSpeed,lambda);
 
-                    for (unsigned mw=0; mw<_mwave; ++mw)
-                        lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
-                    lambda = sqrt(lambda);
-
-                    // Currently using Lax-Frederick fluxes
-                    for(unsigned comp=0; comp<_meqn; comp++)
-                        num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fl[comp]+_fl[comp])
-                                + normals[NfE*F+1]*(_gl[comp]+_gl[comp]));
-                }
+                // Lax-Frederick fluxes
+                for(unsigned comp=0; comp<_meqn; comp++){
+                    num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fP[comp]+_fM[comp])
+                            + normals[NfE*F+1]*(_gP[comp]+_gP[comp])
+                            + lambda*(_qM[comp]-_qP[comp]));}
             }
         }
 
         // LIFT Fluxes
-        _quad->LIFT_flux(fluxRHS,num_flux,Fscale);
+        _quad->LIFT_flux(k,fluxRHS,num_flux,Fscale);
 
         // =========== Compute Volume Integrals ===========
         for(unsigned nodes=0; nodes<NpE; nodes++)
         {
             for(unsigned comp=0; comp<_meqn; comp++)
-                _ql[comp] = qVal[nodes*_meqn+comp];
+                _qM[comp] = qVal[nodes*_meqn+comp];
 
-            _eqnSet.flux(0, xc, _ql, _qauxl, _fl);
-            _eqnSet.flux(1, xc, _ql, _qauxl, _gl);
+            _eqnSet.flux(0, xc, _qM, _qauxM, _fM);
+            _eqnSet.flux(1, xc, _qM, _qauxM, _gM);
 
             for(unsigned comp=0; comp<_meqn; comp++){
-                Gflux[nodes*_meqn+comp] = _gl[comp];
-                Fflux[nodes*_meqn+comp] = _fl[comp];}
+                Gflux[nodes*_meqn+comp] = _gM[comp];
+                Fflux[nodes*_meqn+comp] = _fM[comp];}
         }
         // Calculate Weak Derivatives
         _quad->weakDericatives(k,volumeRHS,Fflux,Gflux);
 
         // add all contributions to conserved variable
         DMPlexPointLocalRef(dm,k,ot,&rhs);
-        for(unsigned kne=0; kne<NpE; kne++)
-            rhs[kne] = -(volumeRHS[kne]-fluxRHS[kne]);
+        for(unsigned kne=0; kne<NpE*_meqn; kne++)
+            rhs[kne] = volumeRHS[kne]-fluxRHS[kne];
     }
 
     DMRestoreLocalVector(dm, &locU);
     VecRestoreArray(out, &ot);
     //VecView(out,PETSC_VIEWER_STDOUT_WORLD);
-    isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG time-stepper");
+    isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG step-function");
 
+    REAL newDt =  2./3.*_cfl*_quad->dtscale2D()*(_quad->rMin()/maxSpeed);
     status.setStatus(true);
-    status.setSuggestedDt(0.01);
+    status.setSuggestedDt(newDt);
     return status;
 }
 
