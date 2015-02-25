@@ -12,7 +12,7 @@ WxGridBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 WxStepperStatus<REAL>
-WxGridBC<REAL>::step(REAL dt, Vec in, Vec out)
+WxGridBC<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
   // applyToArray(dt, in);
   return WxStepperStatus<REAL>();

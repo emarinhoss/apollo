@@ -72,7 +72,7 @@ class WxStepper : public WxObject
  * @param dt time step to advance by
  * @return Status of stepper
  */
-    virtual WxStepperStatus<REAL> step(REAL dt, Vec in, Vec out)=0;
+    virtual WxStepperStatus<REAL> step(REAL t, REAL dt, Vec in, Vec out)=0;
 
   private:
 /** Current time at which stepper is called */

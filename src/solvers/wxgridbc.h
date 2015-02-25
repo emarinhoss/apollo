@@ -46,7 +46,7 @@ class WxGridBC : public ApSubSolver<REAL>
  * 'Dt' : [optional] double. A suggestion for time-step on next step.
  * 'Message' : [optional] string. A message indicating why step failed (if it did)
  */
-    virtual WxStepperStatus<REAL> step(REAL dt, Vec in, Vec out);
+    virtual WxStepperStatus<REAL> step(REAL t, REAL dt, Vec in, Vec out);
 
 /**
  * Apply bounday condition to suppllied array. This is provided so one

@@ -31,6 +31,8 @@ WxpDG2Dscheme<REAL>::~WxpDG2Dscheme() {
     delete [] _sy;
     delete [] _qauxM;
     delete [] _qauxP;
+    delete [] _filterdiag;
+    delete [] _filterMatrix;
     free_2d_c(_wave,_meqn,_mwave);
 }
 
@@ -103,6 +105,27 @@ WxpDG2Dscheme<REAL>::setup(const WxCryptSet& wxc, DM dm)
 //  std::vector<WxAny>::const_iterator i;
 //  for (i=bcs.begin(); i!=bcs.end(); ++i)
 //      _bcSubSolvers.push_back( wx_any_cast<std::string>(*i) );
+
+  // read filter information
+  _orderSP = wxc.template get<int>("filterOrder");
+  _cutoff = wxc.template get<REAL>("filterCutoff");
+  int Number = _quad->NpElem()*_quad->NpElem();
+  _filterdiag = alloc_1d<REAL>(_quad->NpElem());
+  _filterMatrix = alloc_1d<REAL>(Number);
+  for(unsigned i=0; i<_quad->NpElem(); i++)
+      _filterdiag[i] = 1.0;
+
+  int sk = 0;
+  for(unsigned i=0; i<_polyOrder+1;i++)
+      for(unsigned j=0;j<_polyOrder-i+1;j++)
+      {
+          if(i+j>=_polyOrder){
+              //_filterdiag[sk] = exp(pow(-36.*((i+j-_cutoff)/(_polyOrder-_cutoff)),_orderSP));
+              _filterdiag[sk] = _cutoff;
+          }
+          sk+=1;
+      }
+
 }
 
 template <typename REAL>
@@ -155,11 +178,14 @@ WxpDG2Dscheme<REAL>::init(PetscReal newDt, Vec out)
     VecRestoreArray(out, &x);
 
     isInfinityOrNAN(out, "NAN/INF in initialization");
+
+    // Build filtering Matrix
+    _quad->calculateFilter(_filterdiag,_filterMatrix);
 }
 
 template <typename REAL>
 WxStepperStatus<REAL>
-WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
+WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
     isInfinityOrNAN(in, "NAN/INF in input Vector to DG step-function");
 
@@ -197,6 +223,7 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
     int NpE = _quad->NpElem(); // Number of nodes per Element
     int NfE = _quad->NfElem(); // Number of faces per Element
     int f_Fmask[NpF*NfE];
+    int nM, nP;
     _quad->returnFmask(f_Fmask);
 
     for(unsigned k=kStart; k<kEndInterior; k++)
@@ -205,7 +232,9 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
         REAL normals[3*NfE], xc[4], geom[5], Fscale[NfE];
         int connect[2*NfE];
         REAL num_flux[NfE*NpF*_meqn];
-        REAL fluxRHS[NpE*_meqn], volumeRHS[NpE*_meqn], Gflux[NpE*_meqn], Fflux[NpE*_meqn];
+        REAL fluxRHS[NpE*_meqn], volumeRHS[NpE*_meqn], Gflux[NpE*_meqn], Fflux[NpE*_meqn], SolQ[NpE*_meqn];
+        for(unsigned ke=0; ke<NpE*_meqn; ke++)
+            SolQ[ke] = 0.0;
 
         DMPlexPointLocalRef(dm, k, u, &qVal);
         // Element geometric factors
@@ -239,7 +268,7 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
                     // ***** Problem with parallel run is happening here ****
                     // Segmentation Violation, probably memory access out of range
                     // ******************************************************
-                        int nM  = f_Fmask[F*NpF+nodes];
+                        nM  = f_Fmask[F*NpF+nodes];
                         _qM[comp] = qVal[nM*_meqn+comp];
                 }
 
@@ -255,12 +284,34 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
 //                    _qP[3] = _qM[3];
 //                    _qP[4] = _qM[4];
 //                    _qP[5] = _qM[5];
+
+                    // Isentropic
+//                    REAL xo = 5.0, yo = 0.0, beta = 5.0, gamma = 1.4;
+//                    REAL u = 1., v = 0.;
+
+//                    REAL x = _quad->Xcoordinate(k,nodes);
+//                    REAL y = _quad->Ycoordinate(k,nodes);
+//                    REAL pi = 3.1416;
+
+//                    REAL xmut = x-u*t, ymvt = y-v*t;
+//                    REAL r = sqrt(pow((xmut-xo),2) + pow((ymvt-yo),2));
+
+//                    u   = u - beta*exp(1-pow(r,2))*(ymvt-yo)/(2*pi);
+//                    v   = v + beta*exp(1-pow(r,2))*(xmut-xo)/(2*pi);
+//                    REAL rho1 = pow(1. - ((gamma-1.)*beta*beta*exp(2.*(1.-r*r))/(16.*gamma*pi*pi)),1./(gamma-1.));
+//                    REAL p1   = pow(rho1,gamma);
+
+//                    _qP[0] = rho1;
+//                    _qP[1] = rho1*u;
+//                    _qP[2] = rho1*v;
+//                    _qP[3] = 0.0;
+//                    _qP[4] = p1/(gamma-1.) + 0.5*rho1*(u*u+v*v);
                 }
                 else
                 {
                     for(unsigned comp=0; comp<_meqn; comp++)
                     {
-                        int nP = f_Fmask[F2*NpF+nodes];
+                        nP = f_Fmask[F2*NpF+NpF-1-nodes];
                         _qP[comp] = qOut[nP*_meqn+comp];
                     }
 
@@ -289,15 +340,14 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
                 maxSpeed = dmax(maxSpeed,lambda);
 
                 // Lax-Frederick fluxes
-                for(unsigned comp=0; comp<_meqn; comp++){
-                    num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fP[comp]+_fM[comp])
-                            + normals[NfE*F+1]*(_gP[comp]+_gP[comp])
-                            + lambda*(_qM[comp]-_qP[comp]));}
+                for(unsigned comp=0; comp<_meqn; comp++)
+                    num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fM[comp]+_fP[comp])
+                            + normals[NfE*F+1]*(_gM[comp]+_gP[comp]) + lambda*(_qM[comp]-_qP[comp]))*Fscale[F];
             }
         }
 
         // LIFT Fluxes
-        _quad->LIFT_flux(k,fluxRHS,num_flux,Fscale);
+        _quad->LIFT_flux(k,fluxRHS,num_flux);
 
         // =========== Compute Volume Integrals ===========
         for(unsigned nodes=0; nodes<NpE; nodes++)
@@ -315,10 +365,18 @@ WxpDG2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
         // Calculate Weak Derivatives
         _quad->weakDericatives(k,volumeRHS,Fflux,Gflux);
 
+        // filter solution
+        for(unsigned i=0; i<NpE;i++)
+            for(unsigned j=0; j<NpE; j++)
+                for(unsigned me=0; me<_meqn; me++)
+                    SolQ[i*NpE+me] += _filterMatrix[i*NpE+j]*(volumeRHS[j*_meqn+me]-fluxRHS[j*_meqn+me]);
+
         // add all contributions to conserved variable
         DMPlexPointLocalRef(dm,k,ot,&rhs);
-        for(unsigned kne=0; kne<NpE*_meqn; kne++)
+        for(unsigned kne=0; kne<NpE*_meqn; kne++){
+//            rhs[kne] = SolQ[kne];
             rhs[kne] = volumeRHS[kne]-fluxRHS[kne];
+        }
     }
 
     DMRestoreLocalVector(dm, &locU);

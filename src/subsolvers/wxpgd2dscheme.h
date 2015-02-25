@@ -61,7 +61,7 @@ class WxpDG2Dscheme : public ApSubSolver<REAL>
  * @param dt time step
  * @return false if step failed.
  */
-    WxStepperStatus<REAL> step(REAL dt, Vec in, Vec out);
+    WxStepperStatus<REAL> step(REAL t, REAL dt, Vec in, Vec out);
 
 /**
  * Return number of total equations in system
@@ -143,6 +143,10 @@ private:
   DM _dm;
 /** list of BC subsolvers */
   std::vector<std::string> _bcSubSolvers;
+
+/** Filtering variables **/
+  REAL *_filterdiag, *_filterMatrix, _cutoff;
+  int _orderSP;
 
 };
 

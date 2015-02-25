@@ -4,8 +4,6 @@
 // WarpX lib includes
 #include <wxindexer.h>
 #include <petscdmplex.h>
-//#include <boost/numeric/ublas/vector.hpp>
-//#include <boost/numeric/ublas/matrix.hpp>
 
 // std includes
 #include <vector>
@@ -72,7 +70,7 @@ class WxpDGGeometry
     void FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REAL *Fscale);
 
 /** LIFT the flux: calculate the flux through the element boundaries */
-    void LIFT_flux(int k, REAL *nflux, REAL *nFrhs, REAL *Fscale);
+    void LIFT_flux(int k, REAL *nflux, REAL *nFrhs);
 
 /** Calculate the weak derivatives */
     void weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL *Gflux);
@@ -85,6 +83,9 @@ class WxpDGGeometry
     REAL rMin(){
         return _rmin;
    }
+
+/** return the evaluate the filter matrix */
+    void calculateFilter(REAL *filter, REAL *filterMatrix);
 
   private:
 /**
@@ -113,7 +114,7 @@ class WxpDGGeometry
     int _NfE;  // number of faces per element
     int _totNFace;  // total number of interior faces
     REAL *_r, *_s, *_t;  // (r,s,t) coordinates of reference nodes
-    REAL *_Ds, *_Dr, *_Dsw, *_Drw,*_LIFT; // element matrices
+    REAL *_Ds, *_Dr, *_Dsw, *_Drw,*_LIFT, *_Vand, *_IVand; // element matrices
     int *_Fmask;
     int **_EtoV; // element to verticies connectivity matrix
     int **_FToV; // face to vertice connectivity

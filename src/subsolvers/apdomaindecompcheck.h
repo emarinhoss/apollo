@@ -45,7 +45,7 @@ class ApDomainDecompCheck : public ApSubSolver<REAL>
  * @param dt time step
  * @return false if step failed.
  */
-    WxStepperStatus<REAL> step(REAL dt, Vec in, Vec out);
+    WxStepperStatus<REAL> step(REAL t, REAL dt, Vec in, Vec out);
 
   private:
     DM _dm;

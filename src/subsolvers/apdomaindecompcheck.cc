@@ -28,7 +28,7 @@ ApDomainDecompCheck<REAL>::init()
 
 template <typename REAL>
 WxStepperStatus<REAL>
-ApDomainDecompCheck<REAL>::step(REAL dt, Vec in, Vec out)
+ApDomainDecompCheck<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
     PetscInt cStart, cEnd, rank;
     PetscScalar *x;

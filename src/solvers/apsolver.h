@@ -91,7 +91,7 @@ class ApSolver : public WxSolverBase<REAL>
  * @param dt time step to advance by
  * @return Status of stepper
  */
-    virtual WxStepperStatus<REAL> step(REAL dt, Vec in, Vec out);
+    virtual WxStepperStatus<REAL> step(REAL t, REAL dt, Vec in, Vec out);
 
 
     DM getdatamanagment(){

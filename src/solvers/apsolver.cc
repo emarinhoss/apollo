@@ -185,7 +185,7 @@ ApSolver<REAL>::solve()
 
 template <typename REAL>
 WxStepperStatus<REAL>
-ApSolver<REAL>::step(REAL dt, Vec in, Vec out)
+ApSolver<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
   return WxStepperStatus<REAL>();
 }
@@ -208,7 +208,7 @@ ApSolver<REAL>::startOnly()
 
         _subSolvers[*ssitr]->setCurrentTime(this->getCurrentTime());
         _subSolvers[*ssitr]->setDt(0.0);
-        WxStepperStatus<REAL> res = _subSolvers[*ssitr]->step(0.0, NULL, solution);
+        WxStepperStatus<REAL> res = _subSolvers[*ssitr]->step(0.0, 0.0, NULL, solution);
         if (res.getStatus() == false)
         {
           WxExcept wxe("Subsolver ");
@@ -381,6 +381,7 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
 
     Vec X;
     VecDuplicate(u,&X);
+    WxStepperStatus<REAL> status;
 
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream debStrm = log->getDebugStream();
@@ -388,6 +389,8 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
     typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
 
     debStrm << " Current simulation time is " << t << std::endl;
+    //infStrm << " Current simulation time is " << t << std::endl;
+    PetscReal dt = _dt;
 
     for (itr=_perStep.begin(); itr!=_perStep.end(); ++itr)
     {
@@ -400,16 +403,16 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             debStrm << " SubSolver " << *ssitr << std::endl;
             ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
             // take this step
-            WxStepperStatus<REAL> status = ss->step(dt, u, X);
+            status = ss->step(t,dt, u, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
-            PetscReal dt = status.getSuggestedDt();
+            dt = fmin(status.getSuggestedDt(),dt);
 
-            if(_tend-t<dt){dt = _tend-t;}
-            TSSetTimeStep(ts,dt);
+            if(fabs(_tend-t)<dt){dt = fabs(_tend-t);}
         }
     }
 
+    TSSetTimeStep(ts,dt);
     VecDestroy(&X);
     return 0;
 }

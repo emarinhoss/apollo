@@ -150,7 +150,7 @@ ApFVM2Dscheme<REAL>::init(Vec out)
 
 template <typename REAL>
 WxStepperStatus<REAL>
-ApFVM2Dscheme<REAL>::step(REAL dt, Vec in, Vec out)
+ApFVM2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
 //    VecView(in,PETSC_VIEWER_STDOUT_WORLD);
     Vec locX, locF;

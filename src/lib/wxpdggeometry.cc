@@ -18,14 +18,16 @@ WxpDGGeometry<REAL>::WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor)
     _r = alloc_1d<REAL>(_NpE);
     _s = alloc_1d<REAL>(_NpE);
 
-    _Dr = alloc_1d<REAL>(_NpE*_NpE);
-    _Ds = alloc_1d<REAL>(_NpE*_NpE);
-    _Drw = alloc_1d<REAL>(_NpE*_NpE);
-    _Dsw = alloc_1d<REAL>(_NpE*_NpE);
+    _Dr   = alloc_1d<REAL>(_NpE*_NpE);
+    _Ds   = alloc_1d<REAL>(_NpE*_NpE);
+    _Drw  = alloc_1d<REAL>(_NpE*_NpE);
+    _Dsw  = alloc_1d<REAL>(_NpE*_NpE);
+    _Vand = alloc_1d<REAL>(_NpE*_NpE);
+    _IVand= alloc_1d<REAL>(_NpE*_NpE);
     _LIFT = alloc_1d<REAL>(_NpE*_NpF*_NfE);
-    _Fmask = alloc_1d<int>(_NfE*_NpF);
+    _Fmask= alloc_1d<int>(_NfE*_NpF);
 
-    nodalDGfunctions(_SpOr, _r, _s, _Dr, _Ds, _Drw, _Dsw, _LIFT, _Fmask);
+    nodalDGfunctions(_SpOr, _r, _s, _Dr, _Ds, _Drw, _Dsw, _Vand, _IVand, _LIFT, _Fmask);
     //
     _rmin = fabs(_r[1]-_r[0]);
 
@@ -59,6 +61,8 @@ WxpDGGeometry<REAL>::~WxpDGGeometry()
     delete [] _Ds;
     delete [] _Drw;
     delete [] _Dsw;
+    delete [] _Vand;
+    delete [] _IVand;
     delete [] _LIFT;
     delete [] _Fmask;
     free_2d_c(_EtoV, _Klocal, _Vlocal);
@@ -99,7 +103,7 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
         }
 
     // Build connection
-    int vn[3][2] = {{0,1},{1,2},{0,2}};
+    int vn[3][2] = {{0,1},{1,2},{2,0}};
     int sk = 0;
     for(unsigned elem=0; elem<_Klocal; elem++)
         for(unsigned face=0; face<_NfE; face++)
@@ -194,7 +198,7 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
     PetscScalar *coords;
     const PetscInt *pcone;
     //PetscInt coordSize;
-    _dtscale = 1000.0;
+    _dtscale = 1.0e6;
 
     DMGetCoordinatesLocal(dm, &coordinates);
     DMGetCoordinateSection(dm, &coordSection);
@@ -227,11 +231,11 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
             _ycoord[K][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
         }
         //DMPlexVecRestoreClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
-        REAL len1 = sqrt(pow(_xcoord[K][1]-_xcoord[K][2],2)+pow(_ycoord[K][1]-_ycoord[K][2],2));
-        REAL len2 = sqrt(pow(_xcoord[K][2]-_xcoord[K][3],2)+pow(_ycoord[K][2]-_ycoord[K][3],2));
-        REAL len3 = sqrt(pow(_xcoord[K][3]-_xcoord[K][1],2)+pow(_ycoord[K][3]-_ycoord[K][1],2));
+        REAL len1 = sqrt(pow(p1x-p2x,2)+pow(p1y-p2y,2));
+        REAL len2 = sqrt(pow(p2x-p3x,2)+pow(p2y-p3y,2));
+        REAL len3 = sqrt(pow(p3x-p1x,2)+pow(p3y-p1y,2));
         REAL sper = 0.5*(len1+len2+len3);
-        REAL Area = sqrt(sper*(sper-len1)*(sper-len2)*(sper-len3));
+        REAL Area = sqrt(fabs(sper*(sper-len1)*(sper-len2)*(sper-len3)));
 
         // Compute minimum scale using radius of inscribed circle
         _dtscale = dmin(_dtscale,Area/sper);
@@ -392,18 +396,15 @@ WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REA
 
 template <typename REAL>
 void
-WxpDGGeometry<REAL>::LIFT_flux(int k, REAL *nflux, REAL *nFrhs, REAL *Fscale)
+WxpDGGeometry<REAL>::LIFT_flux(int k, REAL *nflux, REAL *nFrhs)
 {
     for(unsigned K=0; K<_NpE*_meqn; K++)
         nflux[K] = 0.0;
 
-    REAL nx[_NpE*_NfE],ny[_NpE*_NfE],sJ[_NpE*_NfE],FSCALE[_NpE*_NfE];
-    FaceNodesNormals2d(k,nx,ny,sJ,FSCALE);
-
     for(unsigned nodes=0; nodes<_NpE; nodes++)
         for(unsigned faceNode=0; faceNode<_NpF*_NfE; faceNode++)
             for(unsigned comp=0; comp<_meqn; comp++)
-                nflux[nodes*_meqn+comp] += _LIFT[nodes*_NpF*_NfE+faceNode]*nFrhs[faceNode*_meqn+comp]*FSCALE[faceNode];
+                nflux[nodes*_meqn+comp] += _LIFT[nodes*_NpF*_NfE+faceNode]*nFrhs[faceNode*_meqn+comp];
 }
 
 template <typename REAL>
@@ -423,7 +424,6 @@ WxpDGGeometry<REAL>::weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL 
     for(unsigned nk=0; nk<_NpE*_meqn; nk++)
         DxnDy[nk] = 0.0;
 
-    // Do matrix vector products
     for(unsigned m=0; m<_NpE; m++)
         for(unsigned n=0; n<_NpE; n++){
             xr[m] += _Dr[m*_NpE+n]*x[n];
@@ -448,6 +448,34 @@ WxpDGGeometry<REAL>::weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL 
                                         ry[nk]*_Drw[nk*_NpE+mk]*Gflux[mk*_meqn+comp]+
                                         sy[nk]*_Dsw[nk*_NpE+mk]*Gflux[mk*_meqn+comp];
 
+}
+
+template <typename REAL>
+void
+WxpDGGeometry<REAL>::calculateFilter(REAL *filter, REAL *filterMatrix)
+{
+    REAL fitTimesIVand[_NpE*_NpE], filterIn[_NpE*_NpE];
+
+    // zero entries
+    for(unsigned k=0; k<_NpE*_NpE; k++){
+        fitTimesIVand[k] = 0.0;
+        filterMatrix[k] = 0.0;
+        filterIn[k] = 0.0;}
+
+    // create a filter diagonal matrix
+    for(unsigned k=0; k<_NpE; k++)
+        filterIn[k*_NpE+k] = filter[k];
+
+    // do Vand*diag(filter)*IVand
+    for(unsigned row=0; row<_NpE; row++)
+        for(unsigned col=0;col<_NpE;col++)
+            for(unsigned k=0; k<_NpE; k++)
+                fitTimesIVand[row*_NpE+col] += filterIn[row*_NpE+k]*_IVand[col+k*_NpE];
+
+    for(unsigned col=0; col<_NpE; col++)
+        for(unsigned row=0;row<_NpE;row++)
+            for(unsigned k=0; k<_NpE; k++)
+                filterMatrix[row*_NpE+col] += _Vand[row*_NpE+k]*fitTimesIVand[col+k*_NpE];
 }
 
 // instantiations
