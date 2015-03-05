@@ -65,7 +65,7 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     std::string fname = wxc.template get<std::string>("Gridname");
     _filename = &fname[0];
 
-    // read and create mesh object
+    // read and create mesh objectwxpnodaldgfunctions
     this->createMesh(PETSC_COMM_WORLD,&_dm);
 
     std::vector<std::string>::const_iterator i;
@@ -225,16 +225,32 @@ ApSolver<REAL>::init()
 {
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream debStrm = log->getDebugStream();
-    PetscReal suggestedDt;
+    REAL suggestedDt;
 
     // Solution vector
     DMCreateGlobalVector(_dm, &solution);
     PetscObjectSetName((PetscObject) solution, "solution");
 
+    // time step
+    // REAL dtInit = 1.e6;
+    _frameNum = 0;
+
     // initialize subsolvers
     typename SubSolverMap_t::iterator itr;
     for (itr = _subSolvers.begin(); itr != _subSolvers.end(); ++itr)
-        itr->second->init(suggestedDt, solution);
+        itr->second->init(_dt, solution);
+
+    typename std::vector<ApSubSolverStep<REAL> >::iterator itrr;
+    for (itrr = _perStep.begin(); itrr!=_perStep.end(); ++itrr)
+    {
+      // run the subsolver step
+      std::vector<std::string>::const_iterator ssitr;
+      for (ssitr = itrr->subSolvers.begin(); ssitr != itrr->subSolvers.end(); ++ssitr)
+      {
+        suggestedDt = _subSolvers[*ssitr]->getDt();
+        _dt = fmin(_dt,suggestedDt);
+      }
+    }
 
     // Initialize the timestepping solver
     tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PetscObjectComm((PetscObject)_dm),_tstart,_tend,_dt);
@@ -354,21 +370,30 @@ template<typename REAL>
 PetscErrorCode
 ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx)
 {
-    PetscViewer viewer;
+    WxLogger *log = WxLogger::get("apollo-root.console");
+    WxLogStream infStrm = log->getInfoStream();
 
     if ((stepnum == -1) ^ (stepnum % _nout == 0))
     {
+        PetscViewer viewer;
         if(stepnum == -1) {/* Final time is not multiple of normal time interval, write it anyway */
           TSGetTimeStepNumber(ts,&stepnum);}
 
-        std::stringstream ss; ss << stepnum;
+        std::stringstream ss; ss << _frameNum;
         std::string fname = this->runName() + "_" + ss.str() + ".vtu";
         //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
         this->OutputVTK(_dm,&fname[0],&viewer);
         VecView(X,viewer);
+        _frameNum += 1;
+        PetscViewerDestroy(&viewer);
       }
 
-    PetscViewerDestroy(&viewer);
+    // Adjust time-step
+    if(fabs(_tend-time)<_dt){_dt = fabs(_tend-time);}
+    TSSetTimeStep(ts,_dt);
+    PetscReal dtStep;
+    TSGetTimeStep(ts,&dtStep);
+    infStrm << " Current simulation time-step is " << dtStep << " and current time is " << time << std::endl;
     PetscFunctionReturn(0);
 }
 
@@ -388,31 +413,28 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
     WxLogStream infStrm = log->getInfoStream();
     typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
 
-    debStrm << " Current simulation time is " << t << std::endl;
-    //infStrm << " Current simulation time is " << t << std::endl;
-    PetscReal dt = _dt;
-
     for (itr=_perStep.begin(); itr!=_perStep.end(); ++itr)
     {
         PetscReal dtStep;
-        TSGetTimeStep(ts,&dtStep); REAL dt = dtStep;
+        TSGetTimeStep(ts,&dtStep);
+        _dt = dtStep;
         std::vector<std::string>::const_iterator ssitr;
 
         for (ssitr = itr->subSolvers.begin(); ssitr != itr->subSolvers.end(); ++ssitr)
         {
-            debStrm << " SubSolver " << *ssitr << std::endl;
+            debStrm << "  SubSolver " << *ssitr << std::endl;
             ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
             // take this step
-            status = ss->step(t,dt, u, X);
+            status = ss->step(t,_dt, u, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
-            dt = fmin(status.getSuggestedDt(),dt);
+            _dt = fmin(status.getSuggestedDt(),_dt);
 
-            if(fabs(_tend-t)<dt){dt = fabs(_tend-t);}
+//            if(fabs(_tend-t)<dt){
+//                dt = fabs(_tend-t);
+//            }
         }
     }
-
-    TSSetTimeStep(ts,dt);
     VecDestroy(&X);
     return 0;
 }

@@ -23,7 +23,7 @@ P_ORDER = 1
    Output_files = 1 # write output file after every step
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'square.msh'
+   Gridname = 'square_fine.msh'
    NumFields = 1
    
    # Check the partition
@@ -35,6 +35,10 @@ P_ORDER = 1
 	
 	polynomialOrder = P_ORDER
 	cfl = 1.0/((2.*(P_ORDER+1)-1))
+
+	# Filter
+	filterOrder = P_ORDER
+	filterCutoff = 0.95
 	
 	# Field number, Field name, number of unknowns per element
 	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]

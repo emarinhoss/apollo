@@ -67,7 +67,7 @@ class WxpDGGeometry
 
 /** calculate the face normals for a given element k*/
     void Normals2d(int k, REAL norms[]);
-    void FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REAL *Fscale);
+    void FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *Fscale);
 
 /** LIFT the flux: calculate the flux through the element boundaries */
     void LIFT_flux(int k, REAL *nflux, REAL *nFrhs);
@@ -117,9 +117,6 @@ class WxpDGGeometry
     REAL *_Ds, *_Dr, *_Dsw, *_Drw,*_LIFT, *_Vand, *_IVand; // element matrices
     int *_Fmask;
     int **_EtoV; // element to verticies connectivity matrix
-    int **_FToV; // face to vertice connectivity
-    int **_FToV_t; // transpose face to vertice connectivity
-    int **_FToF; // face to face connectivity
     int **_ETETF; // stores the element and face connections (Element K's face number F is connected to
                   // elmement K2's face number F2
     int _Klocal; // number of elements in this processor

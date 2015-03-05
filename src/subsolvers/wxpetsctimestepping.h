@@ -22,14 +22,18 @@ class WxPetscTimeSteppingSolver {
  * @param cls Pointer to class providing functionality
  */
 
-    WxPetscTimeSteppingSolver(DM dm, CLS *cls, MPI_Comm comm, REAL tstart, REAL tend, REAL dt)
-    : dm(dm), cls(cls) {
+    WxPetscTimeSteppingSolver(DM dm, CLS *cls, MPI_Comm comm, REAL tstart, REAL tend, PetscReal dt)
+    : cls(cls) {
 
-      WxLogStream debStrm = WxLogger::get("warpx-root.console")->getDebugStream();
+        WxLogger *log = WxLogger::get("apollo-root.console");
+        WxLogStream debStrm = log->getDebugStream();
+        WxLogStream infStrm = log->getInfoStream();
 
       // create time stepping scheme
       TSCreate(PETSC_COMM_WORLD, &solver);
       TSSetType(solver, TSSSP);
+//      TSRKSetType(solver, TSRK5F);
+//      TSSSPSetType(solver,TSSSPRK104);
 
       TSMonitorSet(solver,WxPetscTimeSteppingSolver::MonitorVTK, (void*) cls,NULL);
 
@@ -38,8 +42,13 @@ class WxPetscTimeSteppingSolver {
       TSSetDM(solver, dm);
       TSSetRHSFunction(solver,NULL,WxPetscTimeSteppingSolver::ComputeRHSforTS,(void*) cls);
 
-      TSSetDuration(solver,1000,tend);
+      TSSetDuration(solver,1.0e8,tend);
       TSSetInitialTimeStep(solver,tstart,dt);
+
+      const char *type;
+      TSGetType(solver, &type);
+      infStrm << "Time integration done using: " << type << "\n"
+                     << std::endl;
 
     }
 
@@ -47,12 +56,8 @@ class WxPetscTimeSteppingSolver {
  * Clean up memory when object is deleted
  */
     virtual ~WxPetscTimeSteppingSolver() {
-      // allows output of jacobian in Matlab format
-//       PetscViewerPushFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_MATLAB);
-//       MatView(jacobian, PETSC_VIEWER_STDOUT_WORLD);
 
       TSDestroy(&solver);
-      DMDestroy(&dm);
     }
 
 /**
@@ -121,8 +126,6 @@ class WxPetscTimeSteppingSolver {
 
 /** Pointer to service class */
     CLS *cls;
-/** Data Management */
-    DM dm;
 /** Solver context */
     TS solver;
 

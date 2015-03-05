@@ -136,6 +136,7 @@ WxpDG2Dscheme<REAL>::init(PetscReal newDt, Vec out)
     VecGetDM(out, &dm);
     PetscSection stateSection;
     DMGetDefaultSection(dm, &stateSection);
+    REAL maxSpeed = 0., xcc[4];
 
     PetscScalar *x;
 
@@ -173,14 +174,32 @@ WxpDG2Dscheme<REAL>::init(PetscReal newDt, Vec out)
             if(xc){
                 for(unsigned kk=0; kk<_meqn; kk++)
                     xc[node*_meqn+kk] = d[kk];}
+
+            // call Riemann problem solver to get flucuations
+            _eqnSet.riemann(0, xcc, xcc, d, d, 0, 0, _df, _wave, _sx, _amdq, _apdq);
+            _eqnSet.riemann(1, xcc, xcc, d, d, 0, 0, _df, _wave, _sy, _amdq, _apdq);
+
+            // compute the fastest propagating wave speed
+            REAL lambda = 0.;
+            for (unsigned mw=0; mw<_mwave; ++mw)
+                lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
+            lambda = sqrt(lambda);
+
+            // find maximum propagation speed in the entire domain
+            maxSpeed = dmax(maxSpeed,lambda);
         }
     }
     VecRestoreArray(out, &x);
 
     isInfinityOrNAN(out, "NAN/INF in initialization");
 
+    // Suggested initial dt
+    REAL timeStep = 2./3.*_cfl*_quad->dtscale2D()*(_quad->rMin()/maxSpeed);
+    this->setDt(timeStep);
+
     // Build filtering Matrix
     _quad->calculateFilter(_filterdiag,_filterMatrix);
+
 }
 
 template <typename REAL>
@@ -226,35 +245,22 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     int nM, nP;
     _quad->returnFmask(f_Fmask);
 
-    for(unsigned k=kStart; k<kEndInterior; k++)
+    for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
         PetscScalar *qVal, *qOut;
-        REAL normals[3*NfE], xc[4], geom[5], Fscale[NfE];
+        REAL xc[4], Fscale[NfE*NpF], nx[NfE*NpF], ny[NfE*NpF];
         int connect[2*NfE];
         REAL num_flux[NfE*NpF*_meqn];
         REAL fluxRHS[NpE*_meqn], volumeRHS[NpE*_meqn], Gflux[NpE*_meqn], Fflux[NpE*_meqn], SolQ[NpE*_meqn];
         for(unsigned ke=0; ke<NpE*_meqn; ke++)
             SolQ[ke] = 0.0;
 
-        DMPlexPointLocalRef(dm, k, u, &qVal);
-        // Element geometric factors
-        _quad->GeometricFactors2d(k,geom);
-        // Element face normals
-        _quad->Normals2d(k,normals);
-
-        // calculate scaling (face length)/(element Jacobian)
-        for(unsigned sc=0; sc<NfE; sc++)
-            Fscale[sc] = normals[sc*NfE+2]/geom[4];
+        DMPlexPointLocalRef(dm, kelem, u, &qVal);
+        // Element face Normals
+        _quad->FaceNodesNormals2d(kelem,nx,ny,Fscale);
 
         // Element to Element to Faces connection
-        _quad->ElementTOElementANDFace(k,connect);
-
-//        int k1 = connect[0];
-//        int f1 = connect[1];
-//        int k2 = connect[2];
-//        int f2 = connect[3];
-//        int k3 = connect[4];
-//        int f3 = connect[5];
+        _quad->ElementTOElementANDFace(kelem,connect);
 
         // =========== Compute n*Flux ===========
         for(unsigned F=0; F<NfE; F++)
@@ -276,7 +282,14 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                 if(connect[2*F+1]<0)
                 {
                     // Advection
-                    _qP[0] = _qM[0];
+                    //_qP[0] = _qM[0];
+
+                    REAL x = _quad->Xcoordinate(kelem,f_Fmask[F*NpF+nodes]);
+                    REAL y = _quad->Ycoordinate(kelem,f_Fmask[F*NpF+nodes]);
+                    REAL pi = 3.1416;
+
+                    _qP[0] = sin(pi*x-t)*sin(pi*y);
+
                     // Maxwell
 //                    _qP[0] = 0.0;
 //                    _qP[1] = 0.0;
@@ -289,8 +302,8 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 //                    REAL xo = 5.0, yo = 0.0, beta = 5.0, gamma = 1.4;
 //                    REAL u = 1., v = 0.;
 
-//                    REAL x = _quad->Xcoordinate(k,nodes);
-//                    REAL y = _quad->Ycoordinate(k,nodes);
+//                    REAL x = _quad->Xcoordinate(kelem,f_Fmask[F*NpF+nodes]);
+//                    REAL y = _quad->Ycoordinate(kelem,f_Fmask[F*NpF+nodes]);
 //                    REAL pi = 3.1416;
 
 //                    REAL xmut = x-u*t, ymvt = y-v*t;
@@ -340,14 +353,15 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                 maxSpeed = dmax(maxSpeed,lambda);
 
                 // Lax-Frederick fluxes
-                for(unsigned comp=0; comp<_meqn; comp++)
-                    num_flux[(F*NpF+nodes)*_meqn+comp] = 0.5*(normals[NfE*F]*(_fM[comp]+_fP[comp])
-                            + normals[NfE*F+1]*(_gM[comp]+_gP[comp]) + lambda*(_qM[comp]-_qP[comp]))*Fscale[F];
+                for(unsigned comp=0; comp<_meqn; comp++){
+                    REAL Fstar = 0.5*(nx[F*NpF+nodes]*(_fM[comp]+_fP[comp]) + ny[F*NpF+nodes]*(_gM[comp]+_gP[comp]) + lambda*(_qM[comp]-_qP[comp]));
+                    num_flux[(F*NpF+nodes)*_meqn+comp] = (nx[F*NpF+nodes]*_fM[comp]+ny[F*NpF+nodes]*_gM[comp]-Fstar)*Fscale[F*NpF+nodes];
+                }
             }
         }
 
         // LIFT Fluxes
-        _quad->LIFT_flux(k,fluxRHS,num_flux);
+        _quad->LIFT_flux(kelem,fluxRHS,num_flux);
 
         // =========== Compute Volume Integrals ===========
         for(unsigned nodes=0; nodes<NpE; nodes++)
@@ -363,19 +377,19 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                 Fflux[nodes*_meqn+comp] = _fM[comp];}
         }
         // Calculate Weak Derivatives
-        _quad->weakDericatives(k,volumeRHS,Fflux,Gflux);
+        _quad->weakDericatives(kelem,volumeRHS,Fflux,Gflux);
 
         // filter solution
         for(unsigned i=0; i<NpE;i++)
             for(unsigned j=0; j<NpE; j++)
                 for(unsigned me=0; me<_meqn; me++)
-                    SolQ[i*NpE+me] += _filterMatrix[i*NpE+j]*(volumeRHS[j*_meqn+me]-fluxRHS[j*_meqn+me]);
+                    SolQ[i*NpE+me] += _filterMatrix[i*NpE+j]*(-volumeRHS[j*_meqn+me]+fluxRHS[j*_meqn+me]);
 
         // add all contributions to conserved variable
-        DMPlexPointLocalRef(dm,k,ot,&rhs);
+        DMPlexPointLocalRef(dm,kelem,ot,&rhs);
         for(unsigned kne=0; kne<NpE*_meqn; kne++){
 //            rhs[kne] = SolQ[kne];
-            rhs[kne] = volumeRHS[kne]-fluxRHS[kne];
+            rhs[kne] = -volumeRHS[kne]+fluxRHS[kne];
         }
     }
 

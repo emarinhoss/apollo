@@ -196,6 +196,8 @@ class ApSolver : public WxSolverBase<REAL>
     REAL _tstart, _tend;
 /** First frame number */
     unsigned _startFrame;
+/** Current frame number */
+    int _frameNum;
 /** No of output files to write */
     unsigned _nout;
 /** Initial time-step to use */

@@ -39,9 +39,6 @@ WxpDGGeometry<REAL>::WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor)
 
     /* find element to element connections */
     _EtoV   = alloc_2d_c<int>(_Klocal,_Vlocal);
-    _FToV   = alloc_2d_c<int>(_NfE*_Klocal,_Vlocal);
-    _FToV_t = alloc_2d_c<int>(_Vlocal,_NfE*_Klocal);
-    _FToF   = alloc_2d_c<int>(_NfE*_Klocal,_NfE*_Klocal);
     _ETETF  = alloc_2d_c<int>(_Klocal,2*_NfE);
     FacePair2d(_dm);
 
@@ -66,9 +63,6 @@ WxpDGGeometry<REAL>::~WxpDGGeometry()
     delete [] _LIFT;
     delete [] _Fmask;
     free_2d_c(_EtoV, _Klocal, _Vlocal);
-    free_2d_c(_FToV, _NfE*_Klocal, _Vlocal);
-    free_2d_c(_FToV_t, _Vlocal, _NfE*_Klocal);
-    free_2d_c(_FToF, _NfE*_Klocal, _NfE*_Klocal);
     free_2d_c(_ETETF, _Klocal,2*_NfE);
     free_2d_c(_xcoord, _Klocal, _NpE);
     free_2d_c(_ycoord, _Klocal, _NpE);
@@ -78,6 +72,7 @@ template <typename REAL>
 void
 WxpDGGeometry<REAL>::FacePair2d(DM dm)
 {
+    Mat FtoV, FtoF;
     // Build the Element connectivity matrix, EtoV
     PetscInt eStart, eEnd, eEndInt;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
@@ -94,13 +89,10 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
     /** Build Face to Vertex connection, FtoV */
     /** ===================================== */
 
+    MatCreateSeqAIJ(PETSC_COMM_SELF,_NfE*_Klocal,_Vlocal,2,PETSC_NULL,&FtoV);
+
     // zero values
-    for(int K=0; K<_Klocal*_NfE; K++)
-        for(int V=0; V<_Vlocal; V++)
-        {
-            _FToV[K][V] = 0;
-            _FToV_t[V][K] = 0;
-        }
+    MatZeroEntries(FtoV);
 
     // Build connection
     int vn[3][2] = {{0,1},{1,2},{2,0}};
@@ -109,31 +101,23 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
         for(unsigned face=0; face<_NfE; face++)
         {
             for(unsigned node=0; node<2; node++)
-            {
-                _FToV[sk][_EtoV[elem][vn[face][node]]-1]   = 1;
-                _FToV_t[_EtoV[elem][vn[face][node]]-1][sk] = 1;
-            }
+                MatSetValue(FtoV, sk, _EtoV[elem][vn[face][node]]-1, 1, INSERT_VALUES);
             sk++;
         }
+    MatAssemblyBegin(FtoV, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(FtoV, MAT_FINAL_ASSEMBLY);
 
     /** ===================================== */
     /** Build Face to Face connection, FtoF */
     /** ===================================== */
 
-    // zero values
-    for(unsigned K=0; K<_NfE*_Klocal; K++)
-        for(unsigned V=0; V<_NfE*_Klocal; V++)
-            _FToF[K][V] = 0;
-
-    // Build connection
-    for(int K1=0; K1<_NfE*_Klocal; K1++)
-        for(int K2=0; K2<_NfE*_Klocal; K2++)
-            for(int V1=0; V1<_Vlocal; V1++)
-                _FToF[K1][K2] += _FToV[K1][V1]*_FToV_t[V1][K2];
+    MatMatTransposeMult(FtoV,FtoV,MAT_INITIAL_MATRIX,PETSC_DEFAULT,&FtoF);
 
     // substract diagonal contribution
     for(unsigned K1=0; K1<_NfE*_Klocal; K1++)
-        _FToF[K1][K1] += -2;
+        MatSetValue(FtoF, K1, K1, -2., ADD_VALUES);
+    MatAssemblyBegin(FtoF, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(FtoF, MAT_FINAL_ASSEMBLY);
 
     /** =====================================
      * Build Element to Element to Face connection, _ETETF.
@@ -148,20 +132,27 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
      *     k   | e1 | f1 | ....
      *
      * Face 0 of element k is connect to element e1 at face f1 (of element e1).
-     * If the values of values of e1 and f1 are negative (-1), this face connects to
+     * If the values of e1 and f1 are negative (-1), this face connects to
      * physical boundary and a boundary condition must be applied at this face.
      * ===================================== */
 
+    PetscInt ncols;
+    const PetscInt    *cols;
+    const PetscScalar *vals;
     //
     int f1[_NfE*_Klocal], f2[_NfE*_Klocal];
     _totNFace = 0;
     for(unsigned K1=0; K1<_NfE*_Klocal; K1++)
-        for(unsigned K2=0; K2<_NfE*_Klocal; K2++)
-            if(_FToF[K1][K2]==2)
+    {
+        MatGetRow(FtoF,K1,&ncols,&cols,&vals);
+        for(unsigned K2=0; K2<ncols; K2++)
+            if(vals[K2]==2.)
             {
                 f1[_totNFace] = K1;
-                f2[_totNFace++] = K2;
+                f2[_totNFace++] = cols[K2];
             }
+        MatRestoreRow(FtoF,K1,&ncols,&cols,&vals);
+    }
 
     int elem1[_totNFace], elem2[_totNFace], face1[_totNFace], face2[_totNFace];
     for(unsigned face=0; face<_totNFace; face++)
@@ -187,6 +178,8 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
         _ETETF[elem1[kk]][2*face1[kk]+1] = face2[kk];
     }
 
+    MatDestroy(&FtoV);
+    MatDestroy(&FtoF);
 }
 
 template <typename REAL>
@@ -244,102 +237,102 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
 
 }
 
+//template <typename REAL>
+//void
+//WxpDGGeometry<REAL>::GeometricFactors2d(int k, REAL geom[])
+//{
+//    REAL x1 = _xcoord[k][_Fmask[0*_NpF]], y1 =  _ycoord[k][_Fmask[0*_NpF]];
+//    REAL x2 = _xcoord[k][_Fmask[1*_NpF]], y2 =  _ycoord[k][_Fmask[1*_NpF]];
+//    REAL x3 = _xcoord[k][_Fmask[2*_NpF]], y3 =  _ycoord[k][_Fmask[2*_NpF]];
+
+//    REAL dxdr = (x2-x1)/2,  dxds = (x3-x1)/2;
+//    REAL dydr = (y2-y1)/2,  dyds = (y3-y1)/2;
+
+//    /* Jacobian of coordinate mapping */
+//    REAL J = -dxds*dydr + dxdr*dyds;
+
+//    if(J<=0){
+//        WxLogger *l = WxLogger::get("apollo-root.console");
+//        WxLogStream errStrm = l->getErrorStream();
+//        errStrm << "Error: Jacobian determinant for element " << k << " is " << J;
+//        exit(1); // abort execution
+//    }
+
+//    /* inverted Jacobian matrix for coordinate mapping */
+//    geom[0] =  dyds/(J);
+//    geom[1] = -dydr/(J);
+//    geom[2] = -dxds/(J);
+//    geom[3] =  dxdr/(J);
+//    geom[4] =  J;
+//}
+
+//template <typename REAL>
+//void
+//WxpDGGeometry<REAL>::GeomFacs2d(int k, REAL *rx, REAL *sx, REAL *ry, REAL *sy, REAL *J)
+//{
+//    REAL x[_NpE], y[_NpE];
+//    REAL xr[_NpE], yr[_NpE], xs[_NpE], ys[_NpE];
+
+//    for(unsigned n=0; n<_NpE; n++){
+//        x[n] = _xcoord[k][n];
+//        y[n] = _ycoord[k][n];
+//        xr[n]=0.0; yr[n]=0.0; xs[n]=0.0; ys[n]=0.0; J[n]=0.0;
+//        rx[n]=0.0; ry[n]=0.0; sx[n]=0.0; sy[n]=0.0;
+//    }
+
+//    // Do matrix vector products
+//    for(unsigned m=0; m<_NpE; m++)
+//        for(unsigned n=0; n<_NpE; n++){
+//            xr[m] += _Dr[m*_NpE+n]*x[n];
+//            xs[m] += _Ds[m*_NpE+n]*x[n];
+//            yr[m] += _Dr[m*_NpE+n]*y[n];
+//            ys[m] += _Ds[m*_NpE+n]*y[n];
+//        }
+
+//    for(unsigned m=0; m<_NpE; m++){
+//        J[m] = -xs[m]*yr[m]+xr[m]*ys[m];
+//        rx[m]=  ys[m]/J[m];
+//        sx[m]= -yr[m]/J[m];
+//        ry[m]= -xs[m]/J[m];
+//        sy[m]=  xr[m]/J[m];
+//    }
+//}
+
+//template <typename REAL>
+//void
+//WxpDGGeometry<REAL>::Normals2d(int k, REAL norms[])
+//{
+//    int f;
+
+//    REAL x1 = _xcoord[k][_Fmask[0*_NpF]], y1 = _ycoord[k][_Fmask[0*_NpF]];
+//    REAL x2 = _xcoord[k][_Fmask[1*_NpF]], y2 = _ycoord[k][_Fmask[1*_NpF]];
+//    REAL x3 = _xcoord[k][_Fmask[2*_NpF]], y3 = _ycoord[k][_Fmask[2*_NpF]];
+
+//    norms[0] =  (y2-y1);  norms[1] = -(x2-x1);
+//    norms[3] =  (y3-y2);  norms[4] = -(x3-x2);
+//    norms[6] =  (y1-y3);  norms[7] = -(x1-x3);
+
+//    for(f=0;f<_NfE;++f)
+//    {
+//      REAL sJ = sqrt(norms[_NfE*f]*norms[_NfE*f]+norms[_NfE*f+1]*norms[_NfE*f+1]);
+//      if(sJ<=0){
+//          WxLogger *l = WxLogger::get("apollo-root.console");
+//          WxLogStream errStrm = l->getErrorStream();
+//          errStrm << "Error: Edge length of " << sJ << " found in element " << k;
+//          exit(1); // abort execution
+//      }
+//      norms[_NfE*f]   /= sJ;
+//      norms[_NfE*f+1] /= sJ;
+//      norms[_NfE*f+2] = sJ/2.;
+//    }
+//}
+
 template <typename REAL>
 void
-WxpDGGeometry<REAL>::GeometricFactors2d(int k, REAL geom[])
-{
-    REAL x1 = _xcoord[k][0], y1 =  _ycoord[k][0];
-    REAL x2 = _xcoord[k][1], y2 =  _ycoord[k][1];
-    REAL x3 = _xcoord[k][2], y3 =  _ycoord[k][2];
-
-    REAL dxdr = (x2-x1)/2,  dxds = (x3-x1)/2;
-    REAL dydr = (y2-y1)/2,  dyds = (y3-y1)/2;
-
-    /* Jacobian of coordinate mapping */
-    REAL J = -dxds*dydr + dxdr*dyds;
-
-    if(J<=0){
-        WxLogger *l = WxLogger::get("apollo-root.console");
-        WxLogStream errStrm = l->getErrorStream();
-        errStrm << "Error: Jacobian determinant for element " << k << " is " << J;
-        exit(1); // abort execution
-    }
-
-    /* inverted Jacobian matrix for coordinate mapping */
-    geom[0] =  dyds/(J);
-    geom[1] = -dydr/(J);
-    geom[2] = -dxds/(J);
-    geom[3] =  dxdr/(J);
-    geom[4] =  J;
-}
-
-template <typename REAL>
-void
-WxpDGGeometry<REAL>::GeomFacs2d(int k, REAL *rx, REAL *sx, REAL *ry, REAL *sy, REAL *J)
+WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *Fscale)
 {
     REAL x[_NpE], y[_NpE];
-    REAL xr[_NpE], yr[_NpE], xs[_NpE], ys[_NpE];
-
-    for(unsigned n=0; n<_NpE; n++){
-        x[n] = _xcoord[k][n];
-        y[n] = _ycoord[k][n];
-        xr[n]=0.0; yr[n]=0.0; xs[n]=0.0; ys[n]=0.0; J[n]=0.0;
-        rx[n]=0.0; ry[n]=0.0; sx[n]=0.0; sy[n]=0.0;
-    }
-
-    // Do matrix vector products
-    for(unsigned m=0; m<_NpE; m++)
-        for(unsigned n=0; n<_NpE; n++){
-            xr[m] += _Dr[m*_NpE+n]*x[n];
-            xs[m] += _Ds[m*_NpE+n]*x[n];
-            yr[m] += _Dr[m*_NpE+n]*y[n];
-            ys[m] += _Ds[m*_NpE+n]*y[n];
-        }
-
-    for(unsigned m=0; m<_NpE; m++){
-        J[m] = -xs[m]*yr[m]+xr[m]*ys[m];
-        rx[m]=  ys[m]/J[m];
-        sx[m]= -yr[m]/J[m];
-        ry[m]= -xs[m]/J[m];
-        sy[m]=  xr[m]/J[m];
-    }
-}
-
-template <typename REAL>
-void
-WxpDGGeometry<REAL>::Normals2d(int k, REAL norms[])
-{
-    int f;
-
-    REAL x1 = _xcoord[k][0], y1 = _ycoord[k][0];
-    REAL x2 = _xcoord[k][1], y2 = _ycoord[k][1];
-    REAL x3 = _xcoord[k][2], y3 = _ycoord[k][2];
-
-    norms[0] =  (y2-y1);  norms[1] = -(x2-x1);
-    norms[3] =  (y3-y2);  norms[4] = -(x3-x2);
-    norms[6] =  (y1-y3);  norms[7] = -(x1-x3);
-
-    for(f=0;f<_NfE;++f)
-    {
-      REAL sJ = sqrt(norms[_NfE*f]*norms[_NfE*f]+norms[_NfE*f+1]*norms[_NfE*f+1]);
-      if(sJ<=0){
-          WxLogger *l = WxLogger::get("apollo-root.console");
-          WxLogStream errStrm = l->getErrorStream();
-          errStrm << "Error: Edge length of " << sJ << " found in element " << k;
-          exit(1); // abort execution
-      }
-      norms[_NfE*f]   /= sJ;
-      norms[_NfE*f+1] /= sJ;
-      norms[_NfE*f+2] = sJ/2.;
-    }
-}
-
-template <typename REAL>
-void
-WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REAL *Fscale)
-{
-    REAL x[_NpE], y[_NpE];
-    REAL xr[_NpE], yr[_NpE], xs[_NpE], ys[_NpE], J[_NpE];
+    REAL xr[_NpE], yr[_NpE], xs[_NpE], ys[_NpE], J[_NpE], sJ[_NpF*_NfE];
     int Fmask[_NpF*_NfE];
 
     returnFmask(Fmask);
@@ -360,7 +353,15 @@ WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REA
         }
 
     for(unsigned m=0; m<_NpE; m++)
+    {
             J[m] = -xs[m]*yr[m]+xr[m]*ys[m];
+            if(J[m]<=0){
+                WxLogger *l = WxLogger::get("apollo-root.console");
+                WxLogStream errStrm = l->getErrorStream();
+                errStrm << "Error: Jacobian determinant for element " << k << " is " << J[m];
+                exit(1); // abort execution
+            }
+    }
 
     // Face 1
     for(unsigned fid=0; fid<_NpF; fid++)
@@ -386,9 +387,14 @@ WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *sJ, REA
     for(unsigned fid=0; fid<_NpF*_NfE; fid++)
     {
         sJ[fid]  = sqrt(nx[fid]*nx[fid]+ny[fid]*ny[fid]);
+        if(sJ[fid]<=0){
+                  WxLogger *l = WxLogger::get("apollo-root.console");
+                  WxLogStream errStrm = l->getErrorStream();
+                  errStrm << "Error: Edge length of " << sJ[fid] << " found in element " << k;
+                  exit(1); // abort execution
+              }
         nx[fid] /= sJ[fid];
         ny[fid] /= sJ[fid];
-
         Fscale[fid] = sJ[fid]/J[Fmask[fid]];
     }
 
@@ -443,10 +449,10 @@ WxpDGGeometry<REAL>::weakDericatives(unsigned K, REAL *DxnDy, REAL *Fflux, REAL 
     for(unsigned nk=0; nk<_NpE; nk++)
         for(unsigned mk=0; mk<_NpE; mk++)
             for(unsigned comp=0; comp<_meqn; comp++)
-                DxnDy[nk*_meqn+comp] += rx[nk]*_Drw[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
-                                        sx[nk]*_Dsw[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
-                                        ry[nk]*_Drw[nk*_NpE+mk]*Gflux[mk*_meqn+comp]+
-                                        sy[nk]*_Dsw[nk*_NpE+mk]*Gflux[mk*_meqn+comp];
+                DxnDy[nk*_meqn+comp] += rx[nk]*_Dr[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
+                                        sx[nk]*_Ds[nk*_NpE+mk]*Fflux[mk*_meqn+comp]+
+                                        ry[nk]*_Dr[nk*_NpE+mk]*Gflux[mk*_meqn+comp]+
+                                        sy[nk]*_Ds[nk*_NpE+mk]*Gflux[mk*_meqn+comp];
 
 }
 

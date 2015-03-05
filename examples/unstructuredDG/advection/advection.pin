@@ -21,11 +21,12 @@ P_ORDER = 1
    Kind = comboSolver
 
    Time = [0.0, 0.1] # start, end times
-   Output_files = 1 # write output file after every step
+   Output_files = 1 # write output file every time-step
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    #Gridname = 'test.msh'
-   Gridname = 'square.msh'
+   Gridname = 'square_fine.msh'
+   #Gridname = 'matlabMesh.msh'
    NumFields = 1
    
    # Check the partition
@@ -36,7 +37,7 @@ P_ORDER = 1
 	Equations = [advection]
 	
 	polynomialOrder = P_ORDER
-	cfl = 1.0/((2.*(P_ORDER+1)-1))
+	cfl = 1.0/(2.*(P_ORDER+1)-1)
 
 	# Filter
 	filterOrder = P_ORDER
@@ -56,8 +57,9 @@ P_ORDER = 1
        ##progn = ["pulse = exp(-10.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))"]
        ##progn = ["pulse = 1.0"]
        ##progn = ["pulse = x"]
-       progn = ["r = abs(x)",\
-	            "pulse = if(r>pi/8.,0.0,sin(pi*x))"]
+       progn = ["pulse = sin(pi*x)*sin(pi*y)"]
+       ##progn = ["r = abs(x)",\
+	   ##         "pulse = if(r>0.5,0.0,sin(2*pi*x))"]
 		
 	</InitialCondition>
 	
@@ -66,7 +68,7 @@ P_ORDER = 1
 		Kind = advectionEqn
 		
 		ux = 1.0
-		##uy = 1.0
+		uy = 0.0
 	</advection>
 	
    </hyperbolic>
