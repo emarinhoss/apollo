@@ -25,7 +25,7 @@ P_ORDER = 1
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    #Gridname = 'test.msh'
-   Gridname = 'square_fine.msh'
+   Gridname = 'square_refined.msh'
    #Gridname = 'matlabMesh.msh'
    NumFields = 1
    

@@ -73,16 +73,19 @@ void
 WxpDGGeometry<REAL>::FacePair2d(DM dm)
 {
     Mat FtoV, FtoF;
+    DM unint;
     // Build the Element connectivity matrix, EtoV
     PetscInt eStart, eEnd, eEndInt;
-    DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
+    DMPlexUninterpolate(dm,&unint);
+    DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
     DMPlexGetHybridBounds(dm, &eEndInt, NULL, NULL, NULL);
     for(PetscInt K=eStart; K<eEndInt; K++)
     {
         const PetscInt *vertex;
-        DMPlexGetCone(dm, K, &vertex);
-        for(unsigned vert=0; vert<3; vert++)
-            _EtoV[K][vert] = vertex[vert]-_Klocal+1;
+        DMPlexGetCone(unint, K, &vertex);
+        for(unsigned vert=0; vert<3; vert++){
+            int AA = vertex[vert]-_Klocal+1;
+            _EtoV[K][vert] = vertex[vert]-_Klocal+1;}
     }
 
     /** ===================================== */
@@ -187,6 +190,7 @@ void
 WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
 {
     Vec coordinates;
+    DM unint;
     PetscSection coordSection, defaultSec;
     PetscScalar *coords;
     const PetscInt *pcone;
@@ -200,6 +204,7 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
     PetscInt eStart, eEnd, eEndInt;
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
     DMPlexGetHybridBounds(dm, &eEndInt, NULL, NULL, NULL);
+    DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
     for(unsigned K=eStart; K<eEndInt; K++)
@@ -207,13 +212,13 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
         // coords is returned as coords[x1,y1,x2,y2,x3,y3]
-        DMPlexGetCone(dm,K,&pcone);
-        REAL p1x = coords[2*(pcone[0]-eEndInt)];
-        REAL p1y = coords[2*(pcone[0]-eEndInt)+1];
-        REAL p2x = coords[2*(pcone[1]-eEndInt)];
-        REAL p2y = coords[2*(pcone[1]-eEndInt)+1];
-        REAL p3x = coords[2*(pcone[2]-eEndInt)];
-        REAL p3y = coords[2*(pcone[2]-eEndInt)+1];
+        DMPlexGetCone(unint,K,&pcone);
+        REAL p1x = coords[2*(pcone[0]-eEnd)];
+        REAL p1y = coords[2*(pcone[0]-eEnd)+1];
+        REAL p2x = coords[2*(pcone[1]-eEnd)];
+        REAL p2y = coords[2*(pcone[1]-eEnd)+1];
+        REAL p3x = coords[2*(pcone[2]-eEnd)];
+        REAL p3y = coords[2*(pcone[2]-eEnd)+1];
 
         for(unsigned node=0; node<_NpE; node++)
         {
