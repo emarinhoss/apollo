@@ -307,17 +307,17 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     DM dmDist;
     debStrm << "Partitioning the domain using --> Metis "  << std::endl;
     //debStrm << "Partitioning the domain using --> " << _partitioner  << std::endl;
-    DMPlexDistribute(*dm, "metis", 1, NULL, &dmDist);
+    DMPlexDistribute(*dm,"metis", 1, NULL, &dmDist);
     if (dmDist){
         DMDestroy(dm);
         *dm   = dmDist;}
     // get any additional parameters for DM from the command line
     DMSetFromOptions(*dm);
 
-    DM gdm;
-    DMPlexConstructGhostCells(*dm, NULL, NULL, &gdm);
-    DMDestroy(dm);
-    *dm = gdm;
+//    DM gdm;
+//    DMPlexConstructGhostCells(*dm, NULL, NULL, &gdm);
+//    DMDestroy(dm);
+//    *dm = gdm;
 
     // SetUp the data structures
     DMSetUp(*dm);

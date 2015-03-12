@@ -309,7 +309,6 @@ rpt(unsigned td, unsigned d, REAL *ql, REAL* qr, REAL *amdq, REAL* bmamdq, REAL*
   REAL vel[3];
   unsigned mu=1,  mv=2,  mw=3;
   unsigned mmu=1, mmv=2, mmw=3;
-  int* idx;
 
 
   // depending on direction solve set velocity components. This is

@@ -12,8 +12,9 @@ sources = [
 	'apsubsolverstep.cc',
         'apdomaindecompcheck.cc',
         'apsubsolver_register.cc',
-        'apfvm2dscheme.cc',
+        #'apfvm2dscheme.cc',
         'wxpgd2dscheme.cc',
+        'wxnodaldg2dmethod.cc',
            ]
 
 ##

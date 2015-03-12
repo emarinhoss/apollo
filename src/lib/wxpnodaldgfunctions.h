@@ -1,6 +1,10 @@
 #ifndef WXPNODALDGFUNCTIONS_H
 #define WXPNODALDGFUNCTIONS_H
 
+#include <wxlogger.h>
+#include <wxlogstream.h>
+#include "wxmath.h"
+
 template<typename REAL>
 void
 dataN01(int N, REAL *pr, REAL *ps, REAL *pDr, REAL *pDs, REAL *pDrw, REAL *pDsw, REAL *pVand, REAL *pIVand, REAL *pLIFT, int *pFmask)
@@ -104,4 +108,58 @@ nodalDGfunctions(unsigned N, REAL *p_r, REAL *p_s, REAL *p_Dr, REAL *p_Ds, REAL 
         break;
     }
 }
+
+template<typename REAL>
+void
+polyms_Ord_1(int po, REAL *pr, REAL *ps, int *pFmask)
+{
+    REAL p_r[3] = {-1. , 1 ,-1 };
+    REAL p_s[3] = {-1 ,-1 , 1 };
+    int p_Fmask[6] = {0,1,1,2,2,0};
+
+    for(unsigned k=0; k<3; k++)
+    {
+        pr[k] = p_r[k];
+        ps[k] = p_s[k];
+    }
+
+    for(unsigned k=0; k<6; k++)
+        pFmask[k] = p_Fmask[k];
+
+}
+
+template<typename REAL>
+void
+polyms_Ord_2(int po, REAL *pr, REAL *ps, int *pFmask)
+{
+    REAL p_r[6] = {                -1 ,                 0 ,                 1 ,                -1 ,                 0 ,                -1 };
+    REAL p_s[6] = {               -1 ,                -1 ,                -1 ,                 0 ,                 0 ,                 1 };
+    int p_Fmask[9] = {0 , 1 , 2 , 2 , 4 , 5 ,0 , 3 , 5 };
+
+    for(unsigned k=0; k<(po+1)*(po+2)/2; k++)
+    {
+        pr[k] = p_r[k];
+        ps[k] = p_s[k];
+    }
+
+    for(unsigned k=0; k<3*(po+1); k++)
+        pFmask[k] = p_Fmask[k];
+
+}
+
+template<typename REAL>
+void
+nodalNaturalCoordinates(unsigned N, REAL *pr, REAL *ps, int *pFmask)
+{
+    switch (N) {
+    case 1: polyms_Ord_1(N,pr,ps,pFmask); break;
+    case 2: polyms_Ord_2(N,pr,ps,pFmask); break;
+    default:
+        WxLogger *log = WxLogger::get("apollo-root.console");
+        WxLogStream infStrm = log->getInfoStream();
+        infStrm << "** The polynomial order selected " << N << " is not valid. Max N should be 2." << std::endl;
+        break;
+    }
+}
+
 #endif // WXPNODALDGFUNCTIONS_H

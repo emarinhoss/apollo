@@ -300,6 +300,73 @@ lagrange_p_d(int n, REAL x, int k)
   return p2;
 }
 
+/** Jacobi polynomials */
+template<class REAL>
+REAL
+JacobiP(REAL x, REAL alpha, REAL beta, int N)
+//---------------------------------------------------------
+{
+  // function [P] = JacobiP(x,alpha,beta,N)
+  // Purpose: Evaluate Jacobi Polynomial of type (alpha,beta) > -1
+  //          (alpha+beta <> -1) at point x for order N and
+  //          returns P
+  // Note   : They are normalized to be orthonormal.
+
+  REAL aold=0.0, anew=0.0, bnew=0.0, h1=0.0;
+  REAL gamma0=0.0, gamma1=0.0;
+  REAL ab=alpha+beta, ab1=alpha+beta+1.0, a1=alpha+1.0, b1=beta+1.0;
+
+  REAL P, PL0, PL1, PL2, prow, x_bnew;
+
+  // Initial values P_0(x) and P_1(x)
+  gamma0 = pow(2.0,ab1)/(ab1)*tgamma(a1)*tgamma(b1)/tgamma(ab1);
+
+  if (0==N) { P   = 1.0/sqrt(gamma0);  return P;
+  } else { PL0 = 1.0/sqrt(gamma0); }
+
+  gamma1 = (a1)*(b1)/(ab+3.0)*gamma0;
+  prow = ((ab+2.0)*x/2.0 + (alpha-beta)/2.0) / sqrt(gamma1);
+
+  if (1==N) { P   = prow; return P;
+  } else { PL1 = prow; }
+
+  // Repeat value in recurrence.
+  aold = 2.0/(2.0+ab)*sqrt((a1)*(b1)/(ab+3.0));
+
+  // Forward recurrence using the symmetry of the recurrence.
+  for (int i=1; i<=(N-1); ++i) {
+    h1 = 2.0*i+ab;
+    anew = 2.0/(h1+2.0)*sqrt((i+1)*(i+ab1)*(i+a1)*(i+b1)/(h1+1.0)/(h1+3.0));
+    bnew = - (alpha*alpha-beta*beta)/h1/(h1+2.0);
+    x_bnew = x-bnew;
+    PL2 = 1.0/anew*( -aold*PL0 + x_bnew*PL1);
+    aold =anew; PL0 = PL1; PL1 = PL2;
+  }
+
+  P = PL2;
+  return P;
+}
+
+/** Jacobi polynomials */
+template<class REAL>
+REAL
+GradJacobiP(REAL z,REAL alpha,REAL beta,int N)
+//---------------------------------------------------------
+{
+  // function [dP] = GradJacobiP(z, alpha, beta, N);
+  // Purpose: Evaluate the derivative of the orthonormal Jacobi
+  //	   polynomial of type (alpha,beta)>-1, at point x
+  //          for order N and returns dP
+
+  REAL dP;
+  if (0 == N) {
+    dP=0.0;
+  } else {
+    dP = sqrt(N*(N+alpha+beta+1))*JacobiP(z,alpha+1,beta+1, N-1);
+  }
+  return dP;
+}
+
 
 template<class REAL>
 REAL

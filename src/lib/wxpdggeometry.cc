@@ -84,7 +84,6 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
         for(unsigned vert=0; vert<3; vert++){
-            int AA = vertex[vert]-_Klocal+1;
             _EtoV[K][vert] = vertex[vert]-_Klocal+1;}
     }
 

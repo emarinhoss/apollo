@@ -10,6 +10,8 @@ Import('env')
 sources = [
         'wxfunction_register.cc',
         'wxpdggeometry.cc',
+        'wxnodaldggeometry2d.cc',
+        'wxcubature2d.cc',
 	'wxobject.cc',
 	'wxcrypt.cc',
 	'wxcryptset.cc',
