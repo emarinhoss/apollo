@@ -7,6 +7,7 @@ Import('env')
 ##
 incs = [
         '#lib',
+        '#lapack_lite',
         '#solvers',
 	'#subsolvers',
         '#hyper',
@@ -21,6 +22,7 @@ env.Append(CPPPATH = incs)
 objs = []
 objs.append(env.SConscript('xapollo/SConscript', exports='env') )
 objs.append(env.SConscript('lib/SConscript', exports='env') )
+objs.append(env.SConscript('lapack_lite/SConscript', exports='env') )
 objs.append(env.SConscript('solvers/SConscript', exports='env') )
 objs.append(env.SConscript('subsolvers/SConscript', exports='env') )
 objs.append(env.SConscript('hyper/SConscript', exports='env') )

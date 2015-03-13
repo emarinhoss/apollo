@@ -37,6 +37,7 @@ vars.AddVariables(
     ('TAU_OPTIONS', 'Additional options to pass to TAU', ''),
 	('mpi_base', 'Base directory for MPI package',''),
 	('petsc_base', 'Base directory for PETSC package',''),
+        ('blas_base', 'Base directory for Blas package',''),
 	('petsc_includedir', 'include directory for PETSC package',''),
 	('petsc_libdir', 'Library directory for PETSC package',''),
         ('boost_base', 'Base directory for BOOST package',''),
@@ -64,7 +65,8 @@ if not warpMConstructionEnv.GetOption('clean'):
 	# setup build for external libraries
 	SConscript('buildconf/config_mpi.py',     exports='warpMConstructionEnv')
 	SConscript('buildconf/config_petsc.py',   exports='warpMConstructionEnv')
-        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
+#        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
+        SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
 
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))

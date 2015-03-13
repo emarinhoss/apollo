@@ -1,0 +1,35 @@
+## -*- python -*-
+
+##
+# Build a "lite" version of LAPACK. Optimized version of LAPACK should
+# be used if available.
+##
+
+Import('env')
+
+# name of library built with code in this file
+wxlibname = 'lapackl'
+
+# source files in lib
+sources = ['blas_lite.c',
+           'dlapack_lite.c',
+           'zlapack_lite.c',
+           'f2c_lite.c',
+           ]
+
+##
+# compile sources and add them to list of objects built
+##
+objs = []
+for s in sources:
+    o = env.Object(s)
+    objs.append(o)
+
+##
+# Archive into library
+##
+
+env.Library(wxlibname, objs)
+env.AppendUnique(LIBPATH='build-debug/lapack_lite')
+Return('objs')
+
