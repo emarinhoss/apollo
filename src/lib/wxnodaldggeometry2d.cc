@@ -41,8 +41,8 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     //MatView(_IVand,PETSC_VIEWER_STDOUT_WORLD);
     DifferentiationMatrices2D(_polyOr,_NpE,_r,_s,_IVand,&_Dr,&_Ds);
     infStrm << "** done -- Creating Differentiation Matrices **" << std::endl;
-    MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
-    MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
+    //MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
+    //MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
 
     // Calculate inverse of mass matrix
     Mat dummy;

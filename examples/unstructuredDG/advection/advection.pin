@@ -25,14 +25,14 @@ P_ORDER = 1
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    #Gridname = 'test.msh'
-   Gridname = 'square_refined.msh'
+   Gridname = 'square_fine.msh'
    #Gridname = 'matlabMesh.msh'
    NumFields = 1
    
    # Check the partition
    <hyperbolic>
 	Type = ApSubSolver
-	Kind = dg2dscheme
+	Kind = nodalDG2d
 	
 	Equations = [advection]
 	

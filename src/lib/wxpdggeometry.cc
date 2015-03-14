@@ -79,7 +79,7 @@ WxpDGGeometry<REAL>::FacePair2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
     DMPlexGetHybridBounds(dm, &eEndInt, NULL, NULL, NULL);
-    for(PetscInt K=eStart; K<eEndInt; K++)
+    for(PetscInt K=eStart; K<eEnd; K++)
     {
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
@@ -206,7 +206,7 @@ WxpDGGeometry<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
-    for(unsigned K=eStart; K<eEndInt; K++)
+    for(unsigned K=eStart; K<eEnd; K++)
     {
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);

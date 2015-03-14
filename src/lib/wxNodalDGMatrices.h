@@ -159,8 +159,8 @@ void DifferentiationMatrices2D
 
 
   GradVandermonde2D(N, Nr, r, s, Vr, Vs);
-  MatView(Vr,PETSC_VIEWER_STDOUT_WORLD);
-  MatView(Vs,PETSC_VIEWER_STDOUT_WORLD);
+  //MatView(Vr,PETSC_VIEWER_STDOUT_WORLD);
+  //MatView(Vs,PETSC_VIEWER_STDOUT_WORLD);
   MatMatMult(Vr,IVand,MAT_INITIAL_MATRIX,PETSC_DEFAULT,Dr);
   MatMatMult(Vs,IVand,MAT_INITIAL_MATRIX,PETSC_DEFAULT,Ds);
 }

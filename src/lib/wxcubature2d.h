@@ -52,10 +52,10 @@ class WxCubature2d
 
   private:
 /** create amatrix that takes into account the number of equations in the system */
-    void numEqnMatExpand(int N, Mat A, Mat B);
+    void numEqnMatExpand(int N, Mat A, Mat *B);
 
 /** create amatrix that takes into account the number of equations in the system */
-    void numEqnVecExpand(Vec A, Vec *B);
+    void numEqnVecExpand(Vec *A);
 
 /** calculate the geometric factor */
     void geometricFactors2D(Vec xcoords, Vec ycoords, Vec *rx, Vec *sx, Vec *ry, Vec *sy, Vec *J);
@@ -65,6 +65,13 @@ class WxCubature2d
 
 /** Calculate the matrix transpose of a given matrix */
     void MatrixTranspose(Mat A, Mat *A_trans);
+
+/** Matrix Vector multiplication. Petsc has the MatMult function, however
+ * this functions is not well behaved for matrices that are not square
+ *
+ * Ax = b
+ */
+    void MatrixVectorMult(Mat A, Vec x, Vec *y);
 
 /** No of equations */
     unsigned _meqn;

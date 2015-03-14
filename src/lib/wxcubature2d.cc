@@ -142,7 +142,7 @@ WxCubature2d<REAL>::~WxCubature2d()
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::numEqnMatExpand(int N, Mat A, Mat B)
+WxCubature2d<REAL>::numEqnMatExpand(int N, Mat A, Mat *B)
 {
     PetscInt ncols;
     const PetscInt    *cols;
@@ -153,28 +153,35 @@ WxCubature2d<REAL>::numEqnMatExpand(int N, Mat A, Mat B)
         MatGetRow(A,kx,&ncols,&cols,&vals);
         for(unsigned mx=0; mx<ncols; mx++)
             for(unsigned nx=0; nx<_meqn; nx++)
-                MatSetValue(B, kx*_meqn+nx, cols[mx]*_meqn+nx, vals[mx], INSERT_VALUES);
+                MatSetValue(*B, kx*_meqn+nx, cols[mx]*_meqn+nx, vals[mx], INSERT_VALUES);
     }
 
-    MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
+    MatAssemblyBegin(*B, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(*B, MAT_FINAL_ASSEMBLY);
 }
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::numEqnVecExpand(Vec A, Vec *B)
+WxCubature2d<REAL>::numEqnVecExpand(Vec *A)
 {
+    Vec BB;
     PetscScalar *xx, *yy;
     PetscInt size;
+    VecGetSize(*A,&size);
 
-    VecGetSize(A,&size);
-    VecGetArray(A,&xx);
-    VecGetArray(*B,&yy);
+    VecCreateSeq(PETSC_COMM_SELF,size*_meqn,&BB);
+
+    VecGetArray(*A,&xx);
+    VecGetArray(BB,&yy);
     for(unsigned aa=0; aa<size; aa++)
         for(unsigned bb=0; bb<_meqn; bb++)
             yy[aa*_meqn+bb] = xx[aa];
-    VecRestoreArray(A,&xx);
-    VecRestoreArray(*B,&yy);
+    VecRestoreArray(*A,&xx);
+    VecRestoreArray(BB,&yy);
+
+    //VecDestroy(A);
+    *A = BB;
+    VecDestroy(&BB);
 }
 
 template <typename REAL>
@@ -183,8 +190,8 @@ WxCubature2d<REAL>::interpolatedTOCubatures(Vec input, Vec output)
 {
     Mat intExp;
     MatCreateSeqAIJ(PETSC_COMM_SELF,_pts*_meqn,_NPE*_meqn,_NPE,PETSC_NULL,&intExp);
-    numEqnMatExpand(_pts,V,intExp);
-    MatMult(intExp,input,output);
+    numEqnMatExpand(_pts,V,&intExp);
+    MatrixVectorMult(intExp,input,&output);
 }
 
 template <typename REAL>
@@ -193,21 +200,18 @@ WxCubature2d<REAL>::evaluatedVolumeIntegrals(Vec xcoords, Vec ycoords, Vec Fflux
 {
     // calculate geometric factors
     Vec rx, sx, ry, sy, J;
-    Vec rx_e, sx_e, ry_e, sy_e, J_e;
 
+    VecCreateSeq(PETSC_COMM_SELF,_pts,&rx);
+    VecDuplicate(rx,&sx);
+    VecDuplicate(rx,&ry);
+    VecDuplicate(rx,&sy);
+    VecDuplicate(rx,&J);
     geometricFactors2D(xcoords,ycoords,&rx,&sx,&ry,&sy,&J);
 
-    // expand vectors to take into account the number of equations
-    VecCreateSeq(PETSC_COMM_SELF,_pts*_meqn,&rx_e);
-    VecDuplicate(rx_e,&sx_e);
-    VecDuplicate(rx_e,&ry_e);
-    VecDuplicate(rx_e,&sy_e);
-    VecDuplicate(rx_e,&J_e);
-
-    numEqnVecExpand(sx,&sx_e);
-    numEqnVecExpand(ry,&ry_e);
-    numEqnVecExpand(sy,&sy_e);
-    numEqnVecExpand(J,&J_e);
+    numEqnVecExpand(&sx);
+    numEqnVecExpand(&ry);
+    numEqnVecExpand(&sy);
+    numEqnVecExpand(&J);
 
     // cubature weights
     Vec weights;
@@ -221,9 +225,14 @@ WxCubature2d<REAL>::evaluatedVolumeIntegrals(Vec xcoords, Vec ycoords, Vec Fflux
 
     // Evaluate derivatives
     Vec ddr; VecDuplicate(weights,&ddr);
-    evalDerivatives(weights,rx_e,ry_e,Fflux,Gflux,DrT,&ddr);
-    evalDerivatives(weights,sx_e,sy_e,Fflux,Gflux,DsT,VolInt);
+    evalDerivatives(weights,rx,ry,Fflux,Gflux,DrT,&ddr);
+    evalDerivatives(weights,sx,sy,Fflux,Gflux,DsT,VolInt);
     VecAXPY(*VolInt,1.0,ddr);
+
+//    VecDestroy(&sx);
+//    VecDestroy(&ry);
+//    VecDestroy(&rx);
+//    VecDestroy(&sy);
 
 }
 
@@ -239,7 +248,7 @@ WxCubature2d<REAL>::evalDerivatives(Vec W, Vec XX, Vec YY, Vec F, Vec G, Mat DD,
     VecPointwiseMult(v2,YY,G);
     VecAXPY(v1,1.0,v2);
     VecPointwiseMult(v2,v1,W);
-    MatMult(DD,v2,*DX);
+    MatrixVectorMult(DD,v2,DX);
 
     // destroy
     VecDestroy(&v1);
@@ -251,22 +260,17 @@ void
 WxCubature2d<REAL>::geometricFactors2D(Vec xcoords, Vec ycoords, Vec *rx, Vec *sx, Vec *ry, Vec *sy, Vec *J)
 {
     Vec xr, xs, yr, ys, v1;
-    VecDuplicate(xcoords,&xr);
-    VecDuplicate(xcoords,&xs);
-    VecDuplicate(xcoords,&yr);
-    VecDuplicate(xcoords,&ys);
-    VecDuplicate(xcoords,&v1);
 
-    VecDuplicate(xcoords,rx);
-    VecDuplicate(xcoords,sx);
-    VecDuplicate(xcoords,ry);
-    VecDuplicate(xcoords,sy);
-    VecDuplicate(xcoords,J);
+    VecCreateSeq(PETSC_COMM_SELF,_pts,&xr);
+    VecDuplicate(xr,&xs);
+    VecDuplicate(xr,&yr);
+    VecDuplicate(xr,&ys);
+    VecDuplicate(xr,&v1);
 
-    MatMult(Dr,xcoords,xr);
-    MatMult(Dr,ycoords,yr);
-    MatMult(Ds,xcoords,xs);
-    MatMult(Ds,ycoords,ys);
+    MatrixVectorMult(Dr,xcoords,&xr);
+    MatrixVectorMult(Dr,ycoords,&yr);
+    MatrixVectorMult(Ds,xcoords,&xs);
+    MatrixVectorMult(Ds,ycoords,&ys);
 
     VecPointwiseMult(v1,xr,ys);
     VecPointwiseMult(*J,xs,yr);
@@ -278,18 +282,18 @@ WxCubature2d<REAL>::geometricFactors2D(Vec xcoords, Vec ycoords, Vec *rx, Vec *s
     VecPointwiseDivide(*sy,xr,*J);
 
     // destroy
-    VecDestroy(&xr);
-    VecDestroy(&xs);
-    VecDestroy(&yr);
-    VecDestroy(&ys);
     VecDestroy(&v1);
+    VecDestroy(&ys);
+    VecDestroy(&yr);
+    VecDestroy(&xs);
+    VecDestroy(&xr);
 }
 
 template <typename REAL>
 void
 WxCubature2d<REAL>::nodesTOSurfaceGaussians(Vec input, Vec *outPut)
 {
-    MatMult(interp,input,*outPut);
+    MatrixVectorMult(interp,input,outPut);
 }
 
 template <typename REAL>
@@ -310,12 +314,12 @@ WxCubature2d<REAL>::calculateSurfaceIntegral(Vec numFlux, Vec surfInt)
 
     // inverse interpolation matrix
     Mat invInterp;
-    MatCreateSeqDense(PETSC_COMM_SELF,_NPE*_meqn,_pts*_meqn,PETSC_NULL,&invInterp);
-    numEqnMatExpand(_NPE,interpT,invInterp);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NPE*_meqn,3*_gQuad*_meqn,PETSC_NULL,&invInterp);
+    numEqnMatExpand(_NPE,interpT,&invInterp);
 
     // evaluate integral
     VecPointwiseMult(v1,weights,numFlux);
-    MatMult(invInterp,v1,surfInt);
+    MatrixVectorMult(invInterp,v1,&surfInt);
 
 }
 
@@ -340,6 +344,43 @@ WxCubature2d<REAL>::MatrixTranspose(Mat A, Mat *A_trans)
 
     MatAssemblyBegin(*A_trans, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(*A_trans, MAT_FINAL_ASSEMBLY);
+}
+
+template <typename REAL>
+void
+WxCubature2d<REAL>::MatrixVectorMult(Mat A, Vec x, Vec *y)
+{
+    PetscInt mcols, mrows, vrows;
+    MatGetSize(A, &mrows, &mcols);
+
+    VecGetSize(x,&vrows);
+
+    WxLogger *log = WxLogger::get("apollo-root.console");
+    WxLogStream debugStrm = log->getDebugStream();
+
+    if(mcols!=vrows){
+        debugStrm << "** Matrix-Vector Multiplication failed:  " <<
+                     mcols << " != " << vrows << std::endl;
+        exit(1);
+    }
+
+    PetscInt ncols;
+    const PetscInt    *cols;
+    const PetscScalar *vals;
+    PetscScalar *xx, *yy;
+
+    VecGetArray(x,&xx);
+    VecGetArray(*y,&yy);
+    for(unsigned kk=0; kk<mrows; kk++)
+    {
+        yy[kk] = 0.0;
+        MatGetRow(A,kk,&ncols,&cols,&vals);
+        for(unsigned kx=0; kx<ncols; kx++)
+            yy[kk] += vals[kx]*xx[kx];
+    }
+    VecRestoreArray(x,&xx);
+    VecRestoreArray(*y,&yy);
+
 }
 
 // instantiations

@@ -245,7 +245,7 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     int nM, nP;
     _quad->returnFmask(f_Fmask);
 
-    for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
+    for(unsigned kelem=kStart; kelem<kEnd; kelem++)
     {
         PetscScalar *qVal, *qOut;
         REAL xc[4], Fscale[NfE*NpF], nx[NfE*NpF], ny[NfE*NpF];

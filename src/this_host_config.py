@@ -16,4 +16,5 @@ import sys
 mpi_base = "/usr"
 petsc_base = "/home/sousae/software/petsc-moab"
 boost_base = "/usr"
+blas_base = "./lib"
 #---------------------------------------------------

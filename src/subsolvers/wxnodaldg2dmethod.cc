@@ -139,7 +139,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     DMPlexGetHybridBounds(dm, &kEndInterior, NULL, NULL, NULL);
     VecGetArray(out, &x);
 
-    for (k = kStart; k < kEndInterior; ++k)
+    for (k = kStart; k < kEnd; ++k)
     {
         for(unsigned node=0; node<_geom->NpElem(); node++){
             txo[1] = _geom->Xcoordinate(k,node);
@@ -250,7 +250,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     VecDuplicate(qgtemp,&QP);
     VecDuplicate(qgtemp,&QM);
     VecDuplicate(qgtemp,&numFlux);
-    VecDuplicate(qgtemp,&q_surf);
+    VecDuplicate(qtemp,&q_surf);
 
     for(unsigned kelem=kStart; kelem<kEnd; kelem++)
     {
@@ -357,8 +357,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                 for(unsigned gpoint=0; gpoint<Ngauss; gpoint++)
                 {
                     for(unsigned comp=0; comp<_meqn; comp++){
-                        int A1 = (edge*Ngauss+gpoint)*_meqn+comp;
-                        int A2 = (edgeNum*Ngauss+Ngauss-1)*_meqn+comp;
+
                         yy[(edge*Ngauss+gpoint)*_meqn+comp] = xx[(edgeNum*Ngauss+Ngauss-1)*_meqn+comp];
                     }
                 }
