@@ -30,13 +30,12 @@ void rstoab(REAL r, REAL s, REAL aa, REAL bb)
     bb = -1.;
     if (s == 1.0){aa = -1.;}
     else{aa = 2.0*(1.+r)/(1.0-s)-1.0;}
-    REAL test = 0.0;
 }
 
 //---------------------------------------------------------
 template<typename REAL>
 void
-Vandermonde2D(int N, int Nx, REAL *rr, REAL *ss, Mat Vand)
+Vandermonde2D(int N, int Nx, REAL *rr, REAL *ss, Mat *Vand)
 //---------------------------------------------------------
 {
   // function [V2D] = Vandermonde2D(N, r, s);
@@ -55,14 +54,14 @@ Vandermonde2D(int N, int Nx, REAL *rr, REAL *ss, Mat Vand)
             if (s == 1.0){a = -1.;}
             else{a = 2.0*(1.+r)/(1.0-s)-1.0;}
             PetscScalar value = Simplex2DP(a,b,i,j);
-            MatSetValue(Vand,k,sk,value,INSERT_VALUES);
+            MatSetValue(*Vand,k,sk,value,INSERT_VALUES);
         }
         ++sk;
     }
   }
 
-  MatAssemblyBegin(Vand,MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(Vand,MAT_FINAL_ASSEMBLY);
+  MatAssemblyBegin(*Vand,MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*Vand,MAT_FINAL_ASSEMBLY);
 }
 
 //---------------------------------------------------------
@@ -163,6 +162,9 @@ void DifferentiationMatrices2D
   //MatView(Vs,PETSC_VIEWER_STDOUT_WORLD);
   MatMatMult(Vr,IVand,MAT_INITIAL_MATRIX,PETSC_DEFAULT,Dr);
   MatMatMult(Vs,IVand,MAT_INITIAL_MATRIX,PETSC_DEFAULT,Ds);
+
+  MatDestroy(&Vr);
+  MatDestroy(&Vs);
 }
 
 #endif // WXNODALDGMATRICES_H

@@ -307,7 +307,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     DM dmDist;
     debStrm << "Partitioning the domain using --> Metis "  << std::endl;
     //debStrm << "Partitioning the domain using --> " << _partitioner  << std::endl;
-    DMPlexDistribute(*dm,"metis", 1, NULL, &dmDist);
+    DMPlexDistribute(*dm,"metis", 0, NULL, &dmDist);
     if (dmDist){
         DMDestroy(dm);
         *dm   = dmDist;}
@@ -406,6 +406,7 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
 
     Vec X;
     VecDuplicate(u,&X);
+    VecZeroEntries(F);
     WxStepperStatus<REAL> status;
 
     WxLogger *log = WxLogger::get("apollo-root.console");
@@ -429,10 +430,6 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
             _dt = fmin(status.getSuggestedDt(),_dt);
-
-//            if(fabs(_tend-t)<dt){
-//                dt = fabs(_tend-t);
-//            }
         }
     }
     VecDestroy(&X);

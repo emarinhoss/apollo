@@ -28,27 +28,38 @@ class WxCubature2d
 /** Destroctor */
     virtual ~WxCubature2d();
 
-/** Interpolate nodal values into cubature points */
-    void interpolatedTOCubatures(Vec input, Vec output);
+/** Interpolate nodal values into cubature points
+ *  @param input  [in]  - conserved variables at nodal points
+ *  @param output [out] - conserved variables at cubature point
+ */
+    void interpolatedTOCubatures(REAL *input, REAL *output);
 
-/** Return the number of cubature points */
+/** Return the total number of cubature points used. */
     int numCubaturePoints(){
         return _pts;
     }
-/** Return the number of Gaussian points per face */
+
+/** Return the number of Gaussian points per edge/face. */
     int numGaussianPoints(){
         return _gQuad;
     }
 
 /** Evaluate the volume integrals using cubature integration */
-    void evaluatedVolumeIntegrals(Vec xcoords, Vec ycoords, Vec Fflux, Vec Gflux, Vec *VolInt);
+    void evaluatedVolumeIntegrals(REAL *xcoords, REAL *ycoords, REAL *Fflux, REAL *Gflux, REAL *VolInt);
 
 /** Evaluate the surface integral */
-    void calculateSurfaceIntegral(Vec numFlux, Vec surfInt);
+    void calculateSurfaceIntegral(REAL *numFlux, REAL *surfInt);
 
 /** Interpolate the nodal values to the Gaussian points at all 3 edges of the element.
  *  The solution is stack in order of the surface number */
-    void nodesTOSurfaceGaussians(Vec input, Vec *outPut);
+    void nodesTOSurfaceGaussians(REAL *input, REAL *outPut);
+
+/** Checks if any of the values in the array are NAN's
+ * @param n - array size
+ * @param y - array
+ * @param msg - location message to help with debugging
+ */
+    void checkNAN(int n, REAL *y , std::string msg);
 
   private:
 /** create amatrix that takes into account the number of equations in the system */
@@ -58,20 +69,20 @@ class WxCubature2d
     void numEqnVecExpand(Vec *A);
 
 /** calculate the geometric factor */
-    void geometricFactors2D(Vec xcoords, Vec ycoords, Vec *rx, Vec *sx, Vec *ry, Vec *sy, Vec *J);
-
-/** Evaluate X or Y derivatives at cubature points */
-    void evalDerivatives(Vec W, Vec XX, Vec YY, Vec F, Vec G, Mat DD, Vec *DX);
+    void geometricFactors2D(REAL *xcoords, REAL *ycoords, REAL *rx, REAL *sx, REAL *ry, REAL *sy, REAL *J);
 
 /** Calculate the matrix transpose of a given matrix */
     void MatrixTranspose(Mat A, Mat *A_trans);
 
+/** Transfer all the Matrices into row major arrays */
+    void petscMatTOArray(Mat A, REAL *array);
+
 /** Matrix Vector multiplication. Petsc has the MatMult function, however
  * this functions is not well behaved for matrices that are not square
  *
- * Ax = b
+ * Ax = y
  */
-    void MatrixVectorMult(Mat A, Vec x, Vec *y);
+    void MatrixVectorMult(int rows, int cols, int meqn, REAL *A, REAL *x, REAL *y);
 
 /** No of equations */
     unsigned _meqn;
@@ -86,12 +97,13 @@ class WxCubature2d
 
 /** Cubature data */
     REAL *_r, *_s, *_w; // cubature coordinates and weights
-    Mat W, _iV, Vout; //
-    Mat V, Dr, Ds, VT, DrT, DsT; // Matrices evaluated at the cubature points
+    REAL *_W, *_iV; //
+    REAL *_V, *_Dr, *_Ds, *_VT, *_DrT, *_DsT; // Matrices evaluated at the cubature points
+    Mat inverseV;
 
 /** Gaussian data */
     REAL *_gz, *_gw;
-    Mat interp, interpT;
+    REAL *_interp, *_interpT;
 
 };
 

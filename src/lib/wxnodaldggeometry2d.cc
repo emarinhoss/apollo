@@ -24,31 +24,38 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     _r = alloc_1d<REAL>(_NpE);
     _s = alloc_1d<REAL>(_NpE);
     _Fmask = alloc_1d<int>(_NfE*(_polyOr+1));
+    _Dr   = alloc_1d<REAL>(_NpE*_NpE);
+    _Ds   = alloc_1d<REAL>(_NpE*_NpE);
+    _Vand = alloc_1d<REAL>(_NpE*_NpE);
+    _VVT = alloc_1d<REAL>(_NpE*_NpE);
+
     nodalNaturalCoordinates(_polyOr,_r,_s,_Fmask);
 
-    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&_Dr);
-    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&_Ds);
-    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&_Vand);
+    Mat Dr, Ds, Vand, VVT;
+    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Dr);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Ds);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Vand);
     MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&_IVand);
-    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&_VVT);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&VVT);
 
     // Populate matrices
-    Vandermonde2D(_polyOr,_NpE, _r, _s, _Vand);
-    infStrm << "** done -- Creating Vandemonde Matrix **" << std::endl;
+    Vandermonde2D(_polyOr,_NpE, _r, _s, &Vand);
+    infStrm << "** done -- Creating Vandemonde Matrix. **" << std::endl;
     //MatView(_Vand,PETSC_VIEWER_STDOUT_WORLD);
-    this->invertMatrix(_Vand,_IVand);
-    infStrm << "** done -- Creating Inverse Vandemonde Matrix**" << std::endl;
+    this->invertMatrix(Vand,&_IVand);
+    infStrm << "** done -- Creating Inverse Vandemonde Matrix. **" << std::endl;
     //MatView(_IVand,PETSC_VIEWER_STDOUT_WORLD);
-    DifferentiationMatrices2D(_polyOr,_NpE,_r,_s,_IVand,&_Dr,&_Ds);
-    infStrm << "** done -- Creating Differentiation Matrices **" << std::endl;
+    DifferentiationMatrices2D(_polyOr,_NpE,_r,_s,_IVand,&Dr,&Ds);
+    infStrm << "** done -- Creating Differentiation Matrices. **" << std::endl;
     //MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
     //MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
 
     // Calculate inverse of mass matrix
     Mat dummy;
-    MatTranspose(_Vand,MAT_INITIAL_MATRIX,&dummy);
-    MatMatMult(_Vand,dummy,MAT_REUSE_MATRIX,PETSC_DEFAULT,&_VVT);
-    infStrm << "** done -- Creating Inverse Mass Matrix **" << std::endl;
+    MatTranspose(Vand,MAT_INITIAL_MATRIX,&dummy);
+    MatMatMult(Vand,dummy,MAT_REUSE_MATRIX,PETSC_DEFAULT,&VVT);
+    infStrm << "** done -- Creating Inverse Mass Matrix. **" << std::endl;
+//    MatView(VVT,PETSC_VIEWER_STDOUT_WORLD);
 
     // Find node coordinates for each element
     PetscInt eStart, eEnd, vStart, vEnd;
@@ -59,17 +66,49 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     _xcoord = alloc_2d_c<REAL>(_Klocal,_NpE);
     _ycoord = alloc_2d_c<REAL>(_Klocal,_NpE);
     CalculateNodeCoordinates2d(_dm);
-    infStrm << "** done -- Calculating Node Coordinates **" << std::endl;
+    infStrm << "** done -- Calculating Node Coordinates. **" << std::endl;
 
     /* find element to element connections */
-    _EtoV   = alloc_2d_c<int>(_Klocal,_Vlocal);
+    _EtoV   = alloc_2d_c<int>(_Klocal,3);
     _ETETF  = alloc_2d_c<int>(_Klocal,2*_NfE);
     FacePair2d(_dm);
-    infStrm << "** done -- Creating face-to-face connections **" << std::endl;
+    infStrm << "** done -- Creating face-to-face connections. **" << std::endl;
 
     // minimum distance between two nodes, in natural coordinates
     _rmin = fabs(_r[1]-_r[0]);
 
+    // transfer all the Matrices data into row-major C-arrays
+    petscMatTOArray(Ds,_Ds);
+    petscMatTOArray(Dr,_Dr);
+    petscMatTOArray(Vand,_Vand);
+    petscMatTOArray(VVT,_VVT);
+
+    MatDestroy(&Ds);
+    MatDestroy(&Dr);
+    MatDestroy(&Vand);
+    MatDestroy(&VVT);
+    MatDestroy(&dummy);
+
+}
+
+template <typename REAL>
+void
+wxNodalDGgeometry2D<REAL>::petscMatTOArray(Mat A, REAL *array)
+{
+    PetscInt mcols, mrows;
+    MatGetSize(A, &mrows, &mcols);
+
+    PetscInt ncols;
+    const PetscInt    *cols;
+    const PetscScalar *vals;
+
+    int sk = 0;
+    for(unsigned kk=0; kk<mrows; kk++)
+    {
+        MatGetRow(A,kk,&ncols,&cols,&vals);
+        for(int kx=0; kx<ncols; kx++)
+            array[sk++] = vals[kx];
+    }
 }
 
 template <typename REAL>
@@ -78,18 +117,20 @@ wxNodalDGgeometry2D<REAL>::~wxNodalDGgeometry2D()
     delete [] _r;
     delete [] _s;
     delete [] _Fmask;
-    MatDestroy(&_Dr);
-    MatDestroy(&_Ds);
-    MatDestroy(&_Vand);
-    MatDestroy(&_IVand);
-    MatDestroy(&_VVT);
+    delete [] _Dr;
+    delete [] _Ds;
+    delete [] _Vand;
+    delete [] _VVT;
     free_2d_c(_xcoord, _Klocal, _NpE);
     free_2d_c(_ycoord, _Klocal, _NpE);
+    free_2d_c(_EtoV, _Klocal, 3);
+    free_2d_c(_ETETF, _Klocal, 2*_NfE);
+    MatDestroy(&_IVand);
 }
 
 template <typename REAL>
 void
-wxNodalDGgeometry2D<REAL>::invertMatrix(Mat A, Mat invA)
+wxNodalDGgeometry2D<REAL>::invertMatrix(Mat A, Mat *invA)
 {
     Mat inpA, B;
     IS is;
@@ -113,7 +154,10 @@ wxNodalDGgeometry2D<REAL>::invertMatrix(Mat A, Mat invA)
     MatLUFactorNumeric(inpA,A,&iluinfo);
 //    MatLUFactor(invA,is,is,&iluinfo);
     // Calculate inverse
-    MatMatSolve(inpA,B,invA);
+    MatMatSolve(inpA,B,*invA);
+
+    MatDestroy(&inpA);
+    MatDestroy(&B);
 }
 
 template <typename REAL>
@@ -132,8 +176,9 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMGetCoordinateSection(dm, &coordSection);
     DMGetDefaultSection(dm, &defaultSec);
 
-    PetscInt eStart, eEnd;
+    PetscInt eStart, eEnd, eEndInterior;
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
+    DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
     DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
@@ -168,7 +213,9 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
         // Compute minimum scale using radius of inscribed circle
         _dtscale = dmin(_dtscale,Area/sper);
     }
-    //VecRestoreArray(coordinates, &coords);
+    VecRestoreArray(coordinates, &coords);
+    DMDestroy(&unint);
+//    VecDestroy(&coordinates);
 
 }
 
@@ -189,6 +236,8 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
         for(unsigned vert=0; vert<3; vert++){
             _EtoV[K][vert] = vertex[vert]-_Klocal+1;}
     }
+
+    DMDestroy(&unint);
 
     /** ===================================== */
     /** Build Face to Vertex connection, FtoV */
@@ -345,6 +394,19 @@ wxNodalDGgeometry2D<REAL>::GeometricFactors2d(int k, REAL geom[])
     geom[4] =  J;
 }
 
+template <typename REAL>
+void
+wxNodalDGgeometry2D<REAL>::multiplyBYinverseMassMatrix(REAL* input, REAL* output)
+{
+    for(unsigned kk=0; kk<_NpE*_meqn; kk++)
+        output[kk] = 0.0;
+
+    for(unsigned kx=0; kx<_NpE; kx++)
+        for(unsigned ky=0; ky<_NpE; ky++)
+            for(unsigned kz=0; kz<_meqn; kz++)
+                output[kx*_meqn+kz] += _VVT[kx*_NpE+ky]*input[ky*_meqn+kz];
+
+}
 
 // instantiations
 template class wxNodalDGgeometry2D<float>;

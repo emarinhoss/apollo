@@ -8,7 +8,7 @@
 
 template <typename REAL>
 WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV)
-    : _meqn(meqn), _polyOrd(polOrd), _dm(dm), _iV(invV)
+    : _meqn(meqn), _polyOrd(polOrd), _dm(dm), inverseV(invV)
 {
 
     WxLogger *log = WxLogger::get("apollo-root.console");
@@ -18,7 +18,8 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
     // Cubature points
     _cubOrd = (int)floor(3.0*(_polyOrd+1));
     // Gaussian quadrature points
-    _gQuad = (int)2*ceil((_polyOrd+1)/2.0);
+    //_gQuad = (int)ceil((2*_polyOrd+1)/2.0);
+    _gQuad = floor((_polyOrd+1)*2);
 
     // get cubature points and weigths
     int cubPoints[28] = { 1, 3, 6, 6, 7,12,15, 16, 19, 25, 28, 36, 40, 46,
@@ -56,7 +57,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
         case 27: cub2D_27(_pts,CT); break;
         case 28: cub2D_28(_pts,CT); break;
         default:
-            infStrm << "## Error: Invalid order for 2D cubature.  Max polynimoal order should be 8. ##" << std::endl;
+            infStrm << "## Error: Invalid order for 2D cubature.  Max polynomial order should be 8. ##" << std::endl;
             break;
     }
 
@@ -72,26 +73,31 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
         _w[k] = CT[3*k+2];
     }
 
+    Mat Vout, V, gV, VT, Dr, Ds, DrT, DsT, interp, interpT;
+
     // evaluate generalized Vandermonde of Lagrange interpolation functions at cubature nodes
     MatCreateSeqDense(PETSC_COMM_SELF,_pts,_NPE,PETSC_NULL,&Vout);
-    Vandermonde2D(_polyOrd,_pts,_r,_s,Vout);
-    MatMatMult(Vout,_iV,MAT_INITIAL_MATRIX, PETSC_DEFAULT,&V);
+    Vandermonde2D(_polyOrd,_pts,_r,_s,&Vout);
+    MatMatMult(Vout,inverseV,MAT_INITIAL_MATRIX, PETSC_DEFAULT,&V);
 //    MatView(V,PETSC_VIEWER_STDOUT_WORLD);
     // and its transpose
-    MatTranspose(V,MAT_INITIAL_MATRIX,&VT);
-//    MatView(VT,PETSC_VIEWER_STDOUT_WORLD);
-    infStrm << "** done -- Creating Cubature Vandermonde Matrix **" << std::endl;
+//    MatTranspose(V,MAT_INITIAL_MATRIX,&VT);
+    infStrm << "** done -- Creating Cubature Vandermonde Matrix. **" << std::endl;
 
     // evaluate local derivatives of Lagrange interpolation at cubature points
     MatCreateSeqDense(PETSC_COMM_SELF,_pts,_NPE,PETSC_NULL,&Dr);
     MatCreateSeqDense(PETSC_COMM_SELF,_pts,_NPE,PETSC_NULL,&Ds);
-    DifferentiationMatrices2D(_polyOrd,_pts,_r,_s,_iV,&Dr,&Ds);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NPE,_pts,PETSC_NULL,&DrT);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NPE,_pts,PETSC_NULL,&DsT);
+    DifferentiationMatrices2D(_polyOrd,_pts,_r,_s,inverseV,&Dr,&Ds);
 //    MatView(Dr,PETSC_VIEWER_STDOUT_WORLD);
 
     // and their transpose
     MatrixTranspose(Dr,&DrT);
+//    MatView(Dr,PETSC_VIEWER_STDOUT_WORLD);
     MatrixTranspose(Ds,&DsT);
-    infStrm << "** done -- Creating Cubature differentiation Matrices **" << std::endl;
+//    MatView(Ds,PETSC_VIEWER_STDOUT_WORLD);
+    infStrm << "** done -- Creating Cubature differentiation Matrices. **" << std::endl;
 
     /** Evaluate data for the Gauss-Legendre quadrature points needed
      * at the element boundaries */
@@ -99,9 +105,9 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
     _gw = alloc_1d<REAL>(_gQuad);
     _gz = alloc_1d<REAL>(_gQuad);
     // weights and abscissa for Gaussian quadrature
-    gauleg<REAL>(-1.0, 1.0, _gz-1, _gw-1, _polyOrd);
+    gauleg<REAL>(-1.0, 1.0, _gz-1, _gw-1, _gQuad);
 
-    int facer[3*_gQuad], faces[3*_gQuad];
+    REAL facer[3*_gQuad], faces[3*_gQuad];
     for(unsigned k=0; k<_gQuad; k++)
     {
         facer[0*_gQuad+k] =  _gz[k]; faces[0*_gQuad+k] = -1.0;
@@ -109,16 +115,43 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
         facer[2*_gQuad+k] = -1.0;    faces[2*_gQuad+k] = -_gz[k];
     }
 
-    Mat V;
-    MatCreateSeqDense(PETSC_COMM_SELF,3*_gQuad,_NPE,PETSC_NULL,&V);
+    MatCreateSeqDense(PETSC_COMM_SELF,3*_gQuad,_NPE,PETSC_NULL,&gV);
+    Vandermonde2D(_polyOrd,3*_gQuad,facer,faces,&gV);
 
-    Vandermonde2D(_polyOrd,3*_gQuad,facer,faces,V);
-
-    // interpolate at the elemenet edges
-    MatMatMult(V,_iV,MAT_INITIAL_MATRIX, PETSC_DEFAULT,&interp);
-    // inverse interpolation
+    // interpolate values of the surface Gaussian points from nodal values
+    MatMatMult(gV,inverseV,MAT_INITIAL_MATRIX, PETSC_DEFAULT,&interp);
+//    MatView(interp,PETSC_VIEWER_STDOUT_WORLD);
+    // reverse interpolation, from surface Gaussian points to nodal values
     MatrixTranspose(interp,&interpT);
-    infStrm << "** done -- Creating Surface interpolation matrices **" << std::endl;
+    infStrm << "** done -- Creating Surface interpolation matrices. **" << std::endl;
+
+    // allocate memory
+    _V   = alloc_1d<REAL>(_pts*_NPE);
+    _Dr  = alloc_1d<REAL>(_pts*_NPE);
+    _Ds  = alloc_1d<REAL>(_pts*_NPE);
+    _DrT = alloc_1d<REAL>(_pts*_NPE);
+    _DsT = alloc_1d<REAL>(_pts*_NPE);
+    _interp = alloc_1d<REAL>(3*_gQuad*_NPE);
+    _interpT = alloc_1d<REAL>(3*_gQuad*_NPE);
+
+    // store the matrices in row major arrays
+    petscMatTOArray(V,_V);
+    petscMatTOArray(Dr,_Dr);
+    petscMatTOArray(Ds,_Ds);
+    petscMatTOArray(DrT,_DrT);
+    petscMatTOArray(DsT,_DsT);
+    petscMatTOArray(interp,_interp);
+    petscMatTOArray(interpT,_interpT);
+
+    // Petsc matrices are no longer needed
+    MatDestroy(&V);
+    MatDestroy(&gV);
+    MatDestroy(&Dr);
+    MatDestroy(&Ds);
+    MatDestroy(&DrT);
+    MatDestroy(&DsT);
+    MatDestroy(&interp);
+    MatDestroy(&interpT);
 }
 
 template <typename REAL>
@@ -129,15 +162,35 @@ WxCubature2d<REAL>::~WxCubature2d()
     delete [] _w;
     delete [] _gz;
     delete [] _gw;
-    MatDestroy(&V);
-    MatDestroy(&Dr);
-    MatDestroy(&Ds);
-    MatDestroy(&DrT);
-    MatDestroy(&DsT);
-    MatDestroy(&VT);
-    MatDestroy(&Vout);
-    MatDestroy(&interp);
-    MatDestroy(&interpT);
+    delete [] _V;
+    delete [] _iV;
+    delete [] _Dr;
+    delete [] _Ds;
+    delete [] _DrT;
+    delete [] _DsT;
+    delete [] _VT;
+    delete [] _interp;
+    delete [] _interpT;
+}
+
+template <typename REAL>
+void
+WxCubature2d<REAL>::petscMatTOArray(Mat A, REAL *array)
+{
+    PetscInt mcols, mrows;
+    MatGetSize(A, &mrows, &mcols);
+
+    PetscInt ncols;
+    const PetscInt    *cols;
+    const PetscScalar *vals;
+
+    int sk = 0;
+    for(unsigned kk=0; kk<mrows; kk++)
+    {
+        MatGetRow(A,kk,&ncols,&cols,&vals);
+        for(int kx=0; kx<ncols; kx++)
+            array[sk++] = vals[kx];
+    }
 }
 
 template <typename REAL>
@@ -186,141 +239,95 @@ WxCubature2d<REAL>::numEqnVecExpand(Vec *A)
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::interpolatedTOCubatures(Vec input, Vec output)
+WxCubature2d<REAL>::interpolatedTOCubatures(REAL* input, REAL* output)
 {
-    Mat intExp;
-    MatCreateSeqAIJ(PETSC_COMM_SELF,_pts*_meqn,_NPE*_meqn,_NPE,PETSC_NULL,&intExp);
-    numEqnMatExpand(_pts,V,&intExp);
-    MatrixVectorMult(intExp,input,&output);
+    MatrixVectorMult(_pts,_NPE,_meqn,_V,input,output);
 }
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::evaluatedVolumeIntegrals(Vec xcoords, Vec ycoords, Vec Fflux, Vec Gflux, Vec *VolInt)
+WxCubature2d<REAL>::evaluatedVolumeIntegrals(REAL* xcoords, REAL* ycoords, REAL* Fflux, REAL* Gflux, REAL *VolInt)
 {
-    // calculate geometric factors
-    Vec rx, sx, ry, sy, J;
+//    checkNAN(_pts*_meqn, Fflux, "nan on Fflux");
+//    checkNAN(_pts*_meqn, Gflux, "nan on Gflux");
 
-    VecCreateSeq(PETSC_COMM_SELF,_pts,&rx);
-    VecDuplicate(rx,&sx);
-    VecDuplicate(rx,&ry);
-    VecDuplicate(rx,&sy);
-    VecDuplicate(rx,&J);
-    geometricFactors2D(xcoords,ycoords,&rx,&sx,&ry,&sy,&J);
 
-    numEqnVecExpand(&sx);
-    numEqnVecExpand(&ry);
-    numEqnVecExpand(&sy);
-    numEqnVecExpand(&J);
+    REAL rx[_pts], sx[_pts], ry[_pts], sy[_pts], J[_pts];
+    geometricFactors2D(xcoords,ycoords,rx,sx,ry,sy,J);
 
-    // cubature weights
-    Vec weights;
-    PetscScalar *xx;
-    VecCreateSeq(PETSC_COMM_SELF,_pts*_meqn,&weights);
-    VecGetArray(weights,&xx);
-    for(unsigned kk=0; kk<_pts;kk++)
-        for(unsigned bb=0; bb<_meqn; bb++)
-            xx[kk*_meqn+bb] = _w[kk];
-    VecRestoreArray(weights,&xx);
+    REAL ddx[_NPE*_meqn], ddy[_NPE*_meqn], RR[_pts*_meqn], SS[_pts*_meqn];
 
-    // Evaluate derivatives
-    Vec ddr; VecDuplicate(weights,&ddr);
-    evalDerivatives(weights,rx,ry,Fflux,Gflux,DrT,&ddr);
-    evalDerivatives(weights,sx,sy,Fflux,Gflux,DsT,VolInt);
-    VecAXPY(*VolInt,1.0,ddr);
+    for(unsigned kk=0; kk<_pts; kk++)
+        for(unsigned mm=0; mm<_meqn; mm++)
+        {
+            RR[kk*_meqn+mm] = _w[kk]*J[kk]*(rx[kk]*Fflux[kk*_meqn+mm]+ry[kk]*Gflux[kk*_meqn+mm]);
+            SS[kk*_meqn+mm] = _w[kk]*J[kk]*(sx[kk]*Fflux[kk*_meqn+mm]+sy[kk]*Gflux[kk*_meqn+mm]);
+        }
 
-//    VecDestroy(&sx);
-//    VecDestroy(&ry);
-//    VecDestroy(&rx);
-//    VecDestroy(&sy);
+    MatrixVectorMult(_NPE,_pts,_meqn,_DrT,RR,ddx);
+    MatrixVectorMult(_NPE,_pts,_meqn,_DsT,SS,ddy);
 
+    // Add x-dir and y-dir contributions
+    for(unsigned kk=0; kk<_NPE*_meqn; kk++)
+        VolInt[kk] = ddx[kk] + ddy[kk];
+
+//    checkNAN(_NPE*_meqn, VolInt, "nan on VolInt");
 }
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::evalDerivatives(Vec W, Vec XX, Vec YY, Vec F, Vec G, Mat DD, Vec *DX)
+WxCubature2d<REAL>::geometricFactors2D(REAL* xcoords, REAL* ycoords, REAL* rx, REAL* sx, REAL* ry, REAL* sy, REAL* J)
 {
-    Vec v1, v2;
-    VecDuplicate(XX,&v1);
-    VecDuplicate(XX,&v2);
+    REAL xr[_pts], xs[_pts], yr[_pts], ys[_pts];
+    MatrixVectorMult(_pts,_NPE,1,_Dr,xcoords,xr);
+    MatrixVectorMult(_pts,_NPE,1,_Dr,ycoords,yr);
+    MatrixVectorMult(_pts,_NPE,1,_Ds,xcoords,xs);
+    MatrixVectorMult(_pts,_NPE,1,_Ds,ycoords,ys);
 
-    VecPointwiseMult(v1,XX,F);
-    VecPointwiseMult(v2,YY,G);
-    VecAXPY(v1,1.0,v2);
-    VecPointwiseMult(v2,v1,W);
-    MatrixVectorMult(DD,v2,DX);
+    // calculate determinant of the Jacobian
+    for(unsigned kk=0; kk<_pts; kk++){
+        J[kk] = xr[kk]*ys[kk] - xs[kk]*yr[kk];
+        if(J[kk]<=0){
+            WxLogger *l = WxLogger::get("apollo-root.console");
+            WxLogStream errStrm = l->getErrorStream();
+            errStrm << "Error: Jacobian determinant is " << J[kk];
+            exit(1); // abort execution
+        }
+    }
 
-    // destroy
-    VecDestroy(&v1);
-    VecDestroy(&v2);
+    for(unsigned kk=0; kk<_pts; kk++)
+    {
+        rx[kk] =  ys[kk]/J[kk];
+        sx[kk] = -yr[kk]/J[kk];
+        ry[kk] = -xs[kk]/J[kk];
+        sy[kk] =  xr[kk]/J[kk];
+    }
 }
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::geometricFactors2D(Vec xcoords, Vec ycoords, Vec *rx, Vec *sx, Vec *ry, Vec *sy, Vec *J)
+WxCubature2d<REAL>::nodesTOSurfaceGaussians(REAL* input, REAL *outPut)
 {
-    Vec xr, xs, yr, ys, v1;
-
-    VecCreateSeq(PETSC_COMM_SELF,_pts,&xr);
-    VecDuplicate(xr,&xs);
-    VecDuplicate(xr,&yr);
-    VecDuplicate(xr,&ys);
-    VecDuplicate(xr,&v1);
-
-    MatrixVectorMult(Dr,xcoords,&xr);
-    MatrixVectorMult(Dr,ycoords,&yr);
-    MatrixVectorMult(Ds,xcoords,&xs);
-    MatrixVectorMult(Ds,ycoords,&ys);
-
-    VecPointwiseMult(v1,xr,ys);
-    VecPointwiseMult(*J,xs,yr);
-    VecAYPX(*J,-1.0,v1);
-
-    VecPointwiseDivide(*rx,ys,*J);
-    VecPointwiseDivide(*sx,yr,*J); VecScale (*sx, -1.0);
-    VecPointwiseDivide(*ry,xs,*J); VecScale (*ry, -1.0);
-    VecPointwiseDivide(*sy,xr,*J);
-
-    // destroy
-    VecDestroy(&v1);
-    VecDestroy(&ys);
-    VecDestroy(&yr);
-    VecDestroy(&xs);
-    VecDestroy(&xr);
+    MatrixVectorMult(3*_gQuad,_NPE,_meqn,_interp,input,outPut);
 }
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::nodesTOSurfaceGaussians(Vec input, Vec *outPut)
+WxCubature2d<REAL>::calculateSurfaceIntegral(REAL* numFlux, REAL* surfInt)
 {
-    MatrixVectorMult(interp,input,outPut);
-}
+//    checkNAN(3*_gQuad*_meqn, numFlux, "nan on numFflux");
+    REAL W[3*_gQuad];
 
-template <typename REAL>
-void
-WxCubature2d<REAL>::calculateSurfaceIntegral(Vec numFlux, Vec surfInt)
-{
-    // cubature weights
-    Vec weights, v1;
-    PetscScalar *xx;
-    VecCreateSeq(PETSC_COMM_SELF,3*_gQuad*_meqn,&weights);
-    VecDuplicate(weights,&v1);
-    VecGetArray(weights,&xx);
-    for(unsigned face=0; face<3; face++)
-        for(unsigned kk=0; kk<_gQuad;kk++)
-            for(unsigned bb=0; bb<_meqn; bb++)
-                xx[(face*_gQuad+kk)*_meqn+bb] = _gw[kk];
-    VecRestoreArray(weights,&xx);
+    for(unsigned kk=0; kk<3; kk++)
+        for(unsigned mm=0; mm<_gQuad; mm++)
+            W[kk*_gQuad+mm] = _gw[mm];
 
-    // inverse interpolation matrix
-    Mat invInterp;
-    MatCreateSeqDense(PETSC_COMM_SELF,_NPE*_meqn,3*_gQuad*_meqn,PETSC_NULL,&invInterp);
-    numEqnMatExpand(_NPE,interpT,&invInterp);
+    for(unsigned kk=0; kk<3*_gQuad; kk++)
+        for(unsigned mm=0; mm<_meqn; mm++)
+            numFlux[kk*_meqn+mm] *= W[kk];
 
-    // evaluate integral
-    VecPointwiseMult(v1,weights,numFlux);
-    MatrixVectorMult(invInterp,v1,&surfInt);
-
+    MatrixVectorMult(_NPE,3*_gQuad,_meqn,_interpT,numFlux,surfInt);
+//    checkNAN(_NPE*_meqn, surfInt, "nan on surfInt");
 }
 
 template <typename REAL>
@@ -348,39 +355,31 @@ WxCubature2d<REAL>::MatrixTranspose(Mat A, Mat *A_trans)
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::MatrixVectorMult(Mat A, Vec x, Vec *y)
+WxCubature2d<REAL>::MatrixVectorMult(int rows, int cols, int meqn, REAL *A, REAL *x, REAL *y)
 {
-    PetscInt mcols, mrows, vrows;
-    MatGetSize(A, &mrows, &mcols);
+    for(int kk=0; kk<rows*meqn; kk++)
+        y[kk] = 0.0;
 
-    VecGetSize(x,&vrows);
+    for(unsigned kx=0; kx<rows; kx++)
+        for(unsigned ky=0; ky<cols; ky++)
+            for(unsigned kz=0; kz<meqn; kz++)
+                y[kx*meqn+kz] += A[kx*cols+ky]*x[ky*meqn+kz];
+}
 
-    WxLogger *log = WxLogger::get("apollo-root.console");
-    WxLogStream debugStrm = log->getDebugStream();
-
-    if(mcols!=vrows){
-        debugStrm << "** Matrix-Vector Multiplication failed:  " <<
-                     mcols << " != " << vrows << std::endl;
-        exit(1);
-    }
-
-    PetscInt ncols;
-    const PetscInt    *cols;
-    const PetscScalar *vals;
-    PetscScalar *xx, *yy;
-
-    VecGetArray(x,&xx);
-    VecGetArray(*y,&yy);
-    for(unsigned kk=0; kk<mrows; kk++)
+template <typename REAL>
+void
+WxCubature2d<REAL>::checkNAN(int n, REAL *y, std::string msg)
+{
+    for(int kk=0; kk<n; kk++)
     {
-        yy[kk] = 0.0;
-        MatGetRow(A,kk,&ncols,&cols,&vals);
-        for(unsigned kx=0; kx<ncols; kx++)
-            yy[kk] += vals[kx]*xx[kx];
+        if(y[kk]!=y[kk])
+        {
+            WxLogger *l = WxLogger::get("apollo-root.console");
+            WxLogStream errStrm = l->getInfoStream();
+            errStrm << msg ;
+            exit(1); // abort execution
+        }
     }
-    VecRestoreArray(x,&xx);
-    VecRestoreArray(*y,&yy);
-
 }
 
 // instantiations

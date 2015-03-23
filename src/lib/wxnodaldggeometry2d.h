@@ -26,7 +26,7 @@ class wxNodalDGgeometry2D
     virtual ~wxNodalDGgeometry2D();
 
 /** Matrix Inverse */
-    void invertMatrix(Mat A, Mat invA);
+    void invertMatrix(Mat A, Mat *invA);
 
 /** return the inverse-Vandermonde Matrix */
     Mat inverseVandermonde(){
@@ -94,9 +94,7 @@ class wxNodalDGgeometry2D
    }
 
 /** multi vector by the inverse mass matrix */
-    void multiplyBYinverseMassMatrix(Vec input, Vec output){
-        MatMult(_VVT,input,output);
-    }
+    void multiplyBYinverseMassMatrix(REAL* input, REAL* output);
 
 ///** return the evaluate the filter matrix */
 //    void calculateFilter(REAL *filter, REAL *filterMatrix);
@@ -113,6 +111,9 @@ class wxNodalDGgeometry2D
  */
     void CalculateNodeCoordinates2d(DM dm);
 
+/** Transfer all the Matrices into row major arrays */
+    void petscMatTOArray(Mat A, REAL *array);
+
 /** No of equations */
     unsigned _meqn;
 /** Polynomial order */
@@ -125,7 +126,8 @@ class wxNodalDGgeometry2D
     int _NfE;  // number of faces per element
     int _totNFace;  // total number of interior faces
     REAL *_r, *_s;  // (r,s) coordinates of reference nodes
-    Mat _Ds, _Dr, _Vand, _IVand, _VVT; // element matrices, VVT is the inverse of the mass matrix
+    REAL *_Ds, *_Dr, *_Vand, *_VVT; // element matrices, VVT is the inverse of the mass matrix
+    Mat _IVand;
     int *_Fmask;
     int **_EtoV; // element to verticies connectivity matrix
     int **_ETETF; // stores the element and face connections (Element K's face number F is connected to

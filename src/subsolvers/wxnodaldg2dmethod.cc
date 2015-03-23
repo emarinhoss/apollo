@@ -31,17 +31,24 @@ WxNodalDG2dMethod<REAL>::~WxNodalDG2dMethod() {
     delete [] _sy;
     delete [] _qauxM;
     delete [] _qauxP;
-    delete [] _filterdiag;
-    delete [] _filterMatrix;
+    //delete [] _filterdiag;
+    //delete [] _filterMatrix;
     free_2d_c(_wave,_meqn,_mwave);
+    delete _geom;
+    delete _cub;
+    delete _initFunc;
+    VecDestroy(&locU);
+    VecDestroy(&locRHS);
+    DMDestroy(&_dm);
 }
 
 template <typename REAL>
 void
 WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
+    _dm = dm;
   // call base class setup first
-  ApSubSolver<REAL>::setup(wxc, dm);
+  ApSubSolver<REAL>::setup(wxc, _dm);
 
   _polyOrder = wxc.template get<int>("polynomialOrder");
   _cfl = wxc.template get<REAL>("cfl");
@@ -97,9 +104,11 @@ WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
   // setup this function
   _initFunc->setup(initCS);
 
-  _geom = new wxNodalDGgeometry2D<REAL>(dm, _meqn, _polyOrder);
+  // Calculate connectivity, coordinates and Matrices
+  _geom = new wxNodalDGgeometry2D<REAL>(_dm, _meqn, _polyOrder);
 
-  _cub = new WxCubature2d<REAL>(dm,_meqn,_polyOrder,_geom->inverseVandermonde());
+  // Evaluate cubatures, surface Gaussian points and derivatives
+  _cub = new WxCubature2d<REAL>(_dm,_meqn,_polyOrder,_geom->inverseVandermonde());
 
   // read list of BC subsolvers
 //  std::vector<WxAny> bcs;
@@ -114,10 +123,10 @@ template <typename REAL>
 void
 WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
 {
-    DM dm;
-    VecGetDM(out, &dm);
+//    DM dm;
+//    VecGetDM(out, &dm);
     PetscSection stateSection;
-    DMGetDefaultSection(dm, &stateSection);
+    DMGetDefaultSection(_dm, &stateSection);
     REAL maxSpeed = 0., xcc[4];
 
     PetscScalar *x;
@@ -135,8 +144,8 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     // Initialize the solution vector
     // ****
     // Get cells in this processor
-    DMPlexGetHeightStratum(dm, 0, &kStart, &kEnd);
-    DMPlexGetHybridBounds(dm, &kEndInterior, NULL, NULL, NULL);
+    DMPlexGetHeightStratum(_dm, 0, &kStart, &kEnd);
+    DMPlexGetHybridBounds(_dm, &kEndInterior, NULL, NULL, NULL);
     VecGetArray(out, &x);
 
     for (k = kStart; k < kEnd; ++k)
@@ -150,7 +159,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
 
             // reference this cell to the proper location on the solution
             // vector
-            DMPlexPointLocalRef(dm,k,x,&xc);
+            DMPlexPointLocalRef(_dm,k,x,&xc);
             // assign value returned by the initialization function
             // to the solution vector
             if(xc){
@@ -173,7 +182,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     }
     VecRestoreArray(out, &x);
 
-    isInfinityOrNAN(out, "NAN/INF in initialization");
+    isInfinityOrNAN(out, "NAN/INF in initialization!");
 
     // Suggested initial dt
     REAL timeStep = 2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
@@ -188,17 +197,16 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     isInfinityOrNAN(in, "NAN/INF in input Vector to DG step-function");
 
     WxStepperStatus<REAL> status;
-    DM dm;
-    VecGetDM(in, &dm);
+//    DM dm;
+//    VecGetDM(in, &dm);
     PetscScalar *u;
     PetscScalar *ot, *rhs;
     REAL maxSpeed=0.0;
 
-    // local vectors
-    Vec locU, locRHS;
+
     // create local vector
-    DMGetLocalVector(dm, &locU);
-    DMGetLocalVector(dm, &locRHS);
+    DMGetLocalVector(_dm, &locU);
+    DMGetLocalVector(_dm, &locRHS);
 
     // zero entries of the vectors that will be used to store
     // information
@@ -207,177 +215,142 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     VecZeroEntries(out);
 
     // get local values of the global vector in into locX
-    DMGlobalToLocalBegin(dm, in, INSERT_VALUES, locU);
-    DMGlobalToLocalEnd(dm, in, INSERT_VALUES, locU);
+    DMGlobalToLocalBegin(_dm, in, INSERT_VALUES, locU);
+    DMGlobalToLocalEnd(_dm, in, INSERT_VALUES, locU);
 
     // get first and last element number
     PetscInt kStart, kEnd, kEndInterior;
-    DMPlexGetHeightStratum(dm, 0, &kStart, &kEnd);
-    DMPlexGetHybridBounds(dm, &kEndInterior, NULL , NULL, NULL);
+    DMPlexGetHeightStratum(_dm, 0, &kStart, &kEnd);
+    DMPlexGetHybridBounds(_dm, &kEndInterior, NULL , NULL, NULL);
     VecGetArray(locU, &u);
     VecGetArray(out, &ot);
 
-    int NpF = _geom->NpFaces(); // Number of nodes per Face
     int NpE = _geom->NpElem(); // Number of nodes per Element
-    int NfE = _geom->NfElem(); // Number of faces per Element
+    int NfE = _geom->NfElem(); // Number of edge/faces per Element
     int Ncubature= _cub->numCubaturePoints(); // Number of cubature points
     int Ngauss = _cub->numGaussianPoints(); // Number of Gaussian points per edge/face
-    int f_Fmask[NpF*NfE];
-    _geom->returnFmask(f_Fmask);
 
     /**
      * Allocate memory for all vectors
      */
     // Coordinates
-    Vec xcoord, ycoord;
-    VecCreateSeq(PETSC_COMM_SELF,NpE,&xcoord);
-    VecDuplicate(xcoord,&ycoord);
+    REAL xcoord[NpE], ycoord[NpE];
+    REAL xc[4]; // coordinates
+    int connect[2*NfE]; // connectivity information element-to-element-to-edge
 
     // Volume integral
-    Vec q_vol, Iq_vol, If_vol, Ig_vol, volInt, vec_rhs;
-    VecCreateSeq(PETSC_COMM_SELF,NpE*_meqn,&q_vol);
-    VecDuplicate(q_vol,&vec_rhs);
-    VecCreateSeq(PETSC_COMM_SELF,Ncubature*_meqn,&Iq_vol);
-    VecDuplicate(Iq_vol,&If_vol);
-    VecDuplicate(Iq_vol,&Ig_vol);
-    VecDuplicate(Iq_vol,&volInt);
+    REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
+    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn];
 
     // Surface integral
-    Vec QP, QM, numFlux, qtemp, qgtemp, Flux, q_surf;
-    VecCreateSeq(PETSC_COMM_SELF,NpE*_meqn,&qtemp);
-    VecCreateSeq(PETSC_COMM_SELF,NfE*Ngauss*_meqn,&qgtemp);
-    VecDuplicate(qgtemp,&Flux);
-    VecDuplicate(qgtemp,&QP);
-    VecDuplicate(qgtemp,&QM);
-    VecDuplicate(qgtemp,&numFlux);
-    VecDuplicate(qtemp,&q_surf);
+    REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
+    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn];
+    REAL qgtemp[NfE*Ngauss*_meqn];
 
+    PetscScalar *qVal;
     for(unsigned kelem=kStart; kelem<kEnd; kelem++)
     {
-        PetscScalar *qVal, *xx, *yy, *zz;
-        REAL xc[4];
-        int connect[2*NfE];
-
         // get coordinates of all nodes
-        VecGetArray(xcoord,&xx);
-        VecGetArray(ycoord,&yy);
         for(unsigned nodes=0; nodes<NpE; nodes++)
         {
-            xx[nodes] = _geom->Xcoordinate(kelem,nodes);
-            yy[nodes] = _geom->Ycoordinate(kelem,nodes);
+            xcoord[nodes] = _geom->Xcoordinate(kelem,nodes);
+            ycoord[nodes] = _geom->Ycoordinate(kelem,nodes);
         }
-        VecRestoreArray(xcoord,&xx);
-        VecRestoreArray(ycoord,&yy);
 
         // Get node values for this element
-        DMPlexPointLocalRef(dm, kelem, u, &qVal);
-        VecGetArray(q_vol,&zz);
+        DMPlexPointLocalRef(_dm, kelem, u, &qVal);
         for(unsigned kk=0; kk<NpE*_meqn; kk++)
-            zz[kk] = qVal[kk];
-        VecRestoreArray(q_vol,&zz);
+            q_vol[kk] = qVal[kk];
 
-        // calculate face normals and element Jacobian
-        REAL geoFacts[5], normals[3*NfE], Fscale[NfE];
-        _geom->GeometricFactors2d(kelem,geoFacts);
-        _geom->Normals2d(kelem,normals);
-        for(unsigned kk=0; kk<NfE; kk++)
-            Fscale[kk] = normals[kk*NfE+2]/geoFacts[4];
+        // calculate edge normals and element Jacobian
+        REAL geoFacts[5], normals[3*NfE];
+        _geom->GeometricFactors2d(kelem,geoFacts); // [drdx, dsdx, drdy, dsdy, J]
+        _geom->Normals2d(kelem,normals); // [nx_edge1,ny_edge1,length_edge1, nx_edge2, ny_edge2 ...]
 
-
-        /**
-         * Evaluate Volume Integral
+        /** *******************************************************
+         *  *******************************************************
+         *  Evaluate Volume Integral
+         *  *******************************************************
+         *  *******************************************************
          */
 
         // interpolate nodes values into cubature points
         _cub->interpolatedTOCubatures(q_vol,Iq_vol);
 
         // evaluate the fluxes at each cubature point
-        VecDuplicate(Iq_vol,&If_vol);
-        VecDuplicate(Iq_vol,&Ig_vol);
         REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn];
 
-        VecGetArray(Iq_vol,&xx);
-        VecGetArray(If_vol,&yy);
-        VecGetArray(Ig_vol,&zz);
-        for(unsigned kk=0; kk<Ncubature; kk++)
+        for(unsigned point=0; point<Ncubature; point++)
         {
 
-            for(unsigned mm=0; mm<_meqn; mm++)
-                Qvar[kk] = xx[kk*_meqn+mm];
+            // Evaluate Flux at each cubature point
+            for(unsigned component=0; component<_meqn; component++)
+                Qvar[component] = Iq_vol[point*_meqn+component];
 
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
 
-            for(unsigned mm=0; mm<_meqn; mm++)
+            for(unsigned component=0; component<_meqn; component++)
             {
-                yy[kk*_meqn+mm] = Fflux[mm];
-                zz[kk*_meqn+mm] = Gflux[mm];
+                If_vol[point*_meqn+component] = Fflux[component];
+                Ig_vol[point*_meqn+component] = Gflux[component];
             }
         }
-        VecRestoreArray(Iq_vol,&xx);
-        VecRestoreArray(If_vol,&yy);
-        VecRestoreArray(Ig_vol,&zz);
 
         // Compute volume terms (dphidx, F) + (dphidy, G)
-        _cub->evaluatedVolumeIntegrals(xcoord,ycoord,If_vol,Ig_vol,&volInt);
+        _cub->evaluatedVolumeIntegrals(xcoord,ycoord,If_vol,Ig_vol,volInt);
 
-        /**
-         * Evaluate Surface Integral
+        /** *******************************************************
+         *  *******************************************************
+         *  Evaluate Surface Integral
+         *  *******************************************************
+         *  *******************************************************
          */
 
-        // interpolate nodal values into surface Gassian points
-        _cub->nodesTOSurfaceGaussians(q_vol,&QM);
+        // interpolate nodal values to surface Gassian quadrature points
+        _cub->nodesTOSurfaceGaussians(q_vol,QM);
 
         // Flux Gather
         // get the values at the Gaussian points of the adjacent elements
         _geom->ElementTOElementANDFace(kelem,connect);
         for(unsigned edge=0; edge<NfE; edge++)
         {
-            // get the values on the element adjacent to this face
-            DMPlexPointLocalRef(dm, connect[2*edge], u, &qVal);
-            VecGetArray(qtemp,&xx);
-            for(unsigned kk=0; kk<NpE*_meqn; kk++)
-                xx[kk] = qVal[kk];
-            VecRestoreArray(qtemp,&xx);
-
-            // interpolate values at all faces of opposing element
-            _cub->nodesTOSurfaceGaussians(qtemp,&qgtemp);
-
             // gather only the values for the needed edge
             int edgeNum = connect[2*edge+1];
-            VecGetArray(qgtemp,&xx);
-            VecGetArray(QP,&yy);
+            // By definition if edgeNum is negative, this is a physical boundary.
             if(edgeNum<0)
             {
                 // Apply Boundary conditions
+                for(unsigned gpoint=0; gpoint<Ngauss; gpoint++)
+                    for(unsigned comp=0; comp<_meqn; comp++)
+                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = 0.0;
 
             }
             else
             {
-                for(unsigned gpoint=0; gpoint<Ngauss; gpoint++)
-                {
-                    for(unsigned comp=0; comp<_meqn; comp++){
+                // get the values on the element adjacent to this edge
+                DMPlexPointLocalRef(_dm, connect[2*edge], u, &qVal);
+                for(unsigned kk=0; kk<NpE*_meqn; kk++)
+                    qtemp[kk] = qVal[kk];
 
-                        yy[(edge*Ngauss+gpoint)*_meqn+comp] = xx[(edgeNum*Ngauss+Ngauss-1)*_meqn+comp];
-                    }
-                }
+                // interpolate values at all edges of opposing element
+                _cub->nodesTOSurfaceGaussians(qtemp,qgtemp);
+
+                // only use the Gaussian values of the needed edge
+                for(unsigned gpoint=0; gpoint<Ngauss; gpoint++)
+                    for(unsigned comp=0; comp<_meqn; comp++)
+                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = qgtemp[(edgeNum*Ngauss+Ngauss-1-gpoint)*_meqn+comp];
             }
-            VecRestoreArray(qgtemp,&xx);
-            VecRestoreArray(QP,&xx);
         }
 
-        // Evaluate the Numerical Flux
+        // Calculate the Numerical Flux
         for(unsigned kk=0; kk<Ngauss*NfE; kk++)
         {
-            VecGetArray(QM,&xx);
-            VecGetArray(QP,&yy);
             for(unsigned comp=0; comp<_meqn; comp++)
             {
-                _qM[comp] = xx[kk*_meqn+comp];
-                _qP[comp] = yy[kk*_meqn+comp];
+                _qM[comp] = QM[kk*_meqn+comp];
+                _qP[comp] = QP[kk*_meqn+comp];
             }
-            VecRestoreArray(QM,&xx);
-            VecRestoreArray(QP,&xx);
 
             // evaluate fluxes
             _eqnSet.flux(0, xc, _qM, _qauxM, _fM);
@@ -403,32 +376,28 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
             // Lax-Frederick fluxes
             int curEdge = kk/Ngauss;
-            VecGetArray(numFlux,&xx);
             for(unsigned comp=0; comp<_meqn; comp++){
-                xx[kk*_meqn+comp] = 0.5*(normals[curEdge*NfE]  *(_fM[comp]+_fP[comp]) +
-                                         normals[curEdge*NfE+1]*(_gM[comp]+_gP[comp]) +
-                                         lambda*(_qM[comp]-_qP[comp]))*Fscale[curEdge];
+                numFlux[kk*_meqn+comp] = 0.5*(normals[3*curEdge+0]*(_fM[comp]+_fP[comp]) +
+                                              normals[3*curEdge+1]*(_gM[comp]+_gP[comp]) +
+                                         lambda*(_qM[comp]-_qP[comp]))*normals[3*curEdge+2];
             }
-            VecRestoreArray(numFlux,&xx);
         }
 
-        // Compute surface integral terms
+        // Compute surface integral contribution to all nodes
         _cub->calculateSurfaceIntegral(numFlux,q_surf);
 
         // add surface and volume contributions
-        VecAXPY(q_vol,-1.0,q_surf);
+        for(unsigned kk=0; kk<NpE*_meqn; kk++)
+            volInt[kk] -= q_surf[kk];
 
         // Multiply by the inverse Mass Matrix
-        _geom->multiplyBYinverseMassMatrix(q_vol,vec_rhs);
+        _geom->multiplyBYinverseMassMatrix(volInt,vec_rhs);
 
-        DMPlexPointLocalRef(dm,kelem,ot,&rhs);
-        VecGetArray(vec_rhs,&xx);
+        DMPlexPointLocalRef(_dm,kelem,ot,&rhs);
         for(unsigned kne=0; kne<NpE*_meqn; kne++)
-            rhs[kne] = xx[kne];
-        VecRestoreArray(vec_rhs,&xx);
-
+            rhs[kne] = vec_rhs[kne]/geoFacts[4];
     }
-    DMRestoreLocalVector(dm, &locU);
+    DMRestoreLocalVector(_dm, &locU);
     VecRestoreArray(out, &ot);
 
     isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG step-function");
@@ -436,12 +405,6 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     REAL newDt =  2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
     status.setStatus(true);
     status.setSuggestedDt(newDt);
-
-    // deallocate
-    VecDestroy(&q_vol);
-    VecDestroy(&q_surf);
-    VecDestroy(&xcoord);
-    VecDestroy(&ycoord);
 
     return status;
 }
