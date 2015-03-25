@@ -30,10 +30,10 @@ ApSolver<REAL>::~ApSolver()
   for (ssItr=_subSolvers.begin(); ssItr!=_subSolvers.end(); ++ssItr)
     delete ssItr->second;
 
-  DMDestroy(&_dm);
+  delete tssolver;
+//  DMDestroy(&_dm);
   VecDestroy(&solution);
   PetscViewerDestroy(&_viewer);
-  delete tssolver;
 }
 
 template <typename REAL>
@@ -314,10 +314,10 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     // get any additional parameters for DM from the command line
     DMSetFromOptions(*dm);
 
-//    DM gdm;
-//    DMPlexConstructGhostCells(*dm, NULL, NULL, &gdm);
-//    DMDestroy(dm);
-//    *dm = gdm;
+    DM gdm;
+    DMPlexConstructGhostCells(*dm, NULL, NULL, &gdm);
+    DMDestroy(dm);
+    *dm = gdm;
 
     // SetUp the data structures
     DMSetUp(*dm);

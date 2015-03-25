@@ -146,7 +146,7 @@ private:
 /** Stuff need for the DG calculations */
   DM _dm;
 /** local vectors with the data */
-  Vec locU, locRHS;
+  Vec locU;
 
 /** list of BC subsolvers */
   std::vector<std::string> _bcSubSolvers;

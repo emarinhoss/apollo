@@ -38,8 +38,7 @@ WxNodalDG2dMethod<REAL>::~WxNodalDG2dMethod() {
     delete _cub;
     delete _initFunc;
     VecDestroy(&locU);
-    VecDestroy(&locRHS);
-    DMDestroy(&_dm);
+//    DMDestroy(&_dm);
 }
 
 template <typename REAL>
@@ -148,7 +147,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     DMPlexGetHybridBounds(_dm, &kEndInterior, NULL, NULL, NULL);
     VecGetArray(out, &x);
 
-    for (k = kStart; k < kEnd; ++k)
+    for (k = kStart; k < kEndInterior; ++k)
     {
         for(unsigned node=0; node<_geom->NpElem(); node++){
             txo[1] = _geom->Xcoordinate(k,node);
@@ -203,15 +202,14 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     PetscScalar *ot, *rhs;
     REAL maxSpeed=0.0;
 
-
     // create local vector
     DMGetLocalVector(_dm, &locU);
-    DMGetLocalVector(_dm, &locRHS);
+    //DMGetLocalVector(_dm, &locRHS);
 
     // zero entries of the vectors that will be used to store
     // information
     VecZeroEntries(locU);
-    VecZeroEntries(locRHS);
+    //VecZeroEntries(locRHS);
     VecZeroEntries(out);
 
     // get local values of the global vector in into locX
@@ -247,8 +245,11 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn];
     REAL qgtemp[NfE*Ngauss*_meqn];
 
+    // to evaluate the fluxes at each cubature point
+    REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn];
+
     PetscScalar *qVal;
-    for(unsigned kelem=kStart; kelem<kEnd; kelem++)
+    for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
         // get coordinates of all nodes
         for(unsigned nodes=0; nodes<NpE; nodes++)
@@ -276,9 +277,6 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         // interpolate nodes values into cubature points
         _cub->interpolatedTOCubatures(q_vol,Iq_vol);
-
-        // evaluate the fluxes at each cubature point
-        REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn];
 
         for(unsigned point=0; point<Ncubature; point++)
         {

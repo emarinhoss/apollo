@@ -163,7 +163,6 @@ WxCubature2d<REAL>::~WxCubature2d()
     delete [] _gz;
     delete [] _gw;
     delete [] _V;
-    delete [] _iV;
     delete [] _Dr;
     delete [] _Ds;
     delete [] _DrT;

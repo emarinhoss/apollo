@@ -20,7 +20,7 @@ P_ORDER = 1
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.4] # start, end times
+   Time = [0.0, 0.5] # start, end times
    Output_files = 1 # write output file every time-step
    Dt = 0.01 # initial dt to try
    Dimensions = 2

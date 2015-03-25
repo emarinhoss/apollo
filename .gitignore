@@ -1,5 +1,10 @@
 *.o
+*.log
+*.vtu
+*.inp
+*.geo
 src/.sconsign.dblite
 src/.sconf_temp/
 src/build-debug/
 src/build-opt/
+/.project

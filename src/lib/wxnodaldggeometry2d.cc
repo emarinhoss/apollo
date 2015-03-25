@@ -182,7 +182,7 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
-    for(unsigned K=eStart; K<eEnd; K++)
+    for(unsigned K=eStart; K<eEndInterior; K++)
     {
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
@@ -226,10 +226,11 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     Mat FtoV, FtoF;
     DM unint;
     // Build the Element connectivity matrix, EtoV
-    PetscInt eStart, eEnd;
+    PetscInt eStart, eEnd, eEndInterior;
     DMPlexUninterpolate(dm,&unint);
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
-    for(PetscInt K=eStart; K<eEnd; K++)
+    DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
+    for(PetscInt K=eStart; K<eEndInterior; K++)
     {
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
