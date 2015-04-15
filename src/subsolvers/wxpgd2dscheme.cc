@@ -404,21 +404,21 @@ WxpDG2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     return status;
 }
 
-template<typename REAL>
-void
-WxpDG2Dscheme<REAL>::applyBc(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut)
-{
-  // apply boundary conditions get to get correct values in ghost
-  // cells
-  std::vector<std::string>::const_iterator ssi;
-  for (ssi=_bcSubSolvers.begin(); ssi!=_bcSubSolvers.end(); ++ssi) {
-    // get hold of our sibling BC subsolver
-    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( *ssi );
-    // ss->setCurrentTime(Out);
-    // cast this to the a grid BC and call step function
-    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(quad, dt, inOut);
-  }
-}
+//template<typename REAL>
+//void
+//WxpDG2Dscheme<REAL>::applyBc(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut)
+//{
+//  // apply boundary conditions get to get correct values in ghost
+//  // cells
+//  std::vector<std::string>::const_iterator ssi;
+//  for (ssi=_bcSubSolvers.begin(); ssi!=_bcSubSolvers.end(); ++ssi) {
+//    // get hold of our sibling BC subsolver
+//    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( *ssi );
+//    // ss->setCurrentTime(Out);
+//    // cast this to the a grid BC and call step function
+//    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(quad, dt, inOut);
+//  }
+//}
 
 template <typename REAL>
 PetscErrorCode

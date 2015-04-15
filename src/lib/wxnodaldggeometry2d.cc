@@ -182,7 +182,7 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
-    for(unsigned K=eStart; K<eEndInterior; K++)
+    for(unsigned K=eStart; K<eEnd; K++)
     {
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
@@ -223,6 +223,9 @@ template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
 {
+    WxLogger *l = WxLogger::get("apollo-root.console");
+    WxLogStream errStrm = l->getErrorStream();
+
     Mat FtoV, FtoF;
     DM unint;
     // Build the Element connectivity matrix, EtoV
@@ -230,7 +233,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
     DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
-    for(PetscInt K=eStart; K<eEndInterior; K++)
+    for(PetscInt K=eStart; K<eEnd; K++)
     {
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
@@ -325,6 +328,23 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
         {
             _ETETF[k1][f1] = -1;
         }
+
+    PetscInt value;
+    PetscInt vStart, vEnd;
+    DMPlexGetHeightStratum(_dm, 1, &vStart, &vEnd);
+    // Get the cells that support this face
+    const PetscInt *cells;
+
+    for(unsigned face=vStart; face<vEnd; face++)
+    {
+        DMPlexGetLabelValue(dm, "Face Sets", face, &value);
+        if(value!=-1){
+            DMPlexGetSupport(dm, face, &cells);
+            for(unsigned f1=0; f1<2*_NfE; f1++)
+                _ETETF[cells[0]][f1] = -value;
+        }
+        int AAA = 0;
+    }
 
     // assign values
     for(unsigned kk=0; kk<_totNFace; kk++)

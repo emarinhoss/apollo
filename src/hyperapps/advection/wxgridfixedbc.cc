@@ -10,14 +10,11 @@ WxGridFixedBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
   _value = wxc.template get<REAL>("value");
 
-  // get the label where the BC is to be applied
-  _label = wxc.get<std::string>("label");
-
 }
 
 template <typename REAL>
 void
-WxGridFixedBC<REAL>::applyBC(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut)
+WxGridFixedBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
 {
 
 }

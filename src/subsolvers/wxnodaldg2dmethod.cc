@@ -45,6 +45,10 @@ template <typename REAL>
 void
 WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
+    WxLogger *l = WxLogger::get("apollo-root.console");
+    WxLogStream errStrm = l->getErrorStream();
+
+
     _dm = dm;
   // call base class setup first
   ApSubSolver<REAL>::setup(wxc, _dm);
@@ -103,18 +107,30 @@ WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
   // setup this function
   _initFunc->setup(initCS);
 
+  // read list of BC subsolvers
+  std::vector<WxAny> bcs;//, lbs;
+  bcs = wxc.template get<std::vector<WxAny> >("boundaryConditions");
+//  lbs = wxc.template get<std::vector<WxAny> >("boundaryLabels");
+
+  // The number of boundary conditions must be the same as
+  // the number of boundary labels
+//  if(bcs.size()!=lbs.size())
+//  {
+//      errStrm << "\n *** Error: The number boundary conditions and the number of boundary labels must be the same. ***";
+//      exit(1); // abort execution
+//  }
+  std::vector<WxAny>::const_iterator i;
+  for (i=bcs.begin(); i!=bcs.end(); ++i)
+      _bcSubSolvers.push_back( wx_any_cast<std::string>(*i) );
+
+//  for (i=lbs.begin(); i!=lbs.end(); ++i)
+//      _bcLabels.push_back( wx_any_cast<std::string>(*i) );
+
   // Calculate connectivity, coordinates and Matrices
   _geom = new wxNodalDGgeometry2D<REAL>(_dm, _meqn, _polyOrder);
 
   // Evaluate cubatures, surface Gaussian points and derivatives
   _cub = new WxCubature2d<REAL>(_dm,_meqn,_polyOrder,_geom->inverseVandermonde());
-
-  // read list of BC subsolvers
-//  std::vector<WxAny> bcs;
-//  bcs = wxc.template get<std::vector<WxAny> >("boundaryConditions");
-//  std::vector<WxAny>::const_iterator i;
-//  for (i=bcs.begin(); i!=bcs.end(); ++i)
-//      _bcSubSolvers.push_back( wx_any_cast<std::string>(*i) );
 
 }
 
@@ -147,7 +163,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     DMPlexGetHybridBounds(_dm, &kEndInterior, NULL, NULL, NULL);
     VecGetArray(out, &x);
 
-    for (k = kStart; k < kEndInterior; ++k)
+    for (k = kStart; k < kEnd; ++k)
     {
         for(unsigned node=0; node<_geom->NpElem(); node++){
             txo[1] = _geom->Xcoordinate(k,node);
@@ -233,7 +249,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
      */
     // Coordinates
     REAL xcoord[NpE], ycoord[NpE];
-    REAL xc[4]; // coordinates
+    REAL xc[4]; xc[0]=t; // coordinates
+    REAL nx[2]; // normals
     int connect[2*NfE]; // connectivity information element-to-element-to-edge
 
     // Volume integral
@@ -242,14 +259,14 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // Surface integral
     REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
-    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn];
+    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn], Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
     REAL qgtemp[NfE*Ngauss*_meqn];
 
     // to evaluate the fluxes at each cubature point
     REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn];
 
     PetscScalar *qVal;
-    for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
+    for(unsigned kelem=kStart; kelem<kEnd; kelem++)
     {
         // get coordinates of all nodes
         for(unsigned nodes=0; nodes<NpE; nodes++)
@@ -306,7 +323,11 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
          */
 
         // interpolate nodal values to surface Gassian quadrature points
-        _cub->nodesTOSurfaceGaussians(q_vol,QM);
+        _cub->nodesTOSurfaceGaussians(_meqn,q_vol,QM);
+
+        // Interpolate the coordinates at the element edges
+        _cub->nodesTOSurfaceGaussians(1,xcoord,Xcrd);
+        _cub->nodesTOSurfaceGaussians(1,ycoord,Ycrd);
 
         // Flux Gather
         // get the values at the Gaussian points of the adjacent elements
@@ -315,14 +336,26 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         {
             // gather only the values for the needed edge
             int edgeNum = connect[2*edge+1];
-            // By definition if edgeNum is negative, this is a physical boundary.
+            // If edgeNum is negative this edge is a physical boundary.
             if(edgeNum<0)
             {
                 // Apply Boundary conditions
                 for(unsigned gpoint=0; gpoint<Ngauss; gpoint++)
-                    for(unsigned comp=0; comp<_meqn; comp++)
-                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = 0.0;
+                {
+                    xc[1] = Xcrd[edge*Ngauss+gpoint];
+                    xc[2] = Ycrd[edge*Ngauss+gpoint];
 
+                    nx[0] = normals[3*edge];
+                    nx[1] = normals[3*edge+1];
+
+                    for(unsigned cmp=0; cmp<_meqn; cmp++)
+                        _qM[cmp] = QM[(edge*Ngauss+gpoint)*_meqn+cmp];
+
+                    applyBc(abs(edgeNum), xc, nx, _qM, _qauxM, _qP);
+
+                    for(unsigned comp=0; comp<_meqn; comp++)
+                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = _qP[comp];
+                }
             }
             else
             {
@@ -332,7 +365,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                     qtemp[kk] = qVal[kk];
 
                 // interpolate values at all edges of opposing element
-                _cub->nodesTOSurfaceGaussians(qtemp,qgtemp);
+                _cub->nodesTOSurfaceGaussians(_meqn,qtemp,qgtemp);
 
                 // only use the Gaussian values of the needed edge
                 for(unsigned gpoint=0; gpoint<Ngauss; gpoint++)
@@ -425,6 +458,16 @@ WxNodalDG2dMethod<REAL>::isInfinityOrNAN(Vec f, std::string location)
         exit(1); // abort execution
     }
     return 0;
+}
+
+template<typename REAL>
+void
+WxNodalDG2dMethod<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+{
+    // apply boundary conditions
+    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _bcSubSolvers[bcNum] );
+    // cast this to the a grid BC and call step function
+    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,qBC);
 }
 
 // instantiations

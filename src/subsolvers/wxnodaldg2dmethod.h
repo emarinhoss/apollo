@@ -83,7 +83,7 @@ class WxNodalDG2dMethod : public ApSubSolver<REAL>
 /**
  *  Apply boundary conditions
  */
-    void applyBc(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut);
+    void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC);
 
  /**
  * Compute the RHS using CG spatial discretization.
@@ -148,8 +148,9 @@ private:
 /** local vectors with the data */
   Vec locU;
 
-/** list of BC subsolvers */
+/** list of BC subsolvers and labels */
   std::vector<std::string> _bcSubSolvers;
+  std::vector<std::string> _bcLabels;
 
 /** Filtering variables **/
   REAL *_filterdiag, *_filterMatrix, _cutoff;

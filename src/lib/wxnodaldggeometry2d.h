@@ -139,6 +139,9 @@ class wxNodalDGgeometry2D
     REAL _dtscale; // minimun value of element_radius/(element_perimeter/2)
     REAL _rmin; // minimun spacing between nodes
 
+///** Label information to identify boundary faces */
+//    std::vector<std::string> _bcLabels;
+
 };
 
 #endif // WXNODALDGGEOMETRY2D_H

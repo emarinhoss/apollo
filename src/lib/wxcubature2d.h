@@ -52,7 +52,7 @@ class WxCubature2d
 
 /** Interpolate the nodal values to the Gaussian points at all 3 edges of the element.
  *  The solution is stack in order of the surface number */
-    void nodesTOSurfaceGaussians(REAL *input, REAL *outPut);
+    void nodesTOSurfaceGaussians(int len, REAL *input, REAL *outPut);
 
 /** Checks if any of the values in the array are NAN's
  * @param n - array size

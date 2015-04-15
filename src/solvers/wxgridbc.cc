@@ -20,9 +20,9 @@ WxGridBC<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
 template <typename REAL>
 void
-WxGridBC<REAL>::applyToArray(WxpDGGeometry<REAL> quad, REAL dt, Vec inOut)
+WxGridBC<REAL>::applyToArray(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
 {
-    this->applyBC(quad, dt, inOut);
+    this->applyBC(xc,nx,q,qaux,qBC);
 }
 
 // instantiations

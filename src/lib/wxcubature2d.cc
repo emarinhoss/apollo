@@ -167,7 +167,7 @@ WxCubature2d<REAL>::~WxCubature2d()
     delete [] _Ds;
     delete [] _DrT;
     delete [] _DsT;
-    delete [] _VT;
+//    delete [] _VT;
     delete [] _interp;
     delete [] _interpT;
 }
@@ -305,9 +305,9 @@ WxCubature2d<REAL>::geometricFactors2D(REAL* xcoords, REAL* ycoords, REAL* rx, R
 
 template <typename REAL>
 void
-WxCubature2d<REAL>::nodesTOSurfaceGaussians(REAL* input, REAL *outPut)
+WxCubature2d<REAL>::nodesTOSurfaceGaussians(int len, REAL* input, REAL *outPut)
 {
-    MatrixVectorMult(3*_gQuad,_NPE,_meqn,_interp,input,outPut);
+    MatrixVectorMult(3*_gQuad,_NPE,len,_interp,input,outPut);
 }
 
 template <typename REAL>
