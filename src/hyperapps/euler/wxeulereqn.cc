@@ -8,11 +8,19 @@
 // std includes
 #include <cmath>
 
+// flags to indicate which limiter to apply
+static const unsigned LF   = 0;
+static const unsigned HLL  = 1;
+static const unsigned ROE  = 2;
+static const unsigned HLLC = 3;
+
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
 setup(const WxCryptSet& wxc)
 {
+    WxLogStream wrnStrm = WxLogger::get("apollo-root.console")->getWarningStream();
+
   // set gas gamma
   _gas_gamma = wxc.template get<REAL>("gas_gamma");
   _efix = true;
@@ -27,6 +35,35 @@ setup(const WxCryptSet& wxc)
   else
     _minPres = 0.0;
 
+  // set Numerical flux to be used
+  std::string lim;
+  if (wxc.has("Numerical_Flux"))
+      lim = wxc.template get<std::string>("Numerical_Flux");
+  else
+  {
+    wrnStrm << "WARNING: No Numerical Flux specified. Lax-Friedrichs fluxes will be used.\n";
+    lim = "LF";
+    _fluxType = LF; // use LF flux evaluation
+  }
+
+  if (lim == "LF")
+    _fluxType = LF;
+  else if (lim == "HLL")
+    _fluxType = HLL;
+//  else if (lim == "component")
+//    _fluxType = COMP_LIMITER;
+//  else if (lim == "highOrderComponent")
+//    _fluxType = HO_COMP_LIMITER;
+//  else if (lim == "highOrderCharacteristic")
+//    _fluxType = HO_CHAR_LIMITER;
+  else
+  {
+    wrnStrm << "WARNING: Numerical FLux "
+            << lim
+            << " not recognised.\n Lax-Friedrichs fluxes will be used instead.\n";
+    _fluxType = LF; // default to do Lax-Friedrichs fluxes.
+  }
+
 }
 
 template<typename REAL>
@@ -34,6 +71,9 @@ void
 WxEulerEqn<REAL>::
 rp(unsigned d, REAL *ql, REAL *qr, REAL *qauxl, REAL *qauxr, REAL *df, REAL **wave, REAL *s, REAL *amdq, REAL *apdq)
 {
+    WxLogger *l = WxLogger::get("apollo-root.console");
+    WxLogStream errStrm = l->getErrorStream();
+
   // This solver is based on Roe-averages. The waves with same
   // eigenvalues are lumped into a single wave.
 
@@ -43,7 +83,6 @@ rp(unsigned d, REAL *ql, REAL *qr, REAL *qauxl, REAL *qauxr, REAL *df, REAL **wa
   REAL gas_gamma = _gas_gamma;
   REAL gas_gamma1 = _gas_gamma-1;
   REAL delta[5];
-  int* idx;
 
   unsigned mu=1, mv=2, mw=3;
 
@@ -76,11 +115,8 @@ rp(unsigned d, REAL *ql, REAL *qr, REAL *qauxl, REAL *qauxr, REAL *df, REAL **wa
   if ((ql[0]<0) || (qr[0]<0))
   {
 //		this -> getIndices(idx);
-		std::stringstream ss;
-		WxLogger *l = WxLogger::get("warpx-root.console");
-		WxLogStream errStrm = l->getErrorStream();
 //		errStrm << "*** Negative or zero density in Euler Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
-		errStrm << "*** Negative or zero density in Euler Riemann solver" ;
+        errStrm << "*** Negative or zero density in Euler Riemann solver ***" ;
 	    exit(1); // abort execution
   }
   rhsqrtl = sqrt(ql[0]);
@@ -94,11 +130,8 @@ rp(unsigned d, REAL *ql, REAL *qr, REAL *qauxl, REAL *qauxr, REAL *df, REAL **wa
   if (_minPres==0.0 && (pl<0 || pr<0))
   {
 //		this -> getIndices(idx);
-		std::stringstream ss;
-		WxLogger *l = WxLogger::get("warpx-root.console");
-		WxLogStream errStrm = l->getErrorStream();
 //		errStrm << "*** Negative or zero pressure in Euler Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
-		errStrm << "*** Negative or zero pressure in Euler Riemann solver" ;
+        errStrm << "*** Negative or zero pressure in Euler Riemann solver ***";
 		exit(1); // abort execution
   }    
 
@@ -128,9 +161,6 @@ rp(unsigned d, REAL *ql, REAL *qr, REAL *qauxl, REAL *qauxr, REAL *df, REAL **wa
   if(aa2<0)
   {
 //		this -> getIndices(idx);
-		std::stringstream ss;
-		WxLogger *l = WxLogger::get("warpx-root.console");
-		WxLogStream errStrm = l->getErrorStream();
 //		errStrm << "*** Negative sound-speed in Euler Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
 		errStrm << "*** Negative sound-speed in Euler Riemann solver at index" ;
 		exit(1); // abort execution
@@ -395,7 +425,7 @@ rpt(unsigned td, unsigned d, REAL *ql, REAL* qr, REAL *amdq, REAL* bmamdq, REAL*
   {
 //	  this -> getIndices(idx);
 	  std::stringstream ss;
-	  WxLogger *l = WxLogger::get("warpx-root.console");
+      WxLogger *l = WxLogger::get("apollo-root.console");
 	  WxLogStream errStrm = l->getErrorStream();
 //	  errStrm << "*** Negative or zero pressure in Euler in Euler Transverse Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
 	  errStrm << "*** Negative or zero pressure in Euler in Euler Transverse Riemann solver" ;
@@ -429,7 +459,7 @@ rpt(unsigned td, unsigned d, REAL *ql, REAL* qr, REAL *amdq, REAL* bmamdq, REAL*
   {
 //		this -> getIndices(idx);
 		std::stringstream ss;
-		WxLogger *l = WxLogger::get("warpx-root.console");
+        WxLogger *l = WxLogger::get("apollo-root.console");
 		WxLogStream errStrm = l->getErrorStream();
 //		errStrm << "*** Negative sound-speed in Euler Transverse Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
 		errStrm << "*** Negative sound-speed in Euler Transverse Riemann solver" ;
@@ -653,7 +683,7 @@ rptc(unsigned td, unsigned d, REAL *ql, REAL* qr,REAL *soc, REAL* bms, REAL* bps
   {
 //		this -> getIndices(idx);
 		std::stringstream ss;
-		WxLogger *l = WxLogger::get("warpx-root.console");
+        WxLogger *l = WxLogger::get("apollo-root.console");
 		WxLogStream errStrm = l->getErrorStream();
 //		errStrm << "*** Negative pressure in Euler Transverse Correction Wave Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
 		errStrm << "*** Negative pressure in Euler Transverse Correction Wave Riemann solver at index" ;
@@ -688,7 +718,7 @@ rptc(unsigned td, unsigned d, REAL *ql, REAL* qr,REAL *soc, REAL* bms, REAL* bps
   {
 //	  this -> getIndices(idx);
 	  std::stringstream ss;
-	  WxLogger *l = WxLogger::get("warpx-root.console");
+      WxLogger *l = WxLogger::get("apollo-root.console");
 	  WxLogStream errStrm = l->getErrorStream();
 //	  errStrm << "*** Negative sound-speed in Euler Transverse Correction Wave Riemann solver at index = (" << idx[0] << "," << idx[1] <<  "," <<  idx[2] <<  ")" ;
 	  errStrm << "*** Negative sound-speed in Euler Transverse Correction Wave Riemann solver" ;
@@ -783,17 +813,47 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
   }
 
   rho = q[0];
+  if(rho<=0){
+      WxLogger *l = WxLogger::get("apollo-root.console");
+      WxLogStream errStrm = l->getErrorStream();
+      errStrm << "*** Negative density in Euler flux calculations. ***" ;
+      exit(1); // abort execution
+  }
   u = q[mu]/rho;
   v = q[mv]/rho;
   w = q[mw]/rho;
   E = q[4];
   p = gas_gamma1*(E-0.5*rho*(u*u+v*v+w*w));
+  if(p<=0){
+      WxLogger *l = WxLogger::get("apollo-root.console");
+      WxLogStream errStrm = l->getErrorStream();
+      errStrm << "*** Negative pressure in Euler flux calculations. ***" ;
+      exit(1); // abort execution
+  }
 
   f[0] = rho*u;
   f[mu] = rho*u*u + p;
   f[mv] = rho*u*v;
   f[mw] = rho*u*w;
   f[4] = (E+p)*u;
+}
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    switch (_fluxType) {
+    case 0:
+        applyLax_FriedrichsFluxes(normals,qM,qP,nflux,maxSpeed);
+        break;
+    case 1:
+        applyHLLFluxes(normals,qM,qP,nflux,maxSpeed);
+        break;
+    default:
+        applyLax_FriedrichsFluxes(normals,qM,qP,nflux,maxSpeed);
+        break;
+    }
 }
 
 template<typename REAL>
@@ -898,10 +958,10 @@ eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev)
   if (p<_minPres && _minPres==0.0)
   {
     std::cout<<"p = "<<p;
-    WxLogger::get("warpx-root.console")->
+    WxLogger::get("apollo-root.console")->
       error("*** Negative pressure in Euler eigenSystem");
     exit(1); // abort execution
-  }    
+  }
   if (p<_minPres)
     p = _minPres;
 
@@ -986,6 +1046,134 @@ WxEulerEqn<REAL>::
 RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs)
 {
 
+}
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    REAL *xc, *qaux;
+    REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
+    REAL pM[5], pP[5]; // primitive variables
+
+    // evaluate fluxes
+    this->flux(0, xc, qM, qaux, fM);
+    this->flux(0, xc, qP, qaux, fP);
+    this->flux(1, xc, qM, qaux, gM);
+    this->flux(1, xc, qP, qaux, gP);
+
+    // compute primitive variables
+    this->primitiveVariables(qM,pM);
+    this->primitiveVariables(qP,pP);
+
+    // compute the fastest propagating wave speed
+    REAL c0M = sqrt(pM[1]*pM[1]+pM[2]*pM[2]+pM[3]*pM[3]) + sqrt(_gas_gamma*pM[4]/pM[0]);
+    REAL c0P = sqrt(pP[1]*pP[1]+pP[2]*pP[2]+pP[3]*pP[3]) + sqrt(_gas_gamma*pP[4]/pP[0]);
+    REAL lambda = dmax(c0M,c0P);
+
+    // Lax-Frederick fluxes
+    for(unsigned comp=0; comp<meqn(); comp++)
+        nflux[comp] = 0.5*(normals[0]*(fM[comp]+fP[comp]) + normals[1]*(gM[comp]+gP[comp]) + lambda*(qM[comp]-qP[comp]));
+
+    maxSpeed = lambda;
+}
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    REAL *xc, *qaux;
+    REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
+    REAL pM[5], pP[5]; // primitive variables
+    REAL fx[5];
+
+//    if ((qM[0]<=0.) || (qP[0]<=0.))
+//    {
+//      WxLogger::get("apollo-root.console")->
+//        error("*** Negative density in Euler HLL numerical flux calculation. *** ");
+//      exit(1); // abort execution
+//    }
+
+    // Rotate "-" trace momentum to face normal-tangent coordinates
+    REAL rhouM = qM[1], rhovM = qM[2];
+    qM[1] = normals[0]*rhouM + normals[1]*rhovM;
+    qM[2] =-normals[1]*rhouM + normals[0]*rhovM;
+
+    // Rotate "+" trace momentum to face normal-tangent coordinates
+    REAL rhouP = qP[1], rhovP = qP[2];
+    qP[1] = normals[0]*rhouP + normals[1]*rhovP;
+    qP[2] =-normals[1]*rhouP + normals[0]*rhovP;
+
+    // evaluate fluxes and primitive variables in rotated coordinates
+    this->flux(0, xc, qM, qaux, fM);
+    this->flux(0, xc, qP, qaux, fP);
+    this->flux(1, xc, qM, qaux, gM);
+    this->flux(1, xc, qP, qaux, gP);
+
+    // primitives
+    this->primitiveVariables(qM,pM);
+    this->primitiveVariables(qP,pP);
+
+//    if ((pM[4]<=0.) || (pP[4]<=0.))
+//    {
+//      WxLogger::get("apollo-root.console")->
+//        error("*** Negative pressure in Euler HLL numerical flux calculation. *** ");
+//      exit(1); // abort execution
+//    }
+
+    REAL HM = (qM[4]+pM[4])/pM[0], cM = sqrt(_gas_gamma*pM[4]/pM[0]);
+    REAL HP = (qP[4]+pP[4])/pP[0], cP = sqrt(_gas_gamma*pP[4]/pP[0]);
+
+    // Compute Roe average variables
+    REAL rhoMs = sqrt(pM[0]), rhoPs = sqrt(pP[0]);
+
+    REAL u   = (rhoMs*pM[1] + rhoPs*pP[1])/(rhoMs + rhoPs);
+    REAL v   = (rhoMs*pM[2] + rhoPs*pP[2])/(rhoMs + rhoPs);
+    REAL w   = (rhoMs*pM[3] + rhoPs*pP[3])/(rhoMs + rhoPs);
+    REAL H   = (rhoMs*HM    + rhoPs*HP)   /(rhoMs + rhoPs);
+
+    REAL c2  = (_gas_gamma-1.)*(H - 0.5*(u*u + v*v +w*w)), c = sqrt(c2);
+
+    // Compute estimate of waves speeds
+    REAL SL = dmin(pM[1]-cM, u-c), SR = dmax(pP[1]+cP, u+c);
+
+    // Compute HLL flux
+    REAL zero = 0.0;
+    REAL t1 = (dmin(SR,zero)-dmin(zero,SL))/(SR-SL);
+    REAL t2 = 1.-t1;
+    REAL t3 = (SR*fabs(SL)-SL*abs(SR))/(2.*(SR-SL));
+
+    for(unsigned n=0; n<5; n++)
+        fx[n] = t1*fP[n] + t2*fM[n] - t3*(qP[n]-qM[n]);
+
+    // rotate flux back into Cartesian coordinates
+    nflux[0] = fx[0];
+    nflux[1] = normals[0]*fx[1] - normals[1]*fx[2];
+    nflux[2] = normals[1]*fx[1] + normals[0]*fx[2];
+    nflux[3] = 0.0;
+    nflux[4] = fx[4];
+
+    // compute the fastest propagating wave speed
+    REAL c0M = sqrt(pM[1]*pM[1]+pM[2]*pM[2]+pM[3]*pM[3]) + sqrt(_gas_gamma*pM[4]/pM[0]);
+    REAL c0P = sqrt(pP[1]*pP[1]+pP[2]*pP[2]+pP[3]*pP[3]) + sqrt(_gas_gamma*pP[4]/pP[0]);
+    REAL lambda = dmax(c0M,c0P);
+
+    maxSpeed = lambda;
+
+}
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+primitiveVariables(REAL *qCons, REAL *qPrim)
+{
+    qPrim[0] = qCons[0];
+    qPrim[1] = qCons[1]/qCons[0];
+    qPrim[2] = qCons[2]/qCons[0];
+    qPrim[3] = qCons[3]/qCons[0];
+    qPrim[4] = (_gas_gamma-1.)*(qCons[4]-0.5*(qCons[1]*qCons[1]+qCons[2]*qCons[2]+qCons[3]*qCons[3])/qCons[0]);
 }
 
 // instantiations

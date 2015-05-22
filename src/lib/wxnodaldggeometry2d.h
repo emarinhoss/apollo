@@ -38,6 +38,16 @@ class wxNodalDGgeometry2D
         return _NpE;
     }
 
+/** return the total number of elements */
+    unsigned totalElemNum(){
+        return _Klocal;
+    }
+
+/** return the number of equation in the system */
+    unsigned equationsNumber(){
+        return _meqn;
+    }
+
 /** return the number of nodes per element */
     unsigned NpFaces(){
         return _NpF;
@@ -68,6 +78,24 @@ class wxNodalDGgeometry2D
     void ElementTOElementANDFace(unsigned K, int *ftf){
         for(unsigned ff=0; ff<6; ff++)
             ftf[ff] = _ETETF[K][ff];
+    }
+
+/** Return Average operator for the limiter */
+    void LimiterElementAVE(REAL *limAVG, REAL *dropAVG){
+        for(unsigned k=0; k<_NpE; k++)
+            limAVG[k] = 0.0;
+
+        for(unsigned k=0; k<_NpE; k++)
+            for(unsigned m=0; m<_NpE; m++)
+                limAVG[k] += 0.5*_Mass[k+m*_NpE];
+
+        int sk = 0;
+        for(unsigned k=0; k<_NpE; k++)
+            for(unsigned m=0; m<_NpE; m++)
+                dropAVG[sk++] = -limAVG[m];
+
+        for(unsigned m=0; m<_NpE; m++)
+            dropAVG[m*_NpE+m] += 1.;
     }
 
 ///** calculate the  geometric factors for element k*/
@@ -127,6 +155,7 @@ class wxNodalDGgeometry2D
     int _totNFace;  // total number of interior faces
     REAL *_r, *_s;  // (r,s) coordinates of reference nodes
     REAL *_Ds, *_Dr, *_Vand, *_VVT; // element matrices, VVT is the inverse of the mass matrix
+    REAL *_Mass;
     Mat _IVand;
     int *_Fmask;
     int **_EtoV; // element to verticies connectivity matrix

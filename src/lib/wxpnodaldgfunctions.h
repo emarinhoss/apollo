@@ -134,7 +134,7 @@ polyms_Ord_2(int po, REAL *pr, REAL *ps, int *pFmask)
 {
     REAL p_r[6] = {                -1 ,                 0 ,                 1 ,                -1 ,                 0 ,                -1 };
     REAL p_s[6] = {               -1 ,                -1 ,                -1 ,                 0 ,                 0 ,                 1 };
-    int p_Fmask[9] = {0 , 1 , 2 , 2 , 4 , 5 ,0 , 3 , 5 };
+    int p_Fmask[9] = {0 , 1 , 2 , 2 , 4 , 5 ,5 , 3 , 0 };
 
     for(unsigned k=0; k<(po+1)*(po+2)/2; k++)
     {

@@ -3,7 +3,7 @@
 import math
 
 PI = math.pi
-
+Mach = 2.
 P_ORDER = 1
 
 <warpx>
@@ -11,11 +11,11 @@ P_ORDER = 1
  ##
  # Basic parameters
  ##
- Simulation = Vortex
+ Simulation = Expansion
  # one of debug, info, warning, error, critical, disabled
  Verbosity = debug
 
- <Vortex>
+ <Expansion>
    Type = WxSolver
    Kind = comboSolver
 
@@ -23,7 +23,7 @@ P_ORDER = 1
    Output_files = 1 # write output file after every step
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid2.msh'
+   Gridname = 'grid.msh'
    NumFields = 1
    
    # Check the partition
@@ -32,7 +32,8 @@ P_ORDER = 1
 	Kind = nodalDG2d
 	
 	Equations = [euler]
-	boundaryConditions = [allSides]
+	boundaryConditions = [inflow,bottomWall,noGrad,topWall]
+	Limiter = [eulerLimit]
 	
 	polynomialOrder = P_ORDER
 	cfl = 1.0/((2.*(P_ORDER+1)-1))
@@ -44,26 +45,17 @@ P_ORDER = 1
 		Type = WxFunction
 		Kind = exprFunc
 		
-		xo = 5.
-		yo = 0.
-		beta = 5.
+		pres = 1.01e5
+		rho = 1.23
 		gamma = 1.4
-		uo = 1.
-		vo = 0.
+		M = Mach
 
-		pi = PI
+       exprList = ["dens","u","0.0","0.0","en"]
 
-       exprList = ["rho","rhou","rhov","0.0","en"]
-
-       progn = ["r = sqrt((x-xo)*(x-xo)+(y-yo)*(y-yo))",\
-       			"u = uo - beta*exp(1.-r*r)*(y-yo)/(2.*pi)",\
-       			"v = vo + beta*exp(1.-r*r)*(x-xo)/(2.*pi)",\
-       			"base = 1. - ( (gamma-1.)*beta*beta*exp(2.*(1.-r*r))/(16.*gamma*pi*pi) )",\
-       			"rho = base^(1./(gamma-1.))",\
-       			"p   = rho^gamma",\
-       			"en = p/(gamma-1.) + 0.5*rho*(u*u + v*v)",\
-       			"rhou = rho*u",\
-       			"rhov = rho*v"]
+       progn = ["dens = rho",\
+       			"a0=sqrt(gamma*pres/rho)",\
+       			"u = if(x>5,0.0,M*a0)",\
+       			"en = pres/(gamma-1.)+0.5*dens*u*u"]
 		
 	</InitialCondition>
 	
@@ -72,22 +64,50 @@ P_ORDER = 1
 		Kind = eulerEqn
 		
 		gas_gamma = 1.4
+
 	</euler>
 	
    </hyperbolic>
 
-   <allSides>
+   <inflow>
 	  Type = ApSubSolver
-	  Kind = isentropicVortexBC
+	  Kind = eulerInflowBC
 
-	  u0 = 1.
-	  v0 = 0.
-	  x0 = 5.
-	  y0 = 0.
+	  Mach_number = Mach
+	  Flow_angle = 0.
+	  Pressure = 1.01e5
 	  gas_gamma = 1.4
-	  beta = 5.
+	  density = 1.23
+	</inflow>
 
-	</allSides>
+	<bottomWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</bottomWall>
+
+	<noGrad>
+	  Type = ApSubSolver
+	  Kind = eulerZeroGradientBC
+
+	</noGrad>
+
+	<topWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</topWall>
+
+	<eulerLimit>
+	  Type = ApSubSolver
+	  Kind = eulerLimiterHW
+
+	  gas_gamma = 1.4
+	  min_pressure = 1.e-2 
+	  min_density = 1.e-2
+
+	  boundaryConditions = [inflow,bottomWall,noGrad,topWall]
+	</eulerLimit>
 	
    <stepHyper>
       Type = WxSubSolverStep
@@ -102,6 +122,6 @@ P_ORDER = 1
       PerStep = [stepHyper]
    </SolverSequence>
 
- </Vortex>
+ </Expansion>
 
 </warpx>

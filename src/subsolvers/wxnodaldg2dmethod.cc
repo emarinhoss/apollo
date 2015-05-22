@@ -31,6 +31,7 @@ WxNodalDG2dMethod<REAL>::~WxNodalDG2dMethod() {
     delete [] _sy;
     delete [] _qauxM;
     delete [] _qauxP;
+    delete [] _numericalFLux;
     //delete [] _filterdiag;
     //delete [] _filterMatrix;
     free_2d_c(_wave,_meqn,_mwave);
@@ -40,6 +41,9 @@ WxNodalDG2dMethod<REAL>::~WxNodalDG2dMethod() {
     VecDestroy(&locU);
 //    DMDestroy(&_dm);
 }
+
+// M - denotes the interior of the edge
+// P - denotes the exterior of the edge
 
 template <typename REAL>
 void
@@ -88,6 +92,7 @@ WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _fP = alloc_1d<REAL>(_meqn);
   _gM = alloc_1d<REAL>(_meqn);
   _gP = alloc_1d<REAL>(_meqn);
+  _numericalFLux = alloc_1d<REAL>(_meqn);
   // allocate memory for waves, speeds and fluctuations
   _apdq = alloc_1d<REAL>(_meqn); // positive fluctuation
   _amdq = alloc_1d<REAL>(_meqn); // negative fluctuation
@@ -110,21 +115,20 @@ WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
   // read list of BC subsolvers
   std::vector<WxAny> bcs;//, lbs;
   bcs = wxc.template get<std::vector<WxAny> >("boundaryConditions");
-//  lbs = wxc.template get<std::vector<WxAny> >("boundaryLabels");
 
-  // The number of boundary conditions must be the same as
-  // the number of boundary labels
-//  if(bcs.size()!=lbs.size())
-//  {
-//      errStrm << "\n *** Error: The number boundary conditions and the number of boundary labels must be the same. ***";
-//      exit(1); // abort execution
-//  }
   std::vector<WxAny>::const_iterator i;
   for (i=bcs.begin(); i!=bcs.end(); ++i)
       _bcSubSolvers.push_back( wx_any_cast<std::string>(*i) );
 
-//  for (i=lbs.begin(); i!=lbs.end(); ++i)
-//      _bcLabels.push_back( wx_any_cast<std::string>(*i) );
+  _haveLimiter = false;
+  if (wxc.has("Limiter"))
+  {
+      std::vector<WxAny> lmt;
+      lmt = wxc.template get<std::vector<WxAny> >("Limiter");
+      _haveLimiter = true;
+      for (i=lmt.begin(); i!=lmt.end(); ++i)
+          _limiterSubSolvers.push_back( wx_any_cast<std::string>(*i) );
+  }
 
   // Calculate connectivity, coordinates and Matrices
   _geom = new wxNodalDGgeometry2D<REAL>(_dm, _meqn, _polyOrder);
@@ -211,21 +215,24 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
     isInfinityOrNAN(in, "NAN/INF in input Vector to DG step-function");
 
+    // Apply Limiter
+    if(_haveLimiter==true){
+        applyLimiter(in,in);
+        isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function");
+    }
+
     WxStepperStatus<REAL> status;
-//    DM dm;
-//    VecGetDM(in, &dm);
+
     PetscScalar *u;
     PetscScalar *ot, *rhs;
     REAL maxSpeed=0.0;
 
     // create local vector
     DMGetLocalVector(_dm, &locU);
-    //DMGetLocalVector(_dm, &locRHS);
 
     // zero entries of the vectors that will be used to store
     // information
     VecZeroEntries(locU);
-    //VecZeroEntries(locRHS);
     VecZeroEntries(out);
 
     // get local values of the global vector in into locX
@@ -359,8 +366,9 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             }
             else
             {
+                int plusElem = connect[2*edge];
                 // get the values on the element adjacent to this edge
-                DMPlexPointLocalRef(_dm, connect[2*edge], u, &qVal);
+                DMPlexPointLocalRef(_dm, plusElem, u, &qVal);
                 for(unsigned kk=0; kk<NpE*_meqn; kk++)
                     qtemp[kk] = qVal[kk];
 
@@ -374,44 +382,33 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             }
         }
 
-        // Calculate the Numerical Flux
+        // Calculate the Numerical Flux at each
+        // Gaussian quadrature point at each edge
         for(unsigned kk=0; kk<Ngauss*NfE; kk++)
         {
-            for(unsigned comp=0; comp<_meqn; comp++)
-            {
+            int curEdge = kk/Ngauss;
+
+            for(unsigned comp=0; comp<_meqn; comp++){
                 _qM[comp] = QM[kk*_meqn+comp];
-                _qP[comp] = QP[kk*_meqn+comp];
-            }
+                _qP[comp] = QP[kk*_meqn+comp];}
 
-            // evaluate fluxes
-            _eqnSet.flux(0, xc, _qM, _qauxM, _fM);
-            _eqnSet.flux(0, xc, _qP, _qauxP, _fP);
-            _eqnSet.flux(1, xc, _qM, _qauxM, _gM);
-            _eqnSet.flux(1, xc, _qP, _qauxP, _gP);
-            // compute jump in Q (q-wave)
-            for (unsigned m=0; m<_meqn; ++m)
-                _df[m] = _qP[m] - _qM[m];
+            REAL lambda=0.0; // Fastest propagating wave speed
 
-            // call Riemann problem solver to get flucuations
-            _eqnSet.riemann(0, xc, xc, _qM, _qP, 0, 0, _df, _wave, _sx, _amdq, _apdq);
-            _eqnSet.riemann(1, xc, xc, _qM, _qP, 0, 0, _df, _wave, _sy, _amdq, _apdq);
+            // face normals for this edge
+            nx[0] = normals[3*curEdge+0];
+            nx[1] = normals[3*curEdge+1];
 
-            // compute the fastest propagating wave speed
-            REAL lambda = 0.;
-            for (unsigned mw=0; mw<_mwave; ++mw)
-                lambda = dmax(lambda, _sx[mw]*_sx[mw], _sy[mw]*_sy[mw]);
-            lambda = sqrt(lambda);
+            // Evaluate the numerical flux and get the speed of the
+            // fastest propagating wave
+            _eqnSet.DGnumericalFlux(nx,_qM,_qP,_numericalFLux,lambda);
+            lambda = sqrt(lambda*lambda);
 
-            // find maximum propagation speed in the entire domain
+            // find maximum propagation speed in the entire domain;
+            // this will be used to adjust the timestep
             maxSpeed = dmax(maxSpeed,lambda);
 
-            // Lax-Frederick fluxes
-            int curEdge = kk/Ngauss;
-            for(unsigned comp=0; comp<_meqn; comp++){
-                numFlux[kk*_meqn+comp] = 0.5*(normals[3*curEdge+0]*(_fM[comp]+_fP[comp]) +
-                                              normals[3*curEdge+1]*(_gM[comp]+_gP[comp]) +
-                                         lambda*(_qM[comp]-_qP[comp]))*normals[3*curEdge+2];
-            }
+            for(unsigned comp=0; comp<_meqn; comp++)
+                numFlux[kk*_meqn+comp] = _numericalFLux[comp]*normals[3*curEdge+2];
         }
 
         // Compute surface integral contribution to all nodes
@@ -420,6 +417,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         // add surface and volume contributions
         for(unsigned kk=0; kk<NpE*_meqn; kk++)
             volInt[kk] -= q_surf[kk];
+
+        // add Sources Contribution
 
         // Multiply by the inverse Mass Matrix
         _geom->multiplyBYinverseMassMatrix(volInt,vec_rhs);
@@ -465,9 +464,19 @@ void
 WxNodalDG2dMethod<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
 {
     // apply boundary conditions
-    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _bcSubSolvers[bcNum] );
+    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _bcSubSolvers.at(bcNum-1) );
     // cast this to the a grid BC and call step function
     dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,qBC);
+}
+
+template<typename REAL>
+void
+WxNodalDG2dMethod<REAL>::applyLimiter(Vec Qin, Vec Qlimited)
+{
+    // apply boundary conditions
+    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _limiterSubSolvers.at(0));
+    // cast this to the a grid BC and call step function
+    dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,Qin,Qlimited);
 }
 
 // instantiations

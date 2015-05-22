@@ -12,6 +12,7 @@ sources = [
         'wxsolverbase.cc',
         'wxstepper.cc',
         'wxgridbc.cc',
+        'wxnodaldglimiter.cc',
            ]
 
 ##

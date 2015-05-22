@@ -53,6 +53,17 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
     void flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f);
 
 /**
+ * DG numerical Flux function
+ *
+ * @param normals [in] outward facing normal to a given face/edge
+ * @param qM [in] conserved variables on the interior of the face
+ * @param qP [in] conserved variables on the exterior of the face
+ * @param f [out] Numerical Flux
+ * @param maxSpeed [out] speed of fastest propagating wave
+ */
+    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+
+/**
  * Flux Jacobian function
  *
  * @param d direction along which flux is required
@@ -116,6 +127,22 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
   private:
     REAL _gas_gamma, _minPres;
     bool _efix;
+
+/** Numerical FLux to be used
+ */
+    unsigned _fluxType;
+
+/** Different types of Numerical fluxes
+ */
+    void applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    void applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+
+/** Compute the primitive variables
+ *
+ * @param qCons [in] Conserved Variables
+ * @param qPrim [out] Primitive Variables
+ */
+    void primitiveVariables(REAL *qCons, REAL *qPrim);
 };
 
 #endif //  __wxeulereqn__

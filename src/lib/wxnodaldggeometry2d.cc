@@ -28,15 +28,17 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     _Ds   = alloc_1d<REAL>(_NpE*_NpE);
     _Vand = alloc_1d<REAL>(_NpE*_NpE);
     _VVT = alloc_1d<REAL>(_NpE*_NpE);
+    _Mass = alloc_1d<REAL>(_NpE*_NpE);
 
     nodalNaturalCoordinates(_polyOr,_r,_s,_Fmask);
 
-    Mat Dr, Ds, Vand, VVT;
+    Mat Dr, Ds, Vand, VVT, Mass;
     MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Dr);
     MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Ds);
     MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Vand);
     MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&_IVand);
     MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&VVT);
+    MatCreateSeqDense(PETSC_COMM_SELF,_NpE,_NpE,PETSC_NULL,&Mass);
 
     // Populate matrices
     Vandermonde2D(_polyOr,_NpE, _r, _s, &Vand);
@@ -54,6 +56,7 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     Mat dummy;
     MatTranspose(Vand,MAT_INITIAL_MATRIX,&dummy);
     MatMatMult(Vand,dummy,MAT_REUSE_MATRIX,PETSC_DEFAULT,&VVT);
+    this->invertMatrix(VVT,&Mass);
     infStrm << "** done -- Creating Inverse Mass Matrix. **" << std::endl;
 //    MatView(VVT,PETSC_VIEWER_STDOUT_WORLD);
 
@@ -82,12 +85,14 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     petscMatTOArray(Dr,_Dr);
     petscMatTOArray(Vand,_Vand);
     petscMatTOArray(VVT,_VVT);
+    petscMatTOArray(Mass,_Mass);
 
     MatDestroy(&Ds);
     MatDestroy(&Dr);
     MatDestroy(&Vand);
     MatDestroy(&VVT);
     MatDestroy(&dummy);
+    MatDestroy(&Mass);
 
 }
 
@@ -121,6 +126,7 @@ wxNodalDGgeometry2D<REAL>::~wxNodalDGgeometry2D()
     delete [] _Ds;
     delete [] _Vand;
     delete [] _VVT;
+    delete [] _Mass;
     free_2d_c(_xcoord, _Klocal, _NpE);
     free_2d_c(_ycoord, _Klocal, _NpE);
     free_2d_c(_EtoV, _Klocal, 3);
@@ -390,6 +396,8 @@ template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::GeometricFactors2d(int k, REAL geom[])
 {
+    int test = _Fmask[0*_NpF];
+
     REAL x1 = _xcoord[k][_Fmask[0*_NpF]], y1 =  _ycoord[k][_Fmask[0*_NpF]];
     REAL x2 = _xcoord[k][_Fmask[1*_NpF]], y2 =  _ycoord[k][_Fmask[1*_NpF]];
     REAL x3 = _xcoord[k][_Fmask[2*_NpF]], y3 =  _ycoord[k][_Fmask[2*_NpF]];
@@ -408,10 +416,10 @@ wxNodalDGgeometry2D<REAL>::GeometricFactors2d(int k, REAL geom[])
     }
 
     /* inverted Jacobian matrix for coordinate mapping */
-    geom[0] =  dyds/(J);
-    geom[1] = -dydr/(J);
-    geom[2] = -dxds/(J);
-    geom[3] =  dxdr/(J);
+    geom[0] =  dyds/J;
+    geom[1] = -dydr/J;
+    geom[2] = -dxds/J;
+    geom[3] =  dxdr/J;
     geom[4] =  J;
 }
 

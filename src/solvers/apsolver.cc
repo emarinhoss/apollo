@@ -32,7 +32,7 @@ ApSolver<REAL>::~ApSolver()
 
   delete tssolver;
 //  DMDestroy(&_dm);
-  VecDestroy(&solution);
+//  VecDestroy(&solution);
   PetscViewerDestroy(&_viewer);
 }
 
@@ -411,7 +411,6 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
 
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream debStrm = log->getDebugStream();
-    WxLogStream infStrm = log->getInfoStream();
     typename std::vector<ApSubSolverStep<REAL> >::iterator itr;
 
     for (itr=_perStep.begin(); itr!=_perStep.end(); ++itr)

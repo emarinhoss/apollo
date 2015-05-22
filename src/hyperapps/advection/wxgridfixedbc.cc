@@ -16,7 +16,7 @@ template <typename REAL>
 void
 WxGridFixedBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
 {
-
+    qBC[0] = _value;
 }
 
 // instantiations

@@ -12,6 +12,12 @@ Import('env')
 # source files in lib
 sources = [
 	'wxeulereqn.cc',
+        'wxisentropicvortexbc.cc',
+        'wxeulerdirichletbc.cc',
+        'wxhesthavenwarburtoneulerlimiter.cc',
+        'wxeulerinflowbc.cc',
+        'wxeulerwallbc.cc',
+        'wxeulerzerogradientbc.cc',
            ]
 
 ##

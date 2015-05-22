@@ -148,6 +148,17 @@ class WxHyperbolicEqn : public WxObject
     virtual void flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f);
 
 /**
+ * DG numerical Flux function
+ *
+ * @param normals [in] outward facing normal to a given face/edge
+ * @param qM [in] conserved variables on the interior of the face
+ * @param qP [in] conserved variables on the exterior of the face
+ * @param f [out] Numerical Flux
+ * @param maxSpeed [out] speed of fastest propagating wave
+ */
+    virtual void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+
+/**
  * Flux Jacobian function
  *
  * @param d direction along which flux is required

@@ -14,7 +14,7 @@ P_ORDER = 1
  ##
  Simulation = advection1d
  # one of debug, info, warning, error, critical, disabled
- Verbosity = debug
+ Verbosity = info
 
  <advection1d>
    Type = WxSolver
@@ -25,8 +25,9 @@ P_ORDER = 1
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    #Gridname = 'test.msh'
-   Gridname = 'square_fine.msh'
+   #Gridname = 'square_fine.msh'
    #Gridname = 'matlabMesh.msh'
+   Gridname = 'square.msh'
    NumFields = 1
    
    # Check the partition
@@ -35,6 +36,7 @@ P_ORDER = 1
 	Kind = nodalDG2d
 	
 	Equations = [advection]
+	boundaryConditions = [wall1,wall2,wall3,wall4]
 	
 	polynomialOrder = P_ORDER
 	cfl = 1.0/(2.*(P_ORDER+1)-1)
@@ -72,6 +74,34 @@ P_ORDER = 1
 	</advection>
 	
    </hyperbolic>
+
+   	<wall1>
+		Type = ApSubSolver
+		Kind = gridFixedBC
+		
+		value = 0.0
+	</wall1>
+
+	<wall2>
+		Type = ApSubSolver
+		Kind = gridFixedBC
+		
+		value = 0.0
+	</wall2>
+
+	<wall3>
+		Type = ApSubSolver
+		Kind = gridFixedBC
+		
+		value = 0.0
+	</wall3>
+
+	<wall4>
+		Type = ApSubSolver
+		Kind = gridFixedBC
+		
+		value = 0.0
+	</wall4>
 	
    <stepHyper>
       Type = WxSubSolverStep

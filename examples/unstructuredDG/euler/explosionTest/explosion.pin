@@ -11,11 +11,11 @@ P_ORDER = 1
  ##
  # Basic parameters
  ##
- Simulation = Vortex
+ Simulation = Explosion
  # one of debug, info, warning, error, critical, disabled
  Verbosity = debug
 
- <Vortex>
+ <Explosion>
    Type = WxSolver
    Kind = comboSolver
 
@@ -23,7 +23,7 @@ P_ORDER = 1
    Output_files = 1 # write output file after every step
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid2.msh'
+   Gridname = 'gridBox.msh'
    NumFields = 1
    
    # Check the partition
@@ -44,26 +44,19 @@ P_ORDER = 1
 		Type = WxFunction
 		Kind = exprFunc
 		
-		xo = 5.
-		yo = 0.
-		beta = 5.
+		xo = 1.
+		yo = 1.
+		r0 = 0.4
 		gamma = 1.4
-		uo = 1.
-		vo = 0.
 
 		pi = PI
 
-       exprList = ["rho","rhou","rhov","0.0","en"]
+       exprList = ["rho","0.0","0.0","0.0","en"]
 
        progn = ["r = sqrt((x-xo)*(x-xo)+(y-yo)*(y-yo))",\
-       			"u = uo - beta*exp(1.-r*r)*(y-yo)/(2.*pi)",\
-       			"v = vo + beta*exp(1.-r*r)*(x-xo)/(2.*pi)",\
-       			"base = 1. - ( (gamma-1.)*beta*beta*exp(2.*(1.-r*r))/(16.*gamma*pi*pi) )",\
-       			"rho = base^(1./(gamma-1.))",\
-       			"p   = rho^gamma",\
-       			"en = p/(gamma-1.) + 0.5*rho*(u*u + v*v)",\
-       			"rhou = rho*u",\
-       			"rhov = rho*v"]
+       			"rho = if(r>r0,0.125,1.0)",\
+       			"p   = if(r>r0,0.1,1.0)",\
+       			"en = p/(gamma-1.)"]
 		
 	</InitialCondition>
 	
@@ -78,14 +71,14 @@ P_ORDER = 1
 
    <allSides>
 	  Type = ApSubSolver
-	  Kind = isentropicVortexBC
+	  Kind = eulerDirichletBC
 
-	  u0 = 1.
-	  v0 = 0.
-	  x0 = 5.
-	  y0 = 0.
+	  pressure = 1.
+	  density = 0.
+	  xvelocity = 0.
+	  yvelocity = 0.
+	  zvelocity = 0.
 	  gas_gamma = 1.4
-	  beta = 5.
 
 	</allSides>
 	
@@ -102,6 +95,6 @@ P_ORDER = 1
       PerStep = [stepHyper]
    </SolverSequence>
 
- </Vortex>
+ </Explosion>
 
 </warpx>

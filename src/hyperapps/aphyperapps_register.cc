@@ -11,15 +11,49 @@ WxCreator< WxAdvectionUnstructuredEqn<float>, WxHyperbolicEqn<float> > __advecti
 WxCreator< WxAdvectionUnstructuredEqn<double>, WxHyperbolicEqn<double> > __advectionUnsEqn_d("advectionUnstEqn");
 
 #include "advection/wxgridfixedbc.h"
-WxCreator< WxGridFixedBC<float>, WxGridBC<float> > __fixedVBC_f("gridFixedBC");
-WxCreator< WxGridFixedBC<float>, WxGridBC<float> > __fixedVBC_d("gridFixedBC");
+WxCreator< WxGridFixedBC<float>, ApSubSolver<float> > __fixedVBC_f("gridFixedBC");
+WxCreator< WxGridFixedBC<double>, ApSubSolver<double> > __fixedVBC_d("gridFixedBC");
 
-// Euler Equation
+/**
+ * Euler
+ */
+
+// ------------------ Equations --------------------------//
 #include "euler/wxeulereqn.h"
 WxCreator< WxEulerEqn<float>, WxHyperbolicEqn<float> > __eulerEqn_f("eulerEqn");
 WxCreator< WxEulerEqn<double>, WxHyperbolicEqn<double> > __eulerEqn_d("eulerEqn");
 
-// Maxwell Equation
+// ------------------ Boundary Conditions --------------------------//
+#include "euler/wxisentropicvortexbc.h"
+WxCreator< WxIsentropicVortexBC<float>, ApSubSolver<float> > __isentropicVBC_f("isentropicVortexBC");
+WxCreator< WxIsentropicVortexBC<double>, ApSubSolver<double> > __isentropicVBC_d("isentropicVortexBC");
+
+#include "euler/wxeulerdirichletbc.h"
+WxCreator< WxEulerDirichletBC<float>, ApSubSolver<float> > __edirichletBC_f("eulerDirichletBC");
+WxCreator< WxEulerDirichletBC<double>, ApSubSolver<double> > __edirichletBC_d("eulerDirichletBC");
+
+#include "euler/wxeulerinflowbc.h"
+WxCreator< WxEulerInflowBC<float>, ApSubSolver<float> > __eInflowBC_f("eulerInflowBC");
+WxCreator< WxEulerInflowBC<double>, ApSubSolver<double> > __eInflowBC_d("eulerInflowBC");
+
+#include "euler/wxeulerwallbc.h"
+WxCreator< WxEulerWallBC<float>, ApSubSolver<float> > __eWallBC_f("eulerWallBC");
+WxCreator< WxEulerWallBC<double>, ApSubSolver<double> > __eWallBC_d("eulerWallBC");
+
+#include "euler/wxeulerzerogradientbc.h"
+WxCreator< WxEulerZeroGradientBC<float>, ApSubSolver<float> > __eZGBC_f("eulerZeroGradientBC");
+WxCreator< WxEulerZeroGradientBC<double>, ApSubSolver<double> > __eZGBC_d("eulerZeroGradientBC");
+
+// ------------------ Limiters --------------------------//
+#include "euler/wxhesthavenwarburtoneulerlimiter.h"
+WxCreator< WxHestavenWarburtonEulerLimiter<float>, ApSubSolver<float> > __elimHW_f("eulerLimiterHW");
+WxCreator< WxHestavenWarburtonEulerLimiter<double>, ApSubSolver<double> > __elimHW_d("eulerLimiterHW");
+
+/**
+ * Maxwell
+ */
+
+// Equations
 #include "maxwell/wxphmaxwelleqn.h"
 WxCreator< WxPHMaxwellEqn<float>, WxHyperbolicEqn<float> > __maxwellEqn_f("phMaxwellEqn");
 WxCreator< WxPHMaxwellEqn<double>, WxHyperbolicEqn<double> > __maxwellEqn_d("phMaxwellEqn");

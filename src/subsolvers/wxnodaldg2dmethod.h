@@ -9,6 +9,7 @@
 #include <apsolver.h>
 #include "apsubsolver.h"
 #include <wxgridbc.h>
+#include <wxnodaldglimiter.h>
 
 // WarpX lib includes
 #include <wxfunction.h>
@@ -33,9 +34,6 @@ class WxNodalDG2dMethod : public ApSubSolver<REAL>
     WxNodalDG2dMethod()
             : ApSubSolver<REAL>("nodalDG2d") {
     }
-
-///** Constructor */
-//    ApFVM2Dscheme();
 
 /** Destructor */
     virtual ~WxNodalDG2dMethod();
@@ -85,6 +83,11 @@ class WxNodalDG2dMethod : public ApSubSolver<REAL>
  */
     void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC);
 
+/**
+ *  Apply boundary conditions
+ */
+    void applyLimiter(Vec Qin, Vec Qlimited);
+
  /**
  * Compute the RHS using CG spatial discretization.
  *
@@ -123,7 +126,7 @@ private:
   WxHyperbolicSrcSet<REAL> _srcSet;
 /** Arrays for passing to and fro from Reimann solver */
   // jumps, cons. var in left and right of edge i
-  REAL *_qM, *_qP, *_fM, *_fP, *_gM, *_gP, *_qauxM, *_qauxP;
+  REAL *_qM, *_qP, *_fM, *_fP, *_gM, *_gP, *_qauxM, *_qauxP, *_numericalFLux;
   REAL *_apdq, *_amdq; // fluctuations
   REAL *_sx, *_sy; // speeds
   REAL **_wave; // waves
@@ -148,9 +151,10 @@ private:
 /** local vectors with the data */
   Vec locU;
 
-/** list of BC subsolvers and labels */
+/** list of BC and limter subsolvers */
   std::vector<std::string> _bcSubSolvers;
-  std::vector<std::string> _bcLabels;
+  std::vector<std::string> _limiterSubSolvers;
+  bool _haveLimiter;
 
 /** Filtering variables **/
   REAL *_filterdiag, *_filterMatrix, _cutoff;

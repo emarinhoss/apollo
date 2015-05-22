@@ -247,8 +247,8 @@ template <typename REAL>
 void
 WxCubature2d<REAL>::evaluatedVolumeIntegrals(REAL* xcoords, REAL* ycoords, REAL* Fflux, REAL* Gflux, REAL *VolInt)
 {
-//    checkNAN(_pts*_meqn, Fflux, "nan on Fflux");
-//    checkNAN(_pts*_meqn, Gflux, "nan on Gflux");
+    checkNAN(_pts*_meqn, Fflux, "nan on Fflux");
+    checkNAN(_pts*_meqn, Gflux, "nan on Gflux");
 
 
     REAL rx[_pts], sx[_pts], ry[_pts], sy[_pts], J[_pts];
@@ -270,7 +270,7 @@ WxCubature2d<REAL>::evaluatedVolumeIntegrals(REAL* xcoords, REAL* ycoords, REAL*
     for(unsigned kk=0; kk<_NPE*_meqn; kk++)
         VolInt[kk] = ddx[kk] + ddy[kk];
 
-//    checkNAN(_NPE*_meqn, VolInt, "nan on VolInt");
+    checkNAN(_NPE*_meqn, VolInt, "nan on VolInt");
 }
 
 template <typename REAL>
@@ -314,7 +314,7 @@ template <typename REAL>
 void
 WxCubature2d<REAL>::calculateSurfaceIntegral(REAL* numFlux, REAL* surfInt)
 {
-//    checkNAN(3*_gQuad*_meqn, numFlux, "nan on numFflux");
+    checkNAN(3*_gQuad*_meqn, numFlux, "nan on numFflux");
     REAL W[3*_gQuad];
 
     for(unsigned kk=0; kk<3; kk++)
@@ -326,7 +326,7 @@ WxCubature2d<REAL>::calculateSurfaceIntegral(REAL* numFlux, REAL* surfInt)
             numFlux[kk*_meqn+mm] *= W[kk];
 
     MatrixVectorMult(_NPE,3*_gQuad,_meqn,_interpT,numFlux,surfInt);
-//    checkNAN(_NPE*_meqn, surfInt, "nan on surfInt");
+    checkNAN(_NPE*_meqn, surfInt, "nan on surfInt");
 }
 
 template <typename REAL>

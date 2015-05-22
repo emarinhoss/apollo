@@ -1,8 +1,10 @@
 # -*- python -*- 
+import math
 
-GAMMA = 2./3.
-SP_ORDER = 1
-PI = 3.141592654
+GAMMA = 1.4
+P_ORDER = 1
+PI = math.pi
+Mach = 3.
 
 <warpx>
 
@@ -11,30 +13,33 @@ PI = 3.141592654
  ##
  Simulation = ffstep
  # one of debug, info, warning, error, critical, disabled
- Verbosity = debug
+ Verbosity = info
 
  <ffstep>
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.1] # start, end times
-   Output_files = 5 # no. of output files to write
-   Dt = 0.001 # initial dt to try
+   Time = [0.0, 5.0] # start, end times
+   Output_files = 1 # no. of output files to write
+   Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'ffstep.exo'
+   Gridname = 'grid2.msh'
    NumFields = 1
    
    # Check the partition
    <hyperbolic>
 	Type = ApSubSolver
-	Kind = dg2dscheme
+	Kind = nodalDG2d
 	
-	spatialOrder = SP_ORDER
+	polynomialOrder = P_ORDER
+	cfl = 1.0/((2.*(P_ORDER+1)-1))
 	
 	Equations = [euler]
+	boundaryConditions = [inflow,bottomWall,topWall,noGrad]
+	Limiter = [eulerLimit]
 	
-	// setup data structure, [fieldNumber,FieldName]
-	DataStructure = [0,dg,(SP_ORDER+1)*(SP_ORDER+2)/2*5]
+	## setup data structure, [fieldNumber,FieldName]
+	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
 	
 	<InitialCondition>
 		Type = WxFunction
@@ -42,16 +47,19 @@ PI = 3.141592654
 		
 		XC = 1.0
 		YC = 0.5
-		pic = PI
+		gm = GAMMA
 
-       exprList = ["pulse", \
-					"0.0", \
-					"0.0", \
-					"0.0", \
+       exprList = [ "rho", \
+					"rhou", \
+					"rhov", \
+					"rhow", \
 					"energy"]
 
-       progn = ["pulse = exp(-25.0*((x-XC)*(x-XC)+(y-YC)*(y-YC)))", \
-				"energy = sin(2.*pic*x)*sin(2.*pic*y)"]
+       progn = ["rho = gm", \
+       			"rhou= 3.*gm",\
+       			"rhov= 0.0",\
+       			"rhow= 0.0",\
+				"energy = 1./(gm-1.)+9.*gm/2."]
 		
 	</InitialCondition>
 	
@@ -60,9 +68,51 @@ PI = 3.141592654
 		Kind = eulerEqn
 		
 		gas_gamma = GAMMA
+		# either Lax-Friedrichs = LF or HLL
+		Numerical_Flux = HLL
 	</euler>
 	
    </hyperbolic>
+
+   <inflow>
+	  Type = ApSubSolver
+	  Kind = eulerInflowBC
+
+	  Mach_number = Mach
+	  Flow_angle = 0.
+	  Pressure = 1.
+	  gas_gamma = GAMMA
+	  density = GAMMA
+	</inflow>
+
+	<bottomWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</bottomWall>
+
+	<noGrad>
+	  Type = ApSubSolver
+	  Kind = eulerZeroGradientBC
+
+	</noGrad>
+
+	<topWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</topWall>
+
+	<eulerLimit>
+	  Type = ApSubSolver
+	  Kind = eulerLimiterHW
+
+	  gas_gamma = GAMMA
+	  min_pressure = 1.e-2
+	  min_density = 1.e-2
+
+	  boundaryConditions = [inflow,bottomWall,topWall,noGrad]
+	</eulerLimit>
 	
    <stepHyper>
       Type = WxSubSolverStep
