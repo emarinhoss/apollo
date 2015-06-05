@@ -1,0 +1,112 @@
+# -*- python -*- 
+
+import math
+
+PI = math.pi
+
+P_ORDER = 1
+LIGHT = 1.0
+
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = advection1d
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = info
+
+ <advection1d>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, PI] # start, end times
+   Output_files = 10 # no. of output files to write
+   Dt = 0.01 # initial dt to try
+   Dimensions = 2
+   Gridname = 'grid2.msh'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = nodalDG2d
+	
+	Equations = [maxwell]
+	boundaryConditions = [boundary]
+	Sources = [current]
+	
+	polynomialOrder = P_ORDER
+	cfl = 0.5/((2.*(P_ORDER+1)-1))
+	
+	DataStructure = [0,dg,8*(P_ORDER+1)*(P_ORDER+2)/2]
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		XC = 0.0
+		YC = 0.0
+		pi = PI
+
+       exprList = ["0.0", \
+				   "0.0", \
+				   "0.0",  \
+				   "0.0", \
+				   "0.0", \
+				   "0.0", \
+				   "0.0", \
+				   "0.0"]
+
+		# list of preiliminary expressions to execute
+        progn = ["r = sqrt((x-XC)^2 + (y-YC)^2)", \
+                 "bz = exp(-r*r/(0.1*0.1))"]			   
+
+		
+	</InitialCondition>
+	
+	<maxwell>
+		Type = WxHyperbolicEqn
+		Kind = phMaxwellEqn
+		
+		c0 = LIGHT
+		gamma = 1.0
+		chi = 1.0
+	</maxwell>
+
+	<current>
+		Type = WxHyperbolicSrc
+		Kind = pulseTrain
+		
+		Period = 1.
+		PulseLength = 0.5
+		Xcenter = 0.0
+		Ycenter = 0.0
+
+		OutRange = [2]
+	</current>
+	
+   </hyperbolic>
+
+   <boundary>
+		Type = ApSubSolver
+		Kind = phmConductingWallBC
+		
+	</boundary>
+	
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </advection1d>
+
+</warpx>

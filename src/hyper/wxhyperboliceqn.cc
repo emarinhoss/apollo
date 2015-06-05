@@ -96,7 +96,7 @@ void
 WxHyperbolicEqn<REAL>::flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f) 
 {
   WxExcept wxe;
-  wxe << "Flux function flux() of equation system" << _name
+  wxe << "Flux function flux() of equation system " << _name
       << " not implemented." << std::endl;
   throw wxe;        
 }
@@ -106,7 +106,7 @@ void
 WxHyperbolicEqn<REAL>::DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
 {
   WxExcept wxe;
-  wxe << "Numerical Flux function DGnumericalFlux() of equation system" << _name
+  wxe << "Numerical Flux function DGnumericalFlux() of equation system " << _name
       << " not implemented." << std::endl;
   throw wxe;
 }

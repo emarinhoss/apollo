@@ -1,7 +1,7 @@
 ## -*- python -*-
 
 ##
-# Build maxwell equation systems
+# Build multifluid equation systems
 ##
 
 Import('env')
@@ -11,10 +11,8 @@ Import('env')
 
 # source files in lib
 sources = [
-        'wxphmaxwelleqn.cc',
-        'wxmaxwelltranversemagneticbc.cc',
-        'wxphmaxwellconductingwallbc.cc',
-           ]
+           'wxtwofluidrmfbc.cc',
+            ]
 
 ##
 # compile sources and add them to list of objects built

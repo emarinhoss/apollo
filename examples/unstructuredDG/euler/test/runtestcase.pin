@@ -5,7 +5,7 @@ import math
 PI = math.pi
 
 P_ORDER = 1
-TEND = 5.
+TEND = 10.*0.00290225
 
 <warpx>
 
@@ -21,10 +21,10 @@ TEND = 5.
    Kind = comboSolver
 
    Time = [0.0, TEND] # start, end times
-   Output_files = 20 # write output file after every step
+   Output_files = 1 # write output file after every step
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'gridBox.msh'
+   Gridname = 'test.msh'
    NumFields = 1
    
    # Check the partition
@@ -53,7 +53,7 @@ TEND = 5.
 
 		pi = PI
 
-       exprList = ["rho","0.0","0.0","0.0","en"]
+       exprList = ["0.125","0.0","0.0","0.0","0.1/0.4"]
 
        progn = ["r = sqrt((x-xo)*(x-xo)+(y-yo)*(y-yo))",\
        			"rho = if(r>r0,0.125,1.0)",\
@@ -74,7 +74,6 @@ TEND = 5.
    <allSides>
 	  Type = ApSubSolver
 	  Kind = eulerDirichletBC
-	  #King = eulerZeroGradientBC
 
 	  pressure = 0.1
 	  density = 0.125

@@ -125,7 +125,7 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
     void eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev);
 
   private:
-    REAL _gas_gamma, _minPres;
+    REAL _gas_gamma, _minPres, _minDens;
     bool _efix;
 
 /** Numerical FLux to be used

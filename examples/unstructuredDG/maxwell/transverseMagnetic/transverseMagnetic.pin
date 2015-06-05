@@ -21,7 +21,7 @@ LIGHT = 1.0
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.1] # start, end times
+   Time = [0.0, PI] # start, end times
    Output_files = 1 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
@@ -31,9 +31,10 @@ LIGHT = 1.0
    # Check the partition
    <hyperbolic>
 	Type = ApSubSolver
-	Kind = dg2dscheme
+	Kind = nodalDG2d
 	
 	Equations = [maxwell]
+	boundaryConditions = [boundary]
 	
 	polynomialOrder = P_ORDER
 	cfl = 0.5/((2.*(P_ORDER+1)-1))
@@ -68,6 +69,12 @@ LIGHT = 1.0
 	</maxwell>
 	
    </hyperbolic>
+
+   <boundary>
+		Type = ApSubSolver
+		Kind = maxwellTransverseMagneticBC
+		
+	</boundary>
 	
    <stepHyper>
       Type = WxSubSolverStep

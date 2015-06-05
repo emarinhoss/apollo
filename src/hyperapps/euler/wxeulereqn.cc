@@ -8,7 +8,7 @@
 // std includes
 #include <cmath>
 
-// flags to indicate which limiter to apply
+// flags to indicate which numerical flux to use
 static const unsigned LF   = 0;
 static const unsigned HLL  = 1;
 static const unsigned ROE  = 2;
@@ -35,13 +35,18 @@ setup(const WxCryptSet& wxc)
   else
     _minPres = 0.0;
 
+  if (wxc.has("minDensity"))
+    _minDens = wxc.template get<REAL>("minDensity");
+  else
+    _minDens = 0.0;
+
   // set Numerical flux to be used
   std::string lim;
   if (wxc.has("Numerical_Flux"))
       lim = wxc.template get<std::string>("Numerical_Flux");
   else
   {
-    wrnStrm << "WARNING: No Numerical Flux specified. Lax-Friedrichs fluxes will be used.\n";
+    wrnStrm << "WARNING: No Numerical Flux specified for Euler eqn., Lax-Friedrichs fluxes will be used.\n";
     lim = "LF";
     _fluxType = LF; // use LF flux evaluation
   }
@@ -813,23 +818,29 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
   }
 
   rho = q[0];
-  if(rho<=0){
+  if(_minDens == 0.0 && rho<=0){
       WxLogger *l = WxLogger::get("apollo-root.console");
       WxLogStream errStrm = l->getErrorStream();
-      errStrm << "*** Negative density in Euler flux calculations. ***" ;
+      errStrm << "*** Negative density in Euler flux calculations. ***\n" ;
       exit(1); // abort execution
   }
+  if(rho < _minDens)
+      rho = _minDens;
+
   u = q[mu]/rho;
   v = q[mv]/rho;
   w = q[mw]/rho;
   E = q[4];
   p = gas_gamma1*(E-0.5*rho*(u*u+v*v+w*w));
-  if(p<=0){
+
+  if(_minPres==0.0 && p<=0){
       WxLogger *l = WxLogger::get("apollo-root.console");
       WxLogStream errStrm = l->getErrorStream();
-      errStrm << "*** Negative pressure in Euler flux calculations. ***" ;
+      errStrm << "*** Negative pressure in Euler flux calculations. ***\n" ;
       exit(1); // abort execution
   }
+  if(p<_minPres)
+      p = _minPres;
 
   f[0] = rho*u;
   f[mu] = rho*u*u + p;

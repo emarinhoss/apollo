@@ -26,5 +26,6 @@ for s in sources:
 objs.append(env.SConscript('advection/SConscript', exports='env') )
 objs.append(env.SConscript('euler/SConscript', exports='env') )
 objs.append(env.SConscript('maxwell/SConscript', exports='env') )
+objs.append(env.SConscript('multifluid/SConscript', exports='env') )
 
 Return('objs')

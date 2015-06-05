@@ -186,6 +186,30 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
 template<typename REAL>
 void
 WxAdvectionEqn<REAL>::
+DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    REAL *xc, *qaux;
+    REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
+
+    // evaluate fluxes
+    this->flux(0, xc, qM, qaux, fM);
+    this->flux(0, xc, qP, qaux, fP);
+    this->flux(1, xc, qM, qaux, gM);
+    this->flux(1, xc, qP, qaux, gP);
+
+    // determine the fastest propagating wave speed
+    REAL lambda = dmax(fabs(_ux),fabs(_uy));
+
+    // Lax-Frederick fluxes
+    for(unsigned comp=0; comp<meqn(); comp++)
+        nflux[comp] = 0.5*(normals[0]*(fM[comp]+fP[comp]) + normals[1]*(gM[comp]+gP[comp]) + lambda*(qM[comp]-qP[comp]));
+
+    maxSpeed = lambda;
+}
+
+template<typename REAL>
+void
+WxAdvectionEqn<REAL>::
 fluxJacobian(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL **f)
 {
     if (d==0)

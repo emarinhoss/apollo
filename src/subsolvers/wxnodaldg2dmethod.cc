@@ -167,7 +167,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     DMPlexGetHybridBounds(_dm, &kEndInterior, NULL, NULL, NULL);
     VecGetArray(out, &x);
 
-    for (k = kStart; k < kEnd; ++k)
+    for (k = kStart; k < kEndInterior; ++k)
     {
         for(unsigned node=0; node<_geom->NpElem(); node++){
             txo[1] = _geom->Xcoordinate(k,node);
@@ -201,7 +201,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     }
     VecRestoreArray(out, &x);
 
-    isInfinityOrNAN(out, "NAN/INF in initialization!");
+    isInfinityOrNAN(out, "NAN/INF in initialization!\n");
 
     // Suggested initial dt
     REAL timeStep = 2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
@@ -218,7 +218,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     // Apply Limiter
     if(_haveLimiter==true){
         applyLimiter(in,in);
-        isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function");
+        isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
     }
 
     WxStepperStatus<REAL> status;
@@ -262,7 +262,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // Volume integral
     REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
-    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn];
+    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn], ISrc_vol[Ncubature*_meqn];
+    REAL IXcoords[Ncubature], IYcoords[Ncubature];
 
     // Surface integral
     REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
@@ -273,7 +274,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn];
 
     PetscScalar *qVal;
-    for(unsigned kelem=kStart; kelem<kEnd; kelem++)
+    for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
         // get coordinates of all nodes
         for(unsigned nodes=0; nodes<NpE; nodes++)
@@ -294,16 +295,21 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         /** *******************************************************
          *  *******************************************************
-         *  Evaluate Volume Integral
+         *  Evaluate Volume Integral and Sources
          *  *******************************************************
          *  *******************************************************
          */
 
         // interpolate nodes values into cubature points
-        _cub->interpolatedTOCubatures(q_vol,Iq_vol);
+        _cub->interpolatedTOCubatures(_meqn,q_vol,Iq_vol);
+        _cub->interpolatedTOCubatures(1,xcoord,IXcoords);
+        _cub->interpolatedTOCubatures(1,ycoord,IYcoords);
 
         for(unsigned point=0; point<Ncubature; point++)
         {
+            // Coordinates
+            xc[1] = IXcoords[point];
+            xc[2] = IYcoords[point];
 
             // Evaluate Flux at each cubature point
             for(unsigned component=0; component<_meqn; component++)
@@ -311,16 +317,19 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
+            _srcSet.sourceTerms(xc, Qvar, Qvaraux, _src);
 
             for(unsigned component=0; component<_meqn; component++)
             {
                 If_vol[point*_meqn+component] = Fflux[component];
                 Ig_vol[point*_meqn+component] = Gflux[component];
+                ISrc_vol[point*_meqn+component] = _src[component];
             }
         }
 
-        // Compute volume terms (dphidx, F) + (dphidy, G)
-        _cub->evaluatedVolumeIntegrals(xcoord,ycoord,If_vol,Ig_vol,volInt);
+        // Compute volume terms, which includes the sources: (dphidx, F) + (dphidy, G) + (phi, S)
+        _cub->evaluatedVolumeIntegrals(xcoord,ycoord,If_vol,Ig_vol,ISrc_vol,volInt);
+
 
         /** *******************************************************
          *  *******************************************************
@@ -418,8 +427,6 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         for(unsigned kk=0; kk<NpE*_meqn; kk++)
             volInt[kk] -= q_surf[kk];
 
-        // add Sources Contribution
-
         // Multiply by the inverse Mass Matrix
         _geom->multiplyBYinverseMassMatrix(volInt,vec_rhs);
 
@@ -430,7 +437,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     DMRestoreLocalVector(_dm, &locU);
     VecRestoreArray(out, &ot);
 
-    isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG step-function");
+    isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG step-function.\n");
 
     REAL newDt =  2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
     status.setStatus(true);

@@ -29,10 +29,11 @@ class WxCubature2d
     virtual ~WxCubature2d();
 
 /** Interpolate nodal values into cubature points
+ *  @param num  [in]  - number of components at each cubature
  *  @param input  [in]  - conserved variables at nodal points
  *  @param output [out] - conserved variables at cubature point
  */
-    void interpolatedTOCubatures(REAL *input, REAL *output);
+    void interpolatedTOCubatures(int num, REAL *input, REAL *output);
 
 /** Return the total number of cubature points used. */
     int numCubaturePoints(){
@@ -45,7 +46,7 @@ class WxCubature2d
     }
 
 /** Evaluate the volume integrals using cubature integration */
-    void evaluatedVolumeIntegrals(REAL *xcoords, REAL *ycoords, REAL *Fflux, REAL *Gflux, REAL *VolInt);
+    void evaluatedVolumeIntegrals(REAL *xcoords, REAL *ycoords, REAL *Fflux, REAL *Gflux, REAL *Src, REAL *VolInt);
 
 /** Evaluate the surface integral */
     void calculateSurfaceIntegral(REAL *numFlux, REAL *surfInt);

@@ -188,7 +188,7 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
-    for(unsigned K=eStart; K<eEnd; K++)
+    for(unsigned K=eStart; K<eEndInterior; K++)
     {
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
@@ -239,7 +239,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
     DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
     DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
-    for(PetscInt K=eStart; K<eEnd; K++)
+    for(PetscInt K=eStart; K<eEndInterior; K++)
     {
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
@@ -349,7 +349,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
             for(unsigned f1=0; f1<2*_NfE; f1++)
                 _ETETF[cells[0]][f1] = -value;
         }
-        int AAA = 0;
+//        int AAA = 0;
     }
 
     // assign values
@@ -396,7 +396,7 @@ template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::GeometricFactors2d(int k, REAL geom[])
 {
-    int test = _Fmask[0*_NpF];
+//    int test = _Fmask[0*_NpF];
 
     REAL x1 = _xcoord[k][_Fmask[0*_NpF]], y1 =  _ycoord[k][_Fmask[0*_NpF]];
     REAL x2 = _xcoord[k][_Fmask[1*_NpF]], y2 =  _ycoord[k][_Fmask[1*_NpF]];

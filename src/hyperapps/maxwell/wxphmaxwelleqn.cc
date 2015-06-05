@@ -494,6 +494,29 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
   f[7] = _gamma*_c0*_c0*q[ibx];
 }
 
+template<typename REAL>
+void
+WxPHMaxwellEqn<REAL>::
+DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    REAL *xc, *qaux;
+    REAL fM[8], fP[8], gM[8], gP[8]; // x/y Fluxes
+
+    // evaluate fluxes
+    this->flux(0, xc, qM, qaux, fM);
+    this->flux(0, xc, qP, qaux, fP);
+    this->flux(1, xc, qM, qaux, gM);
+    this->flux(1, xc, qP, qaux, gP);
+
+    // determine the fastest propagating wave speed
+    REAL lambda = dmax(_chi*_c0,_gamma*_c0,_c0);
+
+    // Lax-Frederick fluxes
+    for(unsigned comp=0; comp<meqn(); comp++)
+        nflux[comp] = 0.5*(normals[0]*(fM[comp]+fP[comp]) + normals[1]*(gM[comp]+gP[comp]) + lambda*(qM[comp]-qP[comp]));
+
+    maxSpeed = lambda;
+}
 
 template<typename REAL>
 void

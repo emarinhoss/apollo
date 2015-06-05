@@ -69,8 +69,8 @@ P_ORDER = 1
 		Type = WxHyperbolicEqn
 		Kind = advectionEqn
 		
-		ux = 1.0
-		uy = 1.0
+		ux = -1.0
+		uy = -1.0
 	</advection>
 	
    </hyperbolic>

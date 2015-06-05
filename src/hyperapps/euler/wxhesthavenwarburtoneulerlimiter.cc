@@ -87,7 +87,11 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
     // array that has the cell conservative/primitive averages for every element
     REAL cellAVEcons[meqn*_Klocal], cellAVEprim[meqn*_Klocal];
 
-    for(int eNum=0; eNum<_Klocal; eNum++)
+    PetscInt kStart, kEnd, kEndInterior;
+    DMPlexGetHeightStratum(_dm, 0, &kStart, &kEnd);
+    DMPlexGetHybridBounds(_dm, &kEndInterior, NULL, NULL, NULL);
+
+    for(int eNum=kStart; eNum<kEndInterior; eNum++)
     {
         // Cell centers
         REAL xc[4]={0,0,0,0}, yc[4]={0,0,0,0};
@@ -101,10 +105,10 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
         // get neighbors ids
         geom->ElementTOElementANDFace(eNum,connect);
         // calculate edge normals
-        geom->Normals2d(eNum,normals); // [nx_edge1,ny_edge1,length_edge1, nx_edge2, ny_edge2 ...]
+        geom->Normals2d(eNum,normals); // returns [nx_edge1,ny_edge1,length_edge1, nx_edge2, ny_edge2 ...]
 
         // calculate the element center
-        geom->GeometricFactors2d(eNum,geoFacts); // [drdx, dsdx, drdy, dsdy, J]
+        geom->GeometricFactors2d(eNum,geoFacts); // returns [drdx, dsdx, drdy, dsdy, J]
 
         for(unsigned kk=0; kk<3; kk++)
         {
@@ -120,7 +124,6 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
                 REAL H1 = 2.0*A0[0]/normals[3*face+2];
                 xc[face+1] = xc[0] + 2.0*normals[3*face]*H1;
                 yc[face+1] = yc[0] + 2.0*normals[3*face+1]*H1;
-                A0[face+1] = A0[0]; // not sure about this step
             }
             else
             {
@@ -210,14 +213,15 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
                 DMPlexPointLocalRef(_dm, connect[2*elem], u, &qIn);
                 computeConservedAndPrimitiveAVEVariables(kNodes,qIn,AVE,qCons,qPrim);
 
-                for(unsigned kk=0; kk<meqn; kk++)
+                for(unsigned kk=0; kk<meqn; kk++){
                     ConsAve[kk][elem+1] = qCons[kk];
+                    PrimAve[kk][elem+1] = qPrim[kk];}
 
                 // get adjacent node values
                 int faceNum = connect[2*elem+1];
                 for(unsigned nodes=0; nodes<NpF; nodes++)
                     for(unsigned kk=0; kk<meqn; kk++)
-                        QP[(elem*NpF+nodes)*nodes+kk] = qIn[faceIDs[faceNum*NpF+NpF-1-nodes]*meqn+kk];
+                        QP[(elem*NpF+nodes)*meqn+kk] = qIn[faceIDs[faceNum*NpF+NpF-1-nodes]*meqn+kk];
             }
         }
 
@@ -227,8 +231,11 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
         // Conserved variables face averages
         REAL fConsA[3*NpF*meqn];
 
-        for(unsigned kk=0; kk<3*NpF*meqn; kk++)
-            fConsA[kk] = 0.5*(QP[kk]+QM[kk]);
+        for(unsigned kk=0; kk<3*NpF*meqn; kk++){
+//            REAL AA = QP[kk];
+//            REAL AB = QM[kk];
+
+            fConsA[kk] = 0.5*(QP[kk]+QM[kk]);}
 
         // Get the primitive values now.
         // Only the values of the nodes at both ends of a
@@ -259,6 +266,18 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
         REAL xv3 = geom->Xcoordinate(eNum,endIDs[4]); REAL yv3 = geom->Ycoordinate(eNum,endIDs[4]);
         for(unsigned comp=0; comp<meqn; comp++)
         {
+//            REAL AA = PrimAve[comp][0];
+//            REAL AB = PrimAve[comp][1];
+//            REAL AC = PrimAve[comp][2];
+//            REAL AD = PrimAve[comp][3];
+
+//            REAL BA = fPrimA[0*meqn+comp];
+//            REAL BB = fPrimA[1*meqn+comp];
+//            REAL BC = fPrimA[2*meqn+comp];
+//            REAL BD = fPrimA[3*meqn+comp];
+//            REAL BE = fPrimA[4*meqn+comp];
+//            REAL BF = fPrimA[5*meqn+comp];
+
             dVdxE1[meqn*eNum+comp] =  0.5*((PrimAve[comp][1]-PrimAve[comp][0])*(yv2-yv1)
                                           + (fPrimA[0*meqn+comp]-fPrimA[1*meqn+comp])*(yc[1]-yc[0]) )/A0[1];
 
@@ -295,14 +314,13 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
     VecGetArray(q_limited, &v);
 
-    for(unsigned eNum=0; eNum<_Klocal; eNum++)
+    for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
         // get neighbors ids
         geom->ElementTOElementANDFace(eNum,connect);
 
-        for(unsigned i=0; i<kNodes; i++)
-            for(unsigned j=0; j<kNodes; j++){
-                lim_dx[i] = 0.0; lim_dy[j] = 0.0;}
+        for(unsigned i=0; i<kNodes; i++){
+            lim_dx[i] = 0.0; lim_dy[i] = 0.0;}
 
         for(unsigned i=0; i<kNodes; i++)
             for(unsigned j=0; j<kNodes; j++)
@@ -410,7 +428,6 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
             if(Lp<_minPres)
             {
-//                DMPlexPointLocalRef(_dm, eNum, v, &qOut);
                 for(unsigned piter=0; piter<4; piter++)
                 {
                     dp *= 0.5;
@@ -422,13 +439,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
                         break;
                     else if(piter==3)
                     {
-//                        Lrho   = cellAVEcons[eNum*meqn+0];
-//                        Lrhou  = cellAVEcons[eNum*meqn+1];
-//                        Lrhov  = cellAVEcons[eNum*meqn+2];
-//                        Lrhou  = cellAVEcons[eNum*meqn+3];
-                        LEner  = cellAVEcons[eNum*meqn+4];
-//                        Lp = cellAVEprim[eNum*meqn+4];
-//                        LEner = Lp/(_gamma-1) + 0.5*(Lrhou*Lrhou+Lrhov*Lrhov+Lrhow*Lrhow)/Lrho;
+                        LEner = avep/(_gamma-1.) + 0.5*(Lrhou*Lrhou+Lrhov*Lrhov+Lrhow*Lrhow)/Lrho;
                     }
                 }
             }

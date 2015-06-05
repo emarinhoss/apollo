@@ -57,3 +57,40 @@ WxCreator< WxHestavenWarburtonEulerLimiter<double>, ApSubSolver<double> > __elim
 #include "maxwell/wxphmaxwelleqn.h"
 WxCreator< WxPHMaxwellEqn<float>, WxHyperbolicEqn<float> > __maxwellEqn_f("phMaxwellEqn");
 WxCreator< WxPHMaxwellEqn<double>, WxHyperbolicEqn<double> > __maxwellEqn_d("phMaxwellEqn");
+
+// ------------------ Boundary Conditions --------------------------//
+#include "maxwell/wxmaxwelltranversemagneticbc.h"
+WxCreator< WxMaxwellTransverseMagnetic<float>, ApSubSolver<float> > __mTMBC_f("maxwellTransverseMagneticBC");
+WxCreator< WxMaxwellTransverseMagnetic<double>, ApSubSolver<double> > __mTMBC_d("maxwellTransverseMagneticBC");
+
+#include "maxwell/wxphmaxwellconductingwallbc.h"
+WxCreator< WxPHMaxwellConductingWallBC<float>, ApSubSolver<float> > __mCWBC_f("phmConductingWallBC");
+WxCreator< WxPHMaxwellConductingWallBC<double>, ApSubSolver<double> > __mCWBC_d("phmConductingWallBC");
+
+// ------------------ Source Terms --------------------------//
+#include "maxwell/wxpulsetrainsrc.h"
+WxCreator< WxPulseTrainSrc<float>, WxHyperbolicSrc<float> > __ptsrc_f("pulseTrain");
+WxCreator< WxPulseTrainSrc<double>, WxHyperbolicSrc<double> > __ptsrc_d("pulseTrain");
+
+
+/**
+ * Multifluid sources, initializations, boundary conditions, and more.
+ */
+
+// ------------------ Source Terms --------------------------//
+#include "multifluid/wxchargesrc.h"
+WxCreator< WxChargeSrc<float>, WxHyperbolicSrc<float> > __chargesrc_f("charges");
+WxCreator< WxChargeSrc<double>, WxHyperbolicSrc<double> > __chargesrc_d("charges");
+
+#include "multifluid/wxcurrentsrc.h"
+WxCreator< WxCurrentSrc<float>, WxHyperbolicSrc<float> > __currsrc_f("currents");
+WxCreator< WxCurrentSrc<double>, WxHyperbolicSrc<double> > __currsrc_d("currents");
+
+#include "multifluid/wxlorentzforcesrc.h"
+WxCreator< WxLorentzForceSrc<float>, WxHyperbolicSrc<float> > __lorForsrc_f("lorentzForces");
+WxCreator< WxLorentzForceSrc<double>, WxHyperbolicSrc<double> > __lorForsrc_d("lorentzForces");
+
+// ------------------ Boundary Conditions --------------------------//
+#include "multifluid/wxtwofluidrmfbc.h"
+WxCreator< WxTwoFluidRMFBC<float>, ApSubSolver<float> > __tfrmfBC_f("twoFluidRMFBC");
+WxCreator< WxTwoFluidRMFBC<double>, ApSubSolver<double> > __tfrmfBC_d("twoFluidRMFBC");

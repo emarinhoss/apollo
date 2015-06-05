@@ -307,6 +307,8 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     DM dmDist;
     debStrm << "Partitioning the domain using --> Metis "  << std::endl;
     //debStrm << "Partitioning the domain using --> " << _partitioner  << std::endl;
+    DMPlexSetAdjacencyUseCone(*dm, PETSC_TRUE);
+    DMPlexSetAdjacencyUseClosure(*dm, PETSC_FALSE);
     DMPlexDistribute(*dm,"metis", 0, NULL, &dmDist);
     if (dmDist){
         DMDestroy(dm);
@@ -314,12 +316,12 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     // get any additional parameters for DM from the command line
     DMSetFromOptions(*dm);
 
-//    DM gdm;
-//    DMPlexConstructGhostCells(*dm, NULL, NULL, &gdm);
-//    DMDestroy(dm);
-//    *dm = gdm;
+    DM gdm;
+    DMPlexConstructGhostCells(*dm, NULL, NULL, &gdm);
+    DMDestroy(dm);
+    *dm = gdm;
 
-    // SetUp the data structures
+    // SetUp
     DMSetUp(*dm);
     PetscObjectSetName((PetscObject) *dm, "Mesh");
 }
@@ -393,7 +395,7 @@ ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void 
     TSSetTimeStep(ts,_dt);
     PetscReal dtStep;
     TSGetTimeStep(ts,&dtStep);
-    infStrm << " Current simulation time-step is " << dtStep << " and current time is " << time << std::endl;
+    infStrm << " Simulation dt = " << dtStep << " at t = " << time << std::endl;
     PetscFunctionReturn(0);
 }
 
