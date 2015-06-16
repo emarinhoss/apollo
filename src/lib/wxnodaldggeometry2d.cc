@@ -15,6 +15,17 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
 
+    // Find node coordinates for each element
+    PetscInt eStart, eEnd, vStart, vEnd;
+    DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
+    DMPlexGetDepthStratum(_dm, 0, &vStart, &vEnd);
+    _Klocal = eEnd - eStart;
+    _Vlocal = vEnd - vStart;
+    infStrm << "** There are " << _Klocal << " elements,\n"
+            << "** and " << _Vlocal << " nodes in the grid. **"
+            << std::endl;
+
+
     _NpE = (_polyOr+1)*(_polyOr+2)/2;
     infStrm << "** There are " << _NpE << " nodes per Element **" << std::endl;
     _NpF = (_polyOr+1);
@@ -60,12 +71,6 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     infStrm << "** done -- Creating Inverse Mass Matrix. **" << std::endl;
 //    MatView(VVT,PETSC_VIEWER_STDOUT_WORLD);
 
-    // Find node coordinates for each element
-    PetscInt eStart, eEnd, vStart, vEnd;
-    DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
-    DMPlexGetDepthStratum(_dm, 0, &vStart, &vEnd);
-    _Klocal = eEnd - eStart;
-    _Vlocal = vEnd - vStart;
     _xcoord = alloc_2d_c<REAL>(_Klocal,_NpE);
     _ycoord = alloc_2d_c<REAL>(_Klocal,_NpE);
     CalculateNodeCoordinates2d(_dm);

@@ -22,16 +22,15 @@ class WxPetscTimeSteppingSolver {
  * @param cls Pointer to class providing functionality
  */
 
-    WxPetscTimeSteppingSolver(DM dm, CLS *cls, MPI_Comm comm, REAL tstart, REAL tend, PetscReal dt)
+    WxPetscTimeSteppingSolver(DM dm, CLS *cls, MPI_Comm comm)
     : cls(cls) {
 
         WxLogger *log = WxLogger::get("apollo-root.console");
-        WxLogStream debStrm = log->getDebugStream();
         WxLogStream infStrm = log->getInfoStream();
 
-      // create time stepping scheme
-      TSCreate(PETSC_COMM_WORLD, &solver);
-      TSSetType(solver, TSSSP);
+        // create time stepping scheme
+        TSCreate(comm, &solver);
+        TSSetType(solver, TSSSP);
 //      TSRKSetType(solver, TSRK5F);
 //      TSSSPSetType(solver,TSSSPRK104);
 
@@ -42,8 +41,8 @@ class WxPetscTimeSteppingSolver {
       TSSetDM(solver, dm);
       TSSetRHSFunction(solver,NULL,WxPetscTimeSteppingSolver::ComputeRHSforTS,(void*) cls);
 
-      TSSetDuration(solver,1.0e8,tend);
-      TSSetInitialTimeStep(solver,tstart,dt);
+//      TSSetDuration(solver,1.0e8,tend);
+//      TSSetInitialTimeStep(solver,tstart,dt);
 
       const char *type;
       TSGetType(solver, &type);
@@ -92,6 +91,12 @@ class WxPetscTimeSteppingSolver {
 
         return true;
 
+    }
+
+    void setTimeParameters(PetscScalar tstart, PetscScalar tend, PetscScalar dt){
+
+        TSSetDuration(solver,1.0e8,tend);
+        TSSetInitialTimeStep(solver,tstart,dt);
     }
 
   private:

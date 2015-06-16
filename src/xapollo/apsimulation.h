@@ -104,7 +104,7 @@ class ApSimulation : public WxObject
 /** Remove characters following the last '.' in nm */
     std::string stripName(const std::string& nm);
 
-    PetscInt _np; // number of processors
+    PetscInt _np; // number of processorszz
 };
 
 #endif // __plsimulation__

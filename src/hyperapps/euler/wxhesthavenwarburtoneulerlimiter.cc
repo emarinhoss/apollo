@@ -316,6 +316,8 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        bool update = false;
+
         // get neighbors ids
         geom->ElementTOElementANDFace(eNum,connect);
 
@@ -403,6 +405,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
             Lrho = averho + drho;
             if(Lrho<_minDens)
             {
+                update = true;
                 for(unsigned riter=0; riter<4; riter++)
                 {
                     drho *= 0.5;
@@ -428,6 +431,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
             if(Lp<_minPres)
             {
+                update = true;
                 for(unsigned piter=0; piter<4; piter++)
                 {
                     dp *= 0.5;
@@ -445,11 +449,13 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
             }
 
             // limited density
+//            if(update){
             qOut[nodes*meqn+0] = Lrho;
             qOut[nodes*meqn+1] = Lrhou;
             qOut[nodes*meqn+2] = Lrhov;
             qOut[nodes*meqn+3] = Lrhow;
             qOut[nodes*meqn+4] = LEner;
+//            }
         }
     }
 

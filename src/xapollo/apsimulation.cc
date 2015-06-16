@@ -138,12 +138,12 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
       wrc->addHandler(wrshndl);
 
     // get output streams from newly created loggers
-    WxLogStream debStrm = wrc->getDebugStream();
-    WxLogStream errStrm = wrc->getErrorStream();
-    WxLogStream wrnStrm = wrc->getWarningStream();
+    WxLogStream infStrm = wrc->getInfoStream();
+//    WxLogStream errStrm = wrc->getErrorStream();
+//    WxLogStream wrnStrm = wrc->getWarningStream();
 
     // now setup top level solver
-    debStrm << "Setting up Apollo simulation..." << std::endl;
+    infStrm << "Setting up Apollo simulation..." << std::endl;
     std::string simName;
     // name of simulation to run
     if (wxc.has("Simulation"))
@@ -163,7 +163,7 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
     }
     // get hold of solver's cryptset
     const WxCryptSet& solverCrypt = wxc.getSet(simName);
-    debStrm << "Simulation name is " << simName << std::endl;
+    infStrm << "Simulation name is " << simName << std::endl;
 
     // create new solver
     solver = new ApSolver<REAL>(simName);

@@ -14,7 +14,7 @@ import sys
 
 # Generic Ubuntu Install following the Wiki page
 mpi_base = "/usr"
-petsc_base = "/home/sousae/software/petsc-moab"
-boost_base = "/usr"
-blas_base = "./lib"
+petsc_base = "/home/sousae/software/petsc-full"
+#boost_base = "/usr"
+#blas_base = "./lib"
 #---------------------------------------------------

@@ -34,8 +34,8 @@ ApSubSolver<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
 //  std::stringstream ss;
   WxLogger *l = WxLogger::get("apollo-root.console");
-  WxLogStream debStrm = l->getDebugStream();
-  debStrm << "Setting up subsolver '" << wxc.name() << "' of kind '" << this->name() << "'" 
+  WxLogStream infoStrm = l->getInfoStream();
+  infoStrm << "Setting up subsolver '" << wxc.name() << "' of kind '" << this->name() << "'"
           << std::endl;
 
 }

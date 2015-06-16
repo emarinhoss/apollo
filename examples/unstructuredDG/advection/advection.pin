@@ -21,7 +21,7 @@ P_ORDER = 1
    Kind = comboSolver
 
    Time = [0.0, 0.5] # start, end times
-   Output_files = 1 # write output file every time-step
+   Output_files = 10 # write output file every time-step
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    #Gridname = 'test.msh'

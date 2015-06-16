@@ -1,29 +1,30 @@
 # -*- python -*- 
-
 import math
 
-PI = math.pi
-Mach = 2.
+GAMMA = 1.4
 P_ORDER = 1
+PI = math.pi
+Mach = 3.
+Pr = 5.
 
 <warpx>
 
  ##
  # Basic parameters
  ##
- Simulation = Expansion
+ Simulation = ffstep
  # one of debug, info, warning, error, critical, disabled
  Verbosity = info
 
- <Expansion>
+ <ffstep>
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 1.0] # start, end times
-   Output_files = 20 # write output file after every step
+   Time = [0.0, 5.0] # start, end times
+   Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid.msh'
+   Gridname = 'grid4.msh'
    NumFields = 1
    
    # Check the partition
@@ -31,31 +32,38 @@ P_ORDER = 1
 	Type = ApSubSolver
 	Kind = nodalDG2d
 	
-	Equations = [euler]
-	boundaryConditions = [inflow,bottomWall,noGrad,topWall]
-	Limiter = [eulerLimit]
-	
 	polynomialOrder = P_ORDER
 	cfl = 1.0/((2.*(P_ORDER+1)-1))
-
 	
-	# Field number, Field name, number of unknowns per element
+	Equations = [euler]
+	boundaryConditions = [inflow,bottomWall,topWall,noGrad]
+	Limiter = [eulerLimit]
+	
+	## setup data structure, [fieldNumber,FieldName]
 	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
+	
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc
 		
-		pres = 1.01e5
-		rho = 1.23
-		gamma = 1.4
+		XC = 1.0
+		YC = 0.5
+		gm = GAMMA
 		M = Mach
+		pres = Pr
 
-       exprList = ["dens","u","0.0","0.0","en"]
+       exprList = [ "rho", \
+					"rhou", \
+					"rhov", \
+					"rhow", \
+					"energy"]
 
-       progn = ["dens = rho",\
-       			"a0=sqrt(gamma*pres/rho)",\
-       			"u = if(x>5,0.0,M*a0)",\
-       			"en = pres/(gamma-1.)+0.5*dens*u*u"]
+       progn = ["rho = gm", \
+       			"a=sqrt(gm*pres/rho)",\
+       			"rhou= rho*M*a",\
+       			"rhov= 0.0",\
+       			"rhow= 0.0",\
+				"energy = pres/(gm-1.)+0.5*(rhou*rhou+rhov*rhov+rhow*rhow)/rho"]
 		
 	</InitialCondition>
 	
@@ -63,9 +71,9 @@ P_ORDER = 1
 		Type = WxHyperbolicEqn
 		Kind = eulerEqn
 		
-		gas_gamma = 1.4
+		gas_gamma = GAMMA
+		# either Lax-Friedrichs = LF or HLL or Roe
 		Numerical_Flux = HLL
-
 	</euler>
 	
    </hyperbolic>
@@ -76,9 +84,9 @@ P_ORDER = 1
 
 	  Mach_number = Mach
 	  Flow_angle = 0.
-	  Pressure = 1.01e5
-	  gas_gamma = 1.4
-	  density = 1.23
+	  Pressure = Pr
+	  gas_gamma = GAMMA
+	  density = GAMMA
 	</inflow>
 
 	<bottomWall>
@@ -103,11 +111,11 @@ P_ORDER = 1
 	  Type = ApSubSolver
 	  Kind = eulerLimiterHW
 
-	  gas_gamma = 1.4
-	  min_pressure = 1.e-2 
+	  gas_gamma = GAMMA
+	  min_pressure = 1.e-2
 	  min_density = 1.e-2
 
-	  boundaryConditions = [inflow,bottomWall,noGrad,topWall]
+	  boundaryConditions = [inflow,bottomWall,topWall,noGrad]
 	</eulerLimit>
 	
    <stepHyper>
@@ -123,6 +131,6 @@ P_ORDER = 1
       PerStep = [stepHyper]
    </SolverSequence>
 
- </Expansion>
+ </ffstep>
 
 </warpx>

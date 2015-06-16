@@ -221,3 +221,14 @@ hyperapps/euler/wxeulerwallbc.h
 hyperapps/euler/wxeulerwallbc.cc
 hyperapps/euler/wxeulerzerogradientbc.h
 hyperapps/euler/wxeulerzerogradientbc.cc
+hyperapps/maxwell/wxmaxwelltranversemagneticbc.h
+hyperapps/maxwell/wxmaxwelltranversemagneticbc.cc
+hyperapps/maxwell/wxpulsetrainsrc.h
+hyperapps/maxwell/wxphmaxwellconductingwallbc.h
+hyperapps/maxwell/wxphmaxwellconductingwallbc.cc
+hyperapps/multifluid/wxlorentzforcesrc.h
+hyperapps/multifluid/wxcurrentsrc.h
+hyperapps/multifluid/wxchargesrc.h
+hyperapps/multifluid/SConscript
+hyperapps/multifluid/wxtwofluidrmfbc.h
+hyperapps/multifluid/wxtwofluidrmfbc.cc

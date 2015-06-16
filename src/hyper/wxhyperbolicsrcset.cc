@@ -17,8 +17,8 @@ void
 WxHyperbolicSrcSet<REAL>::setup(const WxCryptSet& wxc)
 {
   // get hold of stream to log debug messages
-  WxLogStream debStrm 
-    = WxLogger::get("warpx-root.console")->getDebugStream();
+  WxLogStream infoStrm
+    = WxLogger::get("apollo-root.console")->getInfoStream();
 
   // source terms to use, if any
   if (wxc.has("Sources"))
@@ -40,7 +40,7 @@ WxHyperbolicSrcSet<REAL>::setup(const WxCryptSet& wxc)
       s->setup(scs);
       _src.push_back(s);
             
-      debStrm << "Source " << srcName << " is of kind " << kind << std::endl;
+      infoStrm << "Source " << srcName << " is of kind " << kind << std::endl;
     }
   }
 }

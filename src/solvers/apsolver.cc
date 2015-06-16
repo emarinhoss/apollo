@@ -178,9 +178,40 @@ ApSolver<REAL>::solve()
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
 
-    // solve equation system
-    bool statusPetsc = tssolver->solve(solution);
+    unsigned nout;
+    REAL tsize; // time between file output
 
+    // write data to file before running main loop
+    this->writeData(solution);
+
+    // main solver loop
+    tsize = _tend/_nout;
+
+    for (unsigned i=0; i<_nout; ++i)
+    {
+        _tend_temp = (i+1)*tsize;
+        _dt_temp = _dt;
+        tssolver->setTimeParameters(i*tsize, _tend_temp, _dt_temp);
+
+        infStrm << "Advancing solution"
+                << " from time " << (i*tsize)
+                << " to " << _tend_temp
+                << "..."
+                << std::endl;
+
+        WxTimer advTimer;
+        // advance solution on each block by 'tsize'
+        advTimer.startTimer();
+        bool statusPetsc = tssolver->solve(solution);
+        advTimer.stopTimer();
+
+        // write solution to file
+        this->writeData(solution);
+
+        infStrm << "Advance completed in "
+                << advTimer.timeElapsedAsString()
+                << std::endl << std::endl;
+    }
 }
 
 template <typename REAL>
@@ -253,7 +284,7 @@ ApSolver<REAL>::init()
     }
 
     // Initialize the timestepping solver
-    tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PetscObjectComm((PetscObject)_dm),_tstart,_tend,_dt);
+    tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PETSC_COMM_WORLD);
 
     DMCreateGlobalVector(_dm, &_usr.cg_vars);
     // run startOnly subsolvers
@@ -278,7 +309,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     PetscStrncmp(&_filename[PetscMax(0,len-4)], extExodus, 4, &isExodus);
 
     WxLogger *log = WxLogger::get("apollo-root.console");
-    WxLogStream debStrm = log->getDebugStream();
+    WxLogStream debStrm = log->getInfoStream();
 
     debStrm << "Reading grid file --> " << _filename << std::endl;
 
@@ -305,11 +336,9 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
 
     // Distribute mesh over processes
     DM dmDist;
-    debStrm << "Partitioning the domain using --> Metis "  << std::endl;
-    //debStrm << "Partitioning the domain using --> " << _partitioner  << std::endl;
     DMPlexSetAdjacencyUseCone(*dm, PETSC_TRUE);
-    DMPlexSetAdjacencyUseClosure(*dm, PETSC_FALSE);
-    DMPlexDistribute(*dm,"metis", 0, NULL, &dmDist);
+    DMPlexSetAdjacencyUseClosure(*dm, PETSC_TRUE);
+    DMPlexDistribute(*dm, 1, NULL, &dmDist);
     if (dmDist){
         DMDestroy(dm);
         *dm   = dmDist;}
@@ -369,30 +398,44 @@ ApSolver<REAL>::OutputVTK(DM dm, char *filename, PetscViewer *viewer)
 }
 
 template<typename REAL>
+void
+ApSolver<REAL>::writeData(Vec X)
+{
+    PetscViewer viewer;
+    std::stringstream ss; ss << _frameNum;
+    std::string fname = this->runName() + "_" + ss.str() + ".vtu";
+    //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
+    this->OutputVTK(_dm,&fname[0],&viewer);
+    VecView(X,viewer);
+    _frameNum += 1;
+    PetscViewerDestroy(&viewer);
+}
+
+template<typename REAL>
 PetscErrorCode
 ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void *ctx)
 {
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
 
-    if ((stepnum == -1) ^ (stepnum % _nout == 0))
-    {
-        PetscViewer viewer;
-        if(stepnum == -1) {/* Final time is not multiple of normal time interval, write it anyway */
-          TSGetTimeStepNumber(ts,&stepnum);}
+//    if ((stepnum == -1) ^ (stepnum % _nout == 0))
+//    {
+//        PetscViewer viewer;
+//        if(stepnum == -1) {/* Final time is not multiple of normal time interval, write it anyway */
+//          TSGetTimeStepNumber(ts,&stepnum);}
 
-        std::stringstream ss; ss << _frameNum;
-        std::string fname = this->runName() + "_" + ss.str() + ".vtu";
-        //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
-        this->OutputVTK(_dm,&fname[0],&viewer);
-        VecView(X,viewer);
-        _frameNum += 1;
-        PetscViewerDestroy(&viewer);
-      }
+//        std::stringstream ss; ss << _frameNum;
+//        std::string fname = this->runName() + "_" + ss.str() + ".vtu";
+//        //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
+//        this->OutputVTK(_dm,&fname[0],&viewer);
+//        VecView(X,viewer);
+//        _frameNum += 1;
+//        PetscViewerDestroy(&viewer);
+//      }
 
     // Adjust time-step
-    if(fabs(_tend-time)<_dt){_dt = fabs(_tend-time);}
-    TSSetTimeStep(ts,_dt);
+    if(fabs(_tend_temp-time)<_dt_temp){_dt_temp = fabs(_tend_temp-time);}
+    TSSetTimeStep(ts,_dt_temp);
     PetscReal dtStep;
     TSGetTimeStep(ts,&dtStep);
     infStrm << " Simulation dt = " << dtStep << " at t = " << time << std::endl;
@@ -419,7 +462,7 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
     {
         PetscReal dtStep;
         TSGetTimeStep(ts,&dtStep);
-        _dt = dtStep;
+        _dt_temp = dtStep;
         std::vector<std::string>::const_iterator ssitr;
 
         for (ssitr = itr->subSolvers.begin(); ssitr != itr->subSolvers.end(); ++ssitr)
@@ -427,10 +470,10 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             debStrm << "  SubSolver " << *ssitr << std::endl;
             ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
             // take this step
-            status = ss->step(t,_dt, u, X);
+            status = ss->step(t,_dt_temp, u, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
-            _dt = fmin(status.getSuggestedDt(),_dt);
+            _dt_temp = fmin(status.getSuggestedDt(),_dt_temp);
         }
     }
     VecDestroy(&X);

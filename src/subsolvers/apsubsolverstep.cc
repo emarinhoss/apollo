@@ -19,8 +19,8 @@ void
 ApSubSolverStep<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
     WxLogger *l = WxLogger::get("apollo-root.console");
-    WxLogStream debStrm = l->getDebugStream();
-    debStrm << "Setting up subsolver-step '" << wxc.name() << "'" << std::endl;
+    WxLogStream infoStrm = l->getInfoStream();
+    infoStrm << "Setting up subsolver-step '" << wxc.name() << "'" << std::endl;
 
     // time fraction
     if (wxc.has("DtFrac"))

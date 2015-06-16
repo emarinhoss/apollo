@@ -116,6 +116,12 @@ class ApSolver : public WxSolverBase<REAL>
      */
        void OutputVTK(DM dm, char *filename, PetscViewer *viewer);
 
+/**
+ * Writes a VTU file with the data
+ *
+ * @param [in] X - the vector to write to the .vtu file
+ */
+       void writeData(Vec X);
 
 /**
  * function that is to be used at every timestep
@@ -193,7 +199,7 @@ class ApSolver : public WxSolverBase<REAL>
 
 
 /** Start and end time of simulation */
-    REAL _tstart, _tend;
+    REAL _tstart, _tend, _tend_temp;
 /** First frame number */
     unsigned _startFrame;
 /** Current frame number */
@@ -201,7 +207,7 @@ class ApSolver : public WxSolverBase<REAL>
 /** No of output files to write */
     unsigned _nout;
 /** Initial time-step to use */
-    REAL _dt;
+    REAL _dt, _dt_temp;
 /** Problem dimensions */
     PetscInt _dim;
 /** Flag whether to use fuzzy stepper */

@@ -51,12 +51,18 @@ setup(const WxCryptSet& wxc)
     _fluxType = LF; // use LF flux evaluation
   }
 
-  if (lim == "LF")
+  if (lim == "LF"){
     _fluxType = LF;
-  else if (lim == "HLL")
+    wrnStrm << "Using Lax-Friedrichs fluxes.\n";
+  }
+  else if (lim == "HLL"){
     _fluxType = HLL;
-//  else if (lim == "component")
-//    _fluxType = COMP_LIMITER;
+    wrnStrm << "Using HLL fluxes.\n";
+  }
+  else if (lim == "Roe"){
+    _fluxType = ROE;
+    wrnStrm << "Using Roe fluxes.\n";
+  }
 //  else if (lim == "highOrderComponent")
 //    _fluxType = HO_COMP_LIMITER;
 //  else if (lim == "highOrderCharacteristic")
@@ -861,6 +867,9 @@ DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     case 1:
         applyHLLFluxes(normals,qM,qP,nflux,maxSpeed);
         break;
+    case 2:
+        applyRoeFluxes(normals,qM,qP,nflux,maxSpeed);
+        break;
     default:
         applyLax_FriedrichsFluxes(normals,qM,qP,nflux,maxSpeed);
         break;
@@ -1173,6 +1182,82 @@ applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
 
     maxSpeed = lambda;
 
+}
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    REAL *xc, *qaux;
+    REAL fM[5], fP[5]; // x/y Fluxes
+    REAL pM[5], pP[5]; // primitive variables
+    REAL fx[5];
+
+    // Rotate "-" trace momentum to face normal-tangent coordinates
+    REAL rhouM = qM[1], rhovM = qM[2];
+    qM[1] = normals[0]*rhouM + normals[1]*rhovM;
+    qM[2] =-normals[1]*rhouM + normals[0]*rhovM;
+
+    // Rotate "+" trace momentum to face normal-tangent coordinates
+    REAL rhouP = qP[1], rhovP = qP[2];
+    qP[1] = normals[0]*rhouP + normals[1]*rhovP;
+    qP[2] =-normals[1]*rhouP + normals[0]*rhovP;
+
+    // primitives
+    this->primitiveVariables(qM,pM);
+    this->primitiveVariables(qP,pP);
+
+    REAL HM = (qM[4]+pM[4])/pM[0];
+    REAL HP = (qP[4]+pP[4])/pP[0];
+
+    // Compute Roe average variables
+    REAL rhoMs = sqrt(pM[0]), rhoPs = sqrt(pP[0]);
+
+    REAL rho = rhoMs*rhoPs;
+    REAL u   = (rhoMs*pM[1] + rhoPs*pP[1])/(rhoMs + rhoPs);
+    REAL v   = (rhoMs*pM[2] + rhoPs*pP[2])/(rhoMs + rhoPs);
+    REAL w   = (rhoMs*pM[3] + rhoPs*pP[3])/(rhoMs + rhoPs);
+    REAL H   = (rhoMs*HM    + rhoPs*HP)   /(rhoMs + rhoPs);
+
+    REAL c2  = (_gas_gamma-1.)*(H - 0.5*(u*u + v*v +w*w)), c = sqrt(c2);
+
+    // Riemann fluxes
+    REAL dw1 = -0.5*rho*(pP[1]-pM[1])/c + 0.5*(pP[4]-pM[4])/c2;
+    REAL dw2 = (pP[0]-pM[0]) - (pP[4]-pM[4])/c2;
+    REAL dw3 = rho*(pP[2]-pM[2]);
+    REAL dw4 = 0.5*rho*(pP[1]-pM[1])/c + 0.5*(pP[4]-pM[4])/c2;
+
+    dw1 = fabs(u-c)*dw1;
+    dw2 = fabs(u)*dw2;
+    dw3 = fabs(u)*dw3;
+    dw4 = fabs(u+c)*dw4;
+
+    // From Roe fluxes
+    // evaluate fluxes in rotated coordinates
+    this->flux(0, xc, qM, qaux, fM);
+    this->flux(0, xc, qP, qaux, fP);
+    for(unsigned meqn=0; meqn<5; meqn++)
+        fx[meqn] = 0.5*(fM[meqn]+fP[meqn]);
+
+    fx[0] -= 0.5*(dw1*1.    + dw2*1. + dw3*0. + dw4*1.);
+    fx[1] -= 0.5*(dw1*(u-c) + dw2*u  + dw3*0. + dw4*(u+c));
+    fx[2] -= 0.5*(dw1*v     + dw2*v  + dw3*1. + dw4*v);
+    fx[3]  = 0.0;
+    fx[4] -= 0.5*(dw1*(H-u*c) + dw2*(u*u+v*v)/2. + dw3*v + dw4*(H+u*c));
+
+    nflux[0] = fx[0];
+    nflux[1] = normals[0]*fx[1] - normals[1]*fx[2];
+    nflux[1] = normals[1]*fx[1] + normals[0]*fx[2];
+    nflux[3] = 0.0;
+    nflux[4] = fx[4];
+
+    // compute the fastest propagating wave speed
+    REAL c0M = sqrt(pM[1]*pM[1]+pM[2]*pM[2]+pM[3]*pM[3]) + sqrt(_gas_gamma*pM[4]/pM[0]);
+    REAL c0P = sqrt(pP[1]*pP[1]+pP[2]*pP[2]+pP[3]*pP[3]) + sqrt(_gas_gamma*pP[4]/pP[0]);
+    REAL lambda = dmax(c0M,c0P);
+
+    maxSpeed = lambda;
 }
 
 template<typename REAL>

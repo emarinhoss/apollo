@@ -8,6 +8,7 @@ import os
 from vtk import *
 from numpy import *
 from vtk.util.numpy_support import vtk_to_numpy
+from scipy.spatial import Delaunay
 from pyvisfile.vtk import ( 
     UnstructuredGrid, DataArray,
     AppendedDataXMLGenerator,
@@ -42,19 +43,22 @@ class WxDGArray:
         
         data = reader.GetOutput()
         self.nodesPerElem = (self.order+1)*(self.order+2)/2 # number of nodes per Element
-        self.TotNumElements = data.GetNumberOfCells() # Total number of Elements
+        self.TotNumElements = 0 # Total number of Elements
         self.NumArrays  = data.GetCellData().GetNumberOfArrays() # Total number of arrays
         self.NumComp    = (self.NumArrays-1)/self.nodesPerElem # number of components per node
-        self.gridPoints = zeros((self.TotNumElements*self.nodesPerElem,3))
-        self.variables  = zeros((self.TotNumElements*self.nodesPerElem,self.NumComp))
+        #self.gridPoints = zeros((self.TotNumElements*self.nodesPerElem,3))
+        #self.variables  = zeros((self.TotNumElements*self.nodesPerElem,self.NumComp))
+        coords = array([])
+        varbls = array([])
+        pts = zeros((self.nodesPerElem,2))
         
         if(self.order==1):
             r = array([-1.,1.,-1.])
             s = array([-1.,-1.,1.])
-        elif(order==2):
+        elif(self.order==2):
             r = array([-1.,0,1.,-1.,0,-1.])
             s = array([-1.,-1.,-1.,0,0.,1.])
-        elif(order==3):
+        elif(self.order==3):
             r = array([-1.,-0.447213595499958,0.447213595499958,1,-1,-0.333333333333333,0.447213595499958,-1.,-0.447213595499958,-1.])
             s = array([-1.,-1.,-1.,-1.,-0.447213595499958,-0.333333333333333,-0.447213595499958,0.447213595499958,0.447213595499958,1.])
         
@@ -68,12 +72,23 @@ class WxDGArray:
             p3 = data.GetPoint(cid.GetPointId(2))
             
             for np in range(len(r)):
-                self.gridPoints[k*self.nodesPerElem+np,0] = 0.5*(-p1[0]*(r[np]+s[np]) + p2[0]*(1.+r[np]) + p3[0]*(1.+ s[np]))
-                self.gridPoints[k*self.nodesPerElem+np,1] = 0.5*(-p1[1]*(r[np]+s[np]) + p2[1]*(1.+r[np]) + p3[1]*(1.+ s[np]))
-                for cmps in range(self.NumComp):
-                    value = vtk_to_numpy(data.GetCellData().GetArray(self.NumComp*np+cmps+1))
-                    self.variables[k*self.nodesPerElem+np,cmps] = value[k]
-                    
+                pts[np,0] = 0.5*(-p1[0]*(r[np]+s[np]) + p2[0]*(1.+r[np]) + p3[0]*(1.+ s[np]))
+                pts[np,1] = 0.5*(-p1[1]*(r[np]+s[np]) + p2[1]*(1.+r[np]) + p3[1]*(1.+ s[np]))
+
+            tri = Delaunay(pts)
+            connect = tri.simplices.copy()
+            self.TotNumElements += connect.shape[0] # Total number of Elements
+            for kk in range(connect.shape[0]):
+                for mm in  range(3):
+                    coords = append(coords,pts[connect[kk,mm],0])
+                    coords = append(coords,pts[connect[kk,mm],1])
+                    coords = append(coords,0.0)
+                    for cmps in range(self.NumComp):
+                        value = vtk_to_numpy(data.GetCellData().GetArray(self.NumComp*connect[kk,mm]+cmps+1))
+                        varbls = append(varbls,value[k])
+            
+        self.gridPoints = reshape(coords,(-1,3))
+        self.variables = reshape(varbls,(-1,self.NumComp))
         
         self.res = self.variables
 

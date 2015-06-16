@@ -10,6 +10,8 @@ import wxunsdgdata
 from numpy import *
 from tvtk.api import tvtk
 from optparse import OptionParser
+from joblib import Parallel, delayed
+import multiprocessing
 
 # set command line options
 parser = OptionParser()
@@ -24,13 +26,20 @@ parser.add_option('-v', '--variable', action = 'store',
                   dest = 'variable',
                   help = 'Index of variable to plot, q(variable)',
                   default = 0)
-parser.add_option('-s', '--spOrder', action = 'store',
+parser.add_option('-o', '--Order', action = 'store',
                   dest = 'spatialOrder',
                   help = 'Spatial order of the polynomial interpolation function.',
-                  default = 1)                  
+                  default = 1)
+parser.add_option('-s', '--start', action = 'store',
+                  dest = 'startFrame',
+                  help = 'First frame to start plotting.',
+                  default = 0)
+parser.add_option('-n', '--numProcs', action = 'store',
+                  dest = 'num_cores',
+                  help = 'Number of cores to use.',
+                  default = multiprocessing.cpu_count())
 
 (options, args) = parser.parse_args()
-
 
 
 def save_xml(ug, file_name):
@@ -40,13 +49,14 @@ def save_xml(ug, file_name):
     w.write()
 
 
-# polynomial expansion order
-spOrd = int(options.spatialOrder)
-component = int(options.variable)
 frame = int(options.frame)
-filename = options.inputFile
+stt = int(options.startFrame)
 
-for n in range(0,frame+1):
+def generateVTUfile(n):
+	spOrd = int(options.spatialOrder)
+	component = int(options.variable)
+	filename = options.inputFile
+
 	dh = wxunsdgdata.WxVisData(filename,n)
 	dd = dh.readDG(spOrd)
 	var= dd.variables[:,component]
@@ -69,3 +79,9 @@ for n in range(0,frame+1):
 	ug.point_data.scalars.name = 'Q_var'
 	outfile = filename + '_Comp_' + str(component) + '_' + str('%03d' % n)  + '.vtu'
 	save_xml(ug, outfile)
+	print "Frame "+str("%d" % n)+" COMPLETE."
+
+inputs = range(stt,frame+1)
+num_cores = int(options.num_cores)
+print "Generating plots using "+str("%d" % num_cores)+" processors."
+Parallel(n_jobs=num_cores)(delayed(generateVTUfile)(n) for n in inputs)

@@ -45,8 +45,8 @@ void
 WxHyperbolicEqnSet<REAL>::setup(const WxCryptSet& wxc)
 {
   // get hold of stream to log debug messages
-  WxLogStream debStrm 
-    = WxLogger::get("warpx-root.console")->getDebugStream();
+  WxLogStream infoStrm
+    = WxLogger::get("apollo-root.console")->getInfoStream();
 
   _mwave = _meqn = 0;
 
@@ -72,7 +72,7 @@ WxHyperbolicEqnSet<REAL>::setup(const WxCryptSet& wxc)
     _mwave += e->mwave();
     _meqn += e->meqn();
 
-    debStrm << "Equation " <<  eqnName << " is of kind " + kind << std::endl;
+    infoStrm << "Equation " <<  eqnName << " is of kind " + kind << std::endl;
   }
 
   // allocate space for use in Riemann solver

@@ -49,11 +49,7 @@ template <typename REAL>
 void
 WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
-    WxLogger *l = WxLogger::get("apollo-root.console");
-    WxLogStream errStrm = l->getErrorStream();
-
-
-    _dm = dm;
+  _dm = dm;
   // call base class setup first
   ApSubSolver<REAL>::setup(wxc, _dm);
 
@@ -201,7 +197,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     }
     VecRestoreArray(out, &x);
 
-    isInfinityOrNAN(out, "NAN/INF in initialization!\n");
+//    isInfinityOrNAN(out, "NAN/INF in initialization!\n");
 
     // Suggested initial dt
     REAL timeStep = 2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
@@ -451,9 +447,8 @@ PetscErrorCode
 WxNodalDG2dMethod<REAL>::isInfinityOrNAN(Vec f, std::string location)
 {
     PetscReal fnorm;
-    PetscErrorCode ierr;
-    ierr = VecNormBegin(f,NORM_2,&fnorm);CHKERRQ(ierr);	/* fnorm <- ||F||  */
-    ierr = VecNormEnd(f,NORM_2,&fnorm);CHKERRQ(ierr);
+    VecNormBegin(f,NORM_2,&fnorm);	/* fnorm <- ||F||  */
+    VecNormEnd(f,NORM_2,&fnorm);
     if (PetscIsInfOrNanReal(fnorm))
     {
         //VecView(f,PETSC_VIEWER_STDOUT_WORLD);
