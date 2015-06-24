@@ -4,7 +4,7 @@ import math
 GAMMA = 1.4
 P_ORDER = 1
 PI = math.pi
-Mach = 3.
+Mach = 5.09
 Pr = 5.
 
 <warpx>
@@ -12,19 +12,19 @@ Pr = 5.
  ##
  # Basic parameters
  ##
- Simulation = ffstep
+ Simulation = bfstep
  # one of debug, info, warning, error, critical, disabled
  Verbosity = info
 
- <ffstep>
+ <bfstep>
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 0.5] # start, end times
+   Time = [0.0, 1.5] # start, end times
    Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid4.msh'
+   Gridname = 'grid.msh'
    NumFields = 1
    
    # Check the partition
@@ -36,7 +36,7 @@ Pr = 5.
 	cfl = 1.0/((2.*(P_ORDER+1)-1))
 	
 	Equations = [euler]
-	boundaryConditions = [inflow,bottomWall,topWall,noGrad]
+	boundaryConditions = [inflow,bottomWall,noGrad]
 	Limiter = [eulerLimit]
 	
 	## setup data structure, [fieldNumber,FieldName]
@@ -60,7 +60,7 @@ Pr = 5.
 
        progn = ["rho = gm", \
        			"a=sqrt(gm*pres/rho)",\
-       			"rhou= rho*M*a",\
+       			"rhou= if(x>0.5,0.0,rho*M*a)",\
        			"rhov= 0.0",\
        			"rhow= 0.0",\
 				"energy = pres/(gm-1.)+0.5*(rhou*rhou+rhov*rhov+rhow*rhow)/rho"]
@@ -73,7 +73,7 @@ Pr = 5.
 		
 		gas_gamma = GAMMA
 		# either Lax-Friedrichs = LF or HLL
-		Numerical_Flux = LF
+		Numerical_Flux = HLL
 	</euler>
 	
    </hyperbolic>
@@ -115,7 +115,7 @@ Pr = 5.
 	  min_pressure = 1.e-2
 	  min_density = 1.e-2
 
-	  boundaryConditions = [inflow,bottomWall,topWall,noGrad]
+	  boundaryConditions = [inflow,bottomWall,noGrad]
 	</eulerLimit>
 	
    <stepHyper>
@@ -131,6 +131,6 @@ Pr = 5.
       PerStep = [stepHyper]
    </SolverSequence>
 
- </ffstep>
+ </bfstep>
 
 </warpx>

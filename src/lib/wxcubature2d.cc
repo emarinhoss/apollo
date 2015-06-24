@@ -13,6 +13,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
 
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
+    WxLogStream debStrm = log->getDebugStream();
 
     _NPE = (_polyOrd+1)*(_polyOrd+2)/2;
     // Cubature points
@@ -82,7 +83,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
 //    MatView(V,PETSC_VIEWER_STDOUT_WORLD);
     // and its transpose
     MatTranspose(V,MAT_INITIAL_MATRIX,&VT);
-    infStrm << "** done -- Creating Cubature Vandermonde Matrix. **" << std::endl;
+    debStrm << "** done -- Creating Cubature Vandermonde Matrix. **" << std::endl;
 
     // evaluate local derivatives of Lagrange interpolation at cubature points
     MatCreateSeqDense(PETSC_COMM_SELF,_pts,_NPE,PETSC_NULL,&Dr);
@@ -97,7 +98,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
 //    MatView(Dr,PETSC_VIEWER_STDOUT_WORLD);
     MatrixTranspose(Ds,&DsT);
 //    MatView(Ds,PETSC_VIEWER_STDOUT_WORLD);
-    infStrm << "** done -- Creating Cubature differentiation Matrices. **" << std::endl;
+    debStrm << "** done -- Creating Cubature differentiation Matrices. **" << std::endl;
 
     /** Evaluate data for the Gauss-Legendre quadrature points needed
      * at the element boundaries */
@@ -123,7 +124,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
 //    MatView(interp,PETSC_VIEWER_STDOUT_WORLD);
     // reverse interpolation, from surface Gaussian points to nodal values
     MatrixTranspose(interp,&interpT);
-    infStrm << "** done -- Creating Surface interpolation matrices. **" << std::endl;
+    debStrm << "** done -- Creating Surface interpolation matrices. **" << std::endl;
 
     // allocate memory
     _V   = alloc_1d<REAL>(_pts*_NPE);

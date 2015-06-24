@@ -301,6 +301,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     size_t         len;
     PetscBool      isGmsh, isExodus;
     PetscMPIInt    rank;
+    PetscSF        sf;
 
     PetscFunctionBeginUser;
     MPI_Comm_rank(comm, &rank);
@@ -337,7 +338,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     // Distribute mesh over processes
     DM dmDist;
     DMPlexSetAdjacencyUseCone(*dm, PETSC_TRUE);
-    DMPlexSetAdjacencyUseClosure(*dm, PETSC_TRUE);
+    DMPlexSetAdjacencyUseClosure(*dm, PETSC_FALSE);
     DMPlexDistribute(*dm, 1, NULL, &dmDist);
     if (dmDist){
         DMDestroy(dm);

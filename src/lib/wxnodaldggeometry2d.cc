@@ -14,15 +14,21 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
 
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
+    WxLogStream debStrm = log->getDebugStream();
 
     // Find node coordinates for each element
-    PetscInt eStart, eEnd, vStart, vEnd;
+    PetscInt eStart, eEnd, eEndInterior, vStart, vEnd;
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
     DMPlexGetDepthStratum(_dm, 0, &vStart, &vEnd);
+    DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
     _Klocal = eEnd - eStart;
+    _kLocalInt = eEndInterior - eStart;
     _Vlocal = vEnd - vStart;
-    infStrm << "** There are " << _Klocal << " elements,\n"
-            << "** and " << _Vlocal << " nodes in the grid. **"
+
+    int Totelems;
+    MPI_Reduce(&_kLocalInt, &Totelems, 1, MPI_INT, MPI_SUM, 0, PetscObjectComm((PetscObject)_dm));
+
+    infStrm << "** The grid has " << Totelems << " elements. **\n"
             << std::endl;
 
 
@@ -53,34 +59,34 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
 
     // Populate matrices
     Vandermonde2D(_polyOr,_NpE, _r, _s, &Vand);
-    infStrm << "** done -- Creating Vandemonde Matrix. **" << std::endl;
+    debStrm << "** done -- Creating Vandemonde Matrix. **" << std::endl;
     //MatView(_Vand,PETSC_VIEWER_STDOUT_WORLD);
     this->invertMatrix(Vand,&_IVand);
-    infStrm << "** done -- Creating Inverse Vandemonde Matrix. **" << std::endl;
+    debStrm << "** done -- Creating Inverse Vandemonde Matrix. **" << std::endl;
     //MatView(_IVand,PETSC_VIEWER_STDOUT_WORLD);
     DifferentiationMatrices2D(_polyOr,_NpE,_r,_s,_IVand,&Dr,&Ds);
-    infStrm << "** done -- Creating Differentiation Matrices. **" << std::endl;
+    debStrm << "** done -- Creating Differentiation Matrices. **" << std::endl;
     //MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
-    //MatView(_Dr,PETSC_VIEWER_STDOUT_WORLD);
+    //MatView(_Ds,PETSC_VIEWER_STDOUT_WORLD);
 
     // Calculate inverse of mass matrix
     Mat dummy;
     MatTranspose(Vand,MAT_INITIAL_MATRIX,&dummy);
     MatMatMult(Vand,dummy,MAT_REUSE_MATRIX,PETSC_DEFAULT,&VVT);
     this->invertMatrix(VVT,&Mass);
-    infStrm << "** done -- Creating Inverse Mass Matrix. **" << std::endl;
+    debStrm << "** done -- Creating Inverse Mass Matrix. **" << std::endl;
 //    MatView(VVT,PETSC_VIEWER_STDOUT_WORLD);
 
-    _xcoord = alloc_2d_c<REAL>(_Klocal,_NpE);
-    _ycoord = alloc_2d_c<REAL>(_Klocal,_NpE);
+    _xcoord = alloc_2d_c<REAL>(_kLocalInt,_NpE);
+    _ycoord = alloc_2d_c<REAL>(_kLocalInt,_NpE);
     CalculateNodeCoordinates2d(_dm);
-    infStrm << "** done -- Calculating Node Coordinates. **" << std::endl;
+    debStrm << "** done -- Calculating Node Coordinates. **" << std::endl;
 
     /* find element to element connections */
-    _EtoV   = alloc_2d_c<int>(_Klocal,3);
-    _ETETF  = alloc_2d_c<int>(_Klocal,2*_NfE);
+    _EtoV   = alloc_2d_c<int>(_kLocalInt,3);
+    _ETETF  = alloc_2d_c<int>(_kLocalInt,2*_NfE);
     FacePair2d(_dm);
-    infStrm << "** done -- Creating face-to-face connections. **" << std::endl;
+    debStrm << "** done -- Creating face-to-face connections. **" << std::endl;
 
     // minimum distance between two nodes, in natural coordinates
     _rmin = fabs(_r[1]-_r[0]);
@@ -132,10 +138,10 @@ wxNodalDGgeometry2D<REAL>::~wxNodalDGgeometry2D()
     delete [] _Vand;
     delete [] _VVT;
     delete [] _Mass;
-    free_2d_c(_xcoord, _Klocal, _NpE);
-    free_2d_c(_ycoord, _Klocal, _NpE);
-    free_2d_c(_EtoV, _Klocal, 3);
-    free_2d_c(_ETETF, _Klocal, 2*_NfE);
+    free_2d_c(_xcoord, _kLocalInt, _NpE);
+    free_2d_c(_ycoord, _kLocalInt, _NpE);
+    free_2d_c(_EtoV, _kLocalInt, 3);
+    free_2d_c(_ETETF, _kLocalInt, 2*_NfE);
     MatDestroy(&_IVand);
 }
 
@@ -187,24 +193,21 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMGetCoordinateSection(dm, &coordSection);
     DMGetDefaultSection(dm, &defaultSec);
 
-    PetscInt eStart, eEnd, eEndInterior;
-    DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
-    DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
     DMPlexUninterpolate(dm,&unint);
 
     VecGetArray(coordinates, &coords);
-    for(unsigned K=eStart; K<eEndInterior; K++)
+    for(unsigned K=0; K<_kLocalInt; K++)
     {
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
         // coords is returned as coords[x1,y1,x2,y2,x3,y3]
         DMPlexGetCone(unint,K,&pcone);
-        REAL p1x = coords[2*(pcone[0]-eEnd)];
-        REAL p1y = coords[2*(pcone[0]-eEnd)+1];
-        REAL p2x = coords[2*(pcone[1]-eEnd)];
-        REAL p2y = coords[2*(pcone[1]-eEnd)+1];
-        REAL p3x = coords[2*(pcone[2]-eEnd)];
-        REAL p3y = coords[2*(pcone[2]-eEnd)+1];
+        REAL p1x = coords[2*(pcone[0]-_Klocal)];
+        REAL p1y = coords[2*(pcone[0]-_Klocal)+1];
+        REAL p2x = coords[2*(pcone[1]-_Klocal)];
+        REAL p2y = coords[2*(pcone[1]-_Klocal)+1];
+        REAL p3x = coords[2*(pcone[2]-_Klocal)];
+        REAL p3y = coords[2*(pcone[2]-_Klocal)+1];
 
         for(unsigned node=0; node<_NpE; node++)
         {
@@ -234,17 +237,11 @@ template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
 {
-    WxLogger *l = WxLogger::get("apollo-root.console");
-    WxLogStream errStrm = l->getErrorStream();
-
     Mat FtoV, FtoF;
     DM unint;
     // Build the Element connectivity matrix, EtoV
-    PetscInt eStart, eEnd, eEndInterior;
     DMPlexUninterpolate(dm,&unint);
-    DMPlexGetHeightStratum(dm, 0, &eStart, &eEnd);
-    DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
-    for(PetscInt K=eStart; K<eEndInterior; K++)
+    for(PetscInt K=0; K<_kLocalInt; K++)
     {
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
@@ -258,7 +255,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     /** Build Face to Vertex connection, FtoV */
     /** ===================================== */
 
-    MatCreateSeqAIJ(PETSC_COMM_SELF,_NfE*_Klocal,_Vlocal,2,PETSC_NULL,&FtoV);
+    MatCreateSeqAIJ(PETSC_COMM_SELF,_NfE*_kLocalInt,_Vlocal,2,PETSC_NULL,&FtoV);
 
     // zero values
     MatZeroEntries(FtoV);
@@ -266,7 +263,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     // Build connection
     int vn[3][2] = {{0,1},{1,2},{2,0}};
     int sk = 0;
-    for(unsigned elem=0; elem<_Klocal; elem++)
+    for(unsigned elem=0; elem<_kLocalInt; elem++)
         for(unsigned face=0; face<_NfE; face++)
         {
             for(unsigned node=0; node<2; node++)
@@ -283,7 +280,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     MatMatTransposeMult(FtoV,FtoV,MAT_INITIAL_MATRIX,PETSC_DEFAULT,&FtoF);
 
     // substract diagonal contribution
-    for(unsigned K1=0; K1<_NfE*_Klocal; K1++)
+    for(unsigned K1=0; K1<_NfE*_kLocalInt; K1++)
         MatSetValue(FtoF, K1, K1, -2., ADD_VALUES);
     MatAssemblyBegin(FtoF, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(FtoF, MAT_FINAL_ASSEMBLY);
@@ -309,9 +306,9 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     const PetscInt    *cols;
     const PetscScalar *vals;
     //
-    int f1[_NfE*_Klocal], f2[_NfE*_Klocal];
+    int f1[_NfE*_kLocalInt], f2[_NfE*_kLocalInt];
     _totNFace = 0;
-    for(unsigned K1=0; K1<_NfE*_Klocal; K1++)
+    for(unsigned K1=0; K1<_NfE*_kLocalInt; K1++)
     {
         MatGetRow(FtoF,K1,&ncols,&cols,&vals);
         for(unsigned K2=0; K2<ncols; K2++)
@@ -334,7 +331,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     }
 
     // Make all values -1. Only the faces not at physical boundaries are changed.
-    for(unsigned k1=0; k1<_Klocal; k1++)
+    for(unsigned k1=0; k1<_kLocalInt; k1++)
         for(unsigned f1=0; f1<2*_NfE; f1++)
         {
             _ETETF[k1][f1] = -1;
@@ -354,7 +351,6 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
             for(unsigned f1=0; f1<2*_NfE; f1++)
                 _ETETF[cells[0]][f1] = -value;
         }
-//        int AAA = 0;
     }
 
     // assign values
