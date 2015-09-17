@@ -72,6 +72,10 @@ WxCreator< WxPHMaxwellConductingWallBC<double>, ApSubSolver<double> > __mCWBC_d(
 WxCreator< WxPulseTrainSrc<float>, WxHyperbolicSrc<float> > __ptsrc_f("pulseTrain");
 WxCreator< WxPulseTrainSrc<double>, WxHyperbolicSrc<double> > __ptsrc_d("pulseTrain");
 
+#include "maxwell/wxtransversemagneticsrc.h"
+WxCreator< WxTransverseMagneticSrc<float>, WxHyperbolicSrc<float> > __tmsrc_f("tranverseMagneticSrc");
+WxCreator< WxTransverseMagneticSrc<double>, WxHyperbolicSrc<double> > __tmsrc_d("tranverseMagneticSrc");
+
 
 /**
  * Multifluid sources, initializations, boundary conditions, and more.

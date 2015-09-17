@@ -23,7 +23,7 @@ ApSimulation<REAL>::ApSimulation(int argc, char **argv)
 {
   // parse command line parameters
   parseCmdLine(argc, argv);
-  PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
+//  PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
 }
 
 template <typename REAL>
@@ -31,7 +31,7 @@ ApSimulation<REAL>::~ApSimulation()
 {
   // delete top level solver object
   delete solver;
-  PetscFinalize();
+//  PetscFinalize();
   // delete message object
   // WxLogger::cleanUp();
 }

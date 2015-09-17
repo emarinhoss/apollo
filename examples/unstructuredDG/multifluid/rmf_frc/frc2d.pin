@@ -19,15 +19,15 @@ DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 1.*1.e-4  # T, rmf B field
-Baxial = 50.e-4
-omega  = 2.e4 #276.e3 # Hz, rmf frequency
-PHASE  = 0.
-Te = 50. # eV, electron temperature
+Bomega = 20.*1.e-4  # T, rmf B field
+Baxial = 30.e-4
+omega  = 2.2e5 # Hz, rmf frequency
+PHASE  = PI/2.
+Te = 25. # eV, electron temperature
 Temp = Te*Q/BOLTZ #K, temperature in Kelvin
 Radius = 1.  # m, flux conserver radius
 domain = 2.*Radius
-n_dens = 1.e20/3. # m^-3, number density
+n_dens = 1.e19 # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
 # compute minimum density and pressure
@@ -41,7 +41,7 @@ ION_MIN_DENS = MI*MIN_DENS
 
 
 TIME = 2.*PI/omega # seconds
-TEND = 10.e-9 # seconds
+TEND = 1.0e-6 # seconds
 
 <warpx>
 
@@ -57,66 +57,66 @@ TEND = 10.e-9 # seconds
    Kind = comboSolver
 
    Time = [0.0, TEND] # start, end times
-   Output_files = 1 # no. of output files to write
+   Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid.msh'
+   Gridname = 'grid2.msh'
    NumFields = 1
    
    # Check the partition
    <hyperbolic>
-	Type = ApSubSolver
-	Kind = nodalDG2d
+	   Type = ApSubSolver
+	   Kind = nodalDG2d
 	
-	Equations = [eulerElc, eulerIon, maxwell]
-	boundaryConditions = [boundary]
-	Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge]
+	   Equations = [eulerElc, eulerIon, maxwell]
+	   boundaryConditions = [coil1,coil2,coil3,coil4]
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge]
 	
-	polynomialOrder = P_ORDER
-	cfl = 1.0/((2.*(P_ORDER+1)-1))
+	   polynomialOrder = P_ORDER
+	   cfl = 0.5/((2.*(P_ORDER+1)-1))
 	
-	DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)/2]
-	<InitialCondition>
-		Type = WxFunction
-		Kind = exprFunc
+	   DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)/2]
+	   <InitialCondition>
+		    Type = WxFunction
+		    Kind = exprFunc
 		
-	   gm1 = GAMMA-1.
-       me = ME     # electron mass
-       mi = MI     # ion mass
-       pi = PI
-       num_dens = n_dens
-       p0 = Pe
-       beta = BETA
-       rds = Radius
-       Tt = Temp
-       Bz = Baxial
+	       gm1 = GAMMA-1.
+         me = ME     # electron mass
+         mi = MI     # ion mass
+         pi = PI
+         num_dens = n_dens
+         p0 = Pe
+         beta = BETA
+         rds = Radius
+         Tt = Temp
+         Bz = Baxial
 
-       progn = ["r = sqrt(x*x+y*y)", \
-                "gaus = exp(-beta*r*r)", \
-                "mval = exp(-beta*rds*rds)", \
-                "value = if(r>rds,gaus,mval)", \
-                "rhoe = num_dens*me*gaus", \
-                "rhoi = num_dens*mi*gaus", \
-                "energy= p0/gm1*gaus"]
+         progn = ["r = sqrt(x*x+y*y)", \
+                  "gaus = exp(-beta*r*r)", \
+                  "mval = exp(-beta*rds*rds)", \
+                  "value = if(r>rds,gaus,mval)", \
+                  "rhoe = num_dens*me", \
+                  "rhoi = num_dens*mi", \
+                  "energy= p0/gm1"]
 
-       exprList = ["rhoe", \
-                   "0.0", \
-                   "0.0", \
-                   "0.0", \
-                   "energy", \
-                   "rhoi", \
-                   "0.0", \
-                   "0.0", \
-                   "0.0", \
-                   "energy", \
-                   "0.0", \
-                   "0.0", \
-                   "0.0", \
-                   "0.0", \
-                   "0.0", \
-                   "Bz", \
-                   "0.0", \
-                   "0.0" ]
+         exprList = ["rhoe", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "energy", \
+                     "rhoi", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "energy", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "Bz", \
+                     "0.0", \
+                     "0.0" ]
 
 		
 	</InitialCondition>
@@ -219,6 +219,7 @@ TEND = 10.e-9 # seconds
        charge = -Q
        epsilon0 = EPS0
        chi = DIVE_SPEED
+       gamma = DIVB_SPEED
      </elcCharge>
 
      # Charge sources for electric field divergence from ions
@@ -233,21 +234,55 @@ TEND = 10.e-9 # seconds
        charge = Q
        epsilon0 = EPS0
        chi = DIVE_SPEED
+       gamma = DIVB_SPEED
      </ionCharge>
 
 	
    </hyperbolic>
 
-   <boundary>
+   <coil1>
 		Type = ApSubSolver
 		Kind = twoFluidRMFBC
 
 		frequency = omega
 		B_axial = Baxial
 		B_rmf = Bomega
-		phase = PHASE
+		phase = 0.
 		
-	</boundary>
+	</coil1>
+
+  <coil2>
+    Type = ApSubSolver
+    Kind = twoFluidRMFBC
+
+    frequency = omega
+    B_axial = Baxial
+    B_rmf = Bomega
+    phase = PHASE
+    
+  </coil2>
+
+  <coil3>
+    Type = ApSubSolver
+    Kind = twoFluidRMFBC
+
+    frequency = omega
+    B_axial = Baxial
+    B_rmf = -Bomega
+    phase = 0.
+    
+  </coil3>
+
+  <coil4>
+    Type = ApSubSolver
+    Kind = twoFluidRMFBC
+
+    frequency = omega
+    B_axial = Baxial
+    B_rmf = -Bomega
+    phase = PHASE
+    
+  </coil4>
 	
    <stepHyper>
       Type = WxSubSolverStep

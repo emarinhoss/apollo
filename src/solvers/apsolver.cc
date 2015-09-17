@@ -32,7 +32,7 @@ ApSolver<REAL>::~ApSolver()
 
   delete tssolver;
 //  DMDestroy(&_dm);
-//  VecDestroy(&solution);
+  VecDestroy(&solution);
   PetscViewerDestroy(&_viewer);
 }
 
@@ -259,7 +259,7 @@ ApSolver<REAL>::init()
     REAL suggestedDt;
 
     // Solution vector
-    DMCreateGlobalVector(_dm, &solution);
+    DMCreateLocalVector(_dm, &solution);
     PetscObjectSetName((PetscObject) solution, "solution");
 
     // time step
@@ -301,7 +301,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     size_t         len;
     PetscBool      isGmsh, isExodus;
     PetscMPIInt    rank;
-    PetscSF        sf;
+//    PetscSF        sf;
 
     PetscFunctionBeginUser;
     MPI_Comm_rank(comm, &rank);

@@ -13,15 +13,15 @@ LIGHT = 1.0
  ##
  # Basic parameters
  ##
- Simulation = advection1d
+ Simulation = maxwell2d
  # one of debug, info, warning, error, critical, disabled
  Verbosity = info
 
- <advection1d>
+ <maxwell2d>
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, 1.] # start, end times
+   Time = [0.0, 5.] # start, end times
    Output_files = 5 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
@@ -35,7 +35,7 @@ LIGHT = 1.0
 	
 	Equations = [maxwell]
 	boundaryConditions = [boundary]
-	#Sources = [current]
+	Sources = [current]
 	
 	polynomialOrder = P_ORDER
 	cfl = 0.5/((2.*(P_ORDER+1)-1))
@@ -45,56 +45,48 @@ LIGHT = 1.0
 		Type = WxFunction
 		Kind = exprFunc
 		
-		XC = 0.35
-		YC = 0.25
+		XC = 0.0
+		YC = 0.0
 		pi = PI
 
-       exprList = ["0.0", \
-				   "0.0", \
-				   "0.0",  \
-				   "0.0", \
-				   "0.0", \
-				   "bz", \
-				   "0.0", \
-				   "0.0"]
-
-		# list of preiliminary expressions to execute
-        progn = ["r = sqrt((x-XC)^2 + (y-YC)^2)", \
-                 "bz = exp(-r*r/(0.1*0.1))"]			   
+        exprList = ["0.0", \
+		 		    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0"]
+		
 	</InitialCondition>
+
+	<current>
+        Type = WxHyperbolicSrc
+        Kind = tranverseMagneticSrc
+
+        OutRange = [2]
+
+    </current>
 	
 	<maxwell>
 		Type = WxHyperbolicEqn
 		Kind = phMaxwellEqn
 		
 		c0 = LIGHT
-		gamma = 1.0
 		chi = 1.0
+		gamma = 1.0
 	</maxwell>
-
-	<current>
-		Type = WxHyperbolicSrc
-		Kind = pulseTrain
-		
-		Period = 1.
-		PulseLength = 0.5
-		Xcenter = 0.0
-		Ycenter = 0.0
-
-		OutRange = [2]
-	</current>
 	
    </hyperbolic>
 
    <boundary>
 		Type = ApSubSolver
-		Kind = phmConductingWallBC
-		
+		Kind = phmConductingWallBC		
 	</boundary>
 	
    <stepHyper>
-      Type = WxSubSolverStep
-      SubSolvers = [hyperbolic]
+    	Type = WxSubSolverStep
+    	SubSolvers = [hyperbolic]
    </stepHyper>
    
    ##
@@ -105,6 +97,6 @@ LIGHT = 1.0
       PerStep = [stepHyper]
    </SolverSequence>
 
- </advection1d>
+ </maxwell2d>
 
 </warpx>

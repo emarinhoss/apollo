@@ -13,13 +13,14 @@ static const unsigned LF   = 0;
 static const unsigned HLL  = 1;
 static const unsigned ROE  = 2;
 static const unsigned HLLC = 3;
+static const unsigned WAVE = 4;
 
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
 setup(const WxCryptSet& wxc)
 {
-    WxLogStream wrnStrm = WxLogger::get("apollo-root.console")->getWarningStream();
+    WxLogStream infoStrm = WxLogger::get("apollo-root.console")->getInfoStream();
 
   // set gas gamma
   _gas_gamma = wxc.template get<REAL>("gas_gamma");
@@ -46,32 +47,42 @@ setup(const WxCryptSet& wxc)
       lim = wxc.template get<std::string>("Numerical_Flux");
   else
   {
-    wrnStrm << "WARNING: No Numerical Flux specified for Euler eqn., Lax-Friedrichs fluxes will be used.\n";
+    infoStrm << "WARNING: No Numerical Flux specified for Euler eqn., Lax-Friedrichs fluxes will be used.\n"
+             << std::endl;
+
     lim = "LF";
     _fluxType = LF; // use LF flux evaluation
   }
 
   if (lim == "LF"){
     _fluxType = LF;
-    wrnStrm << "Using Lax-Friedrichs fluxes.\n";
+    infoStrm << "Using Lax-Friedrichs fluxes.\n"
+             << std::endl;
   }
   else if (lim == "HLL"){
     _fluxType = HLL;
-    wrnStrm << "Using HLL fluxes.\n";
+    infoStrm << "Using HLL fluxes.\n"
+             << std::endl;
   }
   else if (lim == "Roe"){
     _fluxType = ROE;
-    wrnStrm << "Using Roe fluxes.\n";
+    infoStrm << "Using Roe fluxes.\n"
+             << std::endl;
   }
-//  else if (lim == "highOrderComponent")
-//    _fluxType = HO_COMP_LIMITER;
+  else if (lim == "Wave"){
+    _fluxType = WAVE;
+    infoStrm << "Using Wave-Propagation fluxes.\n"
+             << std::endl;
+  }
 //  else if (lim == "highOrderCharacteristic")
 //    _fluxType = HO_CHAR_LIMITER;
   else
   {
-    wrnStrm << "WARNING: Numerical FLux "
+    infoStrm << "WARNING: Numerical FLux "
             << lim
-            << " not recognised.\n Lax-Friedrichs fluxes will be used instead.\n";
+            << " not recognised.\n Lax-Friedrichs fluxes will be used instead.\n"
+            << std::endl;
+
     _fluxType = LF; // default to do Lax-Friedrichs fluxes.
   }
 
@@ -870,6 +881,8 @@ DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     case 2:
         applyRoeFluxes(normals,qM,qP,nflux,maxSpeed);
         break;
+    case 4:
+        applyWavePropagationFluxes(normals,qM,qP,nflux,maxSpeed);
     default:
         applyLax_FriedrichsFluxes(normals,qM,qP,nflux,maxSpeed);
         break;
@@ -1258,6 +1271,50 @@ applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     REAL lambda = dmax(c0M,c0P);
 
     maxSpeed = lambda;
+}
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+{
+    REAL *xc, *qaux;
+    REAL fM[5], fP[5]; // x/y Fluxes
+    REAL speeds[3],df[5],amdq[5], apdq[5];
+    REAL **wave;
+    REAL fx[5];
+    wave = alloc_2d_c<REAL>(5, 3);
+
+    // Rotate "-" trace momentum to face normal-tangent coordinates
+    REAL rhouM = qM[1], rhovM = qM[2];
+    qM[1] = normals[0]*rhouM + normals[1]*rhovM;
+    qM[2] =-normals[1]*rhouM + normals[0]*rhovM;
+
+    // Rotate "+" trace momentum to face normal-tangent coordinates
+    REAL rhouP = qP[1], rhovP = qP[2];
+    qP[1] = normals[0]*rhouP + normals[1]*rhovP;
+    qP[2] =-normals[1]*rhouP + normals[0]*rhovP;
+
+    // evaluate fluxes in rotated coordinates
+    this->flux(0, xc, qM, qaux, fM);
+    this->flux(0, xc, qP, qaux, fP);
+
+    // compute jump in Q (q-wave)
+    for (unsigned m=0; m<5; ++m)
+      df[m] = qM[m] - qP[m];
+
+    this->rp(0,qP,qM,0,0,df,wave,speeds,amdq,apdq);
+
+    for (unsigned m=0; m<5; ++m)
+      fx[m]=0.5*(fM[m]+fP[m])-0.5*(apdq[m]-amdq[m]);
+
+    nflux[0] = fx[0];
+    nflux[1] = normals[0]*fx[1] - normals[1]*fx[2];
+    nflux[1] = normals[1]*fx[1] + normals[0]*fx[2];
+    nflux[3] = 0.0;
+    nflux[4] = fx[4];
+
+    free_2d_c(wave,5,3);
 }
 
 template<typename REAL>

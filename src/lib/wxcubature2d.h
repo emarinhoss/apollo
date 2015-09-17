@@ -78,6 +78,9 @@ class WxCubature2d
 /** Transfer all the Matrices into row major arrays */
     void petscMatTOArray(Mat A, REAL *array);
 
+/** Matrix Inverse */
+    void invertMatrix(Mat A, Mat *invA);
+
 /** Matrix Vector multiplication. Petsc has the MatMult function, however
  * this functions is not well behaved for matrices that are not square
  *
@@ -99,7 +102,7 @@ class WxCubature2d
 /** Cubature data */
     REAL *_r, *_s, *_w; // cubature coordinates and weights
     REAL *_W, *_iV; //
-    REAL *_V, *_Dr, *_Ds, *_VT, *_DrT, *_DsT; // Matrices evaluated at the cubature points
+    REAL *_V, *_Dr, *_Ds, *_VT, *_DrT, *_DsT, *_cMass; // Matrices evaluated at the cubature points
     Mat inverseV;
 
 /** Gaussian data */

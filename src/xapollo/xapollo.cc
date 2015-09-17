@@ -77,10 +77,10 @@ apolloMain(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-  MPI_Init(&argc, &argv);
+    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL); //MPI_Init(&argc, &argv);
 
-  // run top level main
-  apolloMain<double>(argc, argv);
+    // run top level main
+    apolloMain<double>(argc, argv);
 
-  MPI_Finalize();
+    PetscFinalize(); //MPI_Finalize();
 }

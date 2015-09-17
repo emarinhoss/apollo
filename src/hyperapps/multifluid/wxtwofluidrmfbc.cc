@@ -23,14 +23,14 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
     qBC[0] = q[0];
     qBC[1] = q[1]-2.*(nx[0]*q[1]+nx[1]*q[2])*nx[0];
     qBC[2] = q[2]-2.*(nx[0]*q[1]+nx[1]*q[2])*nx[1];
-    qBC[3] = 0.0;
+    qBC[3] = q[3];
     qBC[4] = q[4];
 
     // ions
     qBC[5] = q[5];
     qBC[6] = q[6]-2.*(nx[0]*q[6]+nx[1]*q[7])*nx[0];
     qBC[7] = q[7]-2.*(nx[0]*q[6]+nx[1]*q[7])*nx[1];
-    qBC[8] = 0.0;
+    qBC[8] = q[8];
     qBC[9] = q[9];
 
     REAL ex = q[10];
@@ -52,8 +52,10 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
 
     // B-field
     REAL t = xc[0]; // current time
-    qBC[13] = _B0*cos(_omega*t+_phase);
-    qBC[14] = _B0*sin(_omega*t+_phase);;
+    REAL Bx = _B0*cos(_omega*t+_phase);
+    REAL By = _B0*sin(_omega*t+_phase);
+    qBC[13] = Bx;
+    qBC[14] = By;
     qBC[15] = _baxial;
 
     qBC[16] = -phi;

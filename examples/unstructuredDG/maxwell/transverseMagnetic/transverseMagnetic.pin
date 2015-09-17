@@ -15,14 +15,14 @@ LIGHT = 1.0
  ##
  Simulation = advection1d
  # one of debug, info, warning, error, critical, disabled
- Verbosity = debug
+ Verbosity = info
 
  <advection1d>
    Type = WxSolver
    Kind = comboSolver
 
    Time = [0.0, PI] # start, end times
-   Output_files = 1 # no. of output files to write
+   Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    Gridname = 'square.msh'

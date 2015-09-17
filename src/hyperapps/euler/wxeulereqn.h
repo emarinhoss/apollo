@@ -137,6 +137,7 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
     void applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
     void applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
     void applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    void applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
 
 /** Compute the primitive variables
  *

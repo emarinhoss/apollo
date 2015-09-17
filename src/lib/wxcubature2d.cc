@@ -74,7 +74,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
         _w[k] = CT[3*k+2];
     }
 
-    Mat Vout, V, gV, VT, Dr, Ds, DrT, DsT, interp, interpT;
+    Mat Vout, V, gV, VT, Dr, Ds, DrT, DsT, interp, interpT, cubMass;
 
     // evaluate generalized Vandermonde of Lagrange interpolation functions at cubature nodes
     MatCreateSeqDense(PETSC_COMM_SELF,_pts,_NPE,PETSC_NULL,&Vout);
@@ -99,6 +99,13 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
     MatrixTranspose(Ds,&DsT);
 //    MatView(Ds,PETSC_VIEWER_STDOUT_WORLD);
     debStrm << "** done -- Creating Cubature differentiation Matrices. **" << std::endl;
+
+    // Calculate inverse of mass matrix
+    Mat dummy, VVT;
+    MatTranspose(Vout,MAT_INITIAL_MATRIX,&dummy);
+    MatMatMult(Vout,dummy,MAT_INITIAL_MATRIX,PETSC_DEFAULT,&VVT);
+    MatCreateSeqDense(PETSC_COMM_SELF,_pts,_pts,PETSC_NULL,&cubMass);
+    this->invertMatrix(VVT,&cubMass);
 
     /** Evaluate data for the Gauss-Legendre quadrature points needed
      * at the element boundaries */
@@ -127,7 +134,8 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
     debStrm << "** done -- Creating Surface interpolation matrices. **" << std::endl;
 
     // allocate memory
-    _V   = alloc_1d<REAL>(_pts*_NPE);
+    _cMass = alloc_1d<REAL>(_pts*_pts);
+    _V    = alloc_1d<REAL>(_pts*_NPE);
     _VT   = alloc_1d<REAL>(_pts*_NPE);
     _Dr  = alloc_1d<REAL>(_pts*_NPE);
     _Ds  = alloc_1d<REAL>(_pts*_NPE);
@@ -137,6 +145,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
     _interpT = alloc_1d<REAL>(3*_gQuad*_NPE);
 
     // store the matrices in row major arrays
+    petscMatTOArray(cubMass,_cMass);
     petscMatTOArray(V,_V);
     petscMatTOArray(VT,_VT);
     petscMatTOArray(Dr,_Dr);
@@ -156,6 +165,7 @@ WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV
     MatDestroy(&DsT);
     MatDestroy(&interp);
     MatDestroy(&interpT);
+    MatDestroy(&cubMass);
 }
 
 template <typename REAL>
@@ -172,8 +182,41 @@ WxCubature2d<REAL>::~WxCubature2d()
     delete [] _DrT;
     delete [] _DsT;
     delete [] _VT;
+    delete [] _cMass;
     delete [] _interp;
     delete [] _interpT;
+}
+
+template <typename REAL>
+void
+WxCubature2d<REAL>::invertMatrix(Mat A, Mat *invA)
+{
+    Mat inpA, B;
+    IS is;
+    MatFactorInfo iluinfo;
+    PetscInt ncols;
+    const PetscInt    *cols;
+    const PetscScalar *vals;
+
+    MatDuplicate(A,MAT_COPY_VALUES,&inpA);
+
+    // begin by creating a dense matrix B and fill it with the identity matrix
+    MatGetRow(A,0,&ncols,&cols,&vals);
+    MatCreateSeqDense(PETSC_COMM_SELF,ncols,ncols,PETSC_NULL,&B);
+    for (int k=0; k<ncols;k++)
+        MatSetValue(B,k,k,1.0,INSERT_VALUES);
+    MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);
+
+    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&inpA);
+    MatLUFactorSymbolic(inpA,A,is,is,&iluinfo);
+    MatLUFactorNumeric(inpA,A,&iluinfo);
+    // MatLUFactor(inpA,is,is,&iluinfo);
+    // Calculate inverse
+    MatMatSolve(inpA,B,*invA);
+
+    MatDestroy(&inpA);
+    MatDestroy(&B);
 }
 
 template <typename REAL>
@@ -244,40 +287,39 @@ template <typename REAL>
 void
 WxCubature2d<REAL>::interpolatedTOCubatures(int num, REAL* input, REAL* output)
 {
-    MatrixVectorMult(_pts,_NPE,_meqn,_V,input,output);
+    MatrixVectorMult(_pts,_NPE,num,_V,input,output);
 }
 
 template <typename REAL>
 void
 WxCubature2d<REAL>::evaluatedVolumeIntegrals(REAL* xcoords, REAL* ycoords, REAL* Fflux, REAL* Gflux, REAL *Src, REAL *VolInt)
 {
-    checkNAN(_pts*_meqn, Fflux, "Not-a-number in Fflux.\n");
-    checkNAN(_pts*_meqn, Gflux, "Not-a-number in Gflux.\n");
-    checkNAN(_pts*_meqn, Src, "Not-a-number in Source.\n");
+//    checkNAN(_pts*_meqn, Fflux, "Not-a-number in Fflux.\n");
+//    checkNAN(_pts*_meqn, Gflux, "Not-a-number in Gflux.\n");
+//    checkNAN(_pts*_meqn, Src, "Not-a-number in Source.\n");
 
 
     REAL rx[_pts], sx[_pts], ry[_pts], sy[_pts], J[_pts];
     geometricFactors2D(xcoords,ycoords,rx,sx,ry,sy,J);
 
-    REAL ddx[_NPE*_meqn], ddy[_NPE*_meqn], SRC[_NPE*_meqn], RR[_pts*_meqn], SS[_pts*_meqn], phiS[_pts*_meqn];
+    REAL ddx[_NPE*_meqn], ddy[_NPE*_meqn], src[_NPE*_meqn], RR[_pts*_meqn], SS[_pts*_meqn], CC[_pts*_meqn];
 
     for(unsigned kk=0; kk<_pts; kk++)
-        for(unsigned mm=0; mm<_meqn; mm++)
-        {
+        for(unsigned mm=0; mm<_meqn; mm++){
             RR[kk*_meqn+mm] = _w[kk]*J[kk]*(rx[kk]*Fflux[kk*_meqn+mm]+ry[kk]*Gflux[kk*_meqn+mm]);
             SS[kk*_meqn+mm] = _w[kk]*J[kk]*(sx[kk]*Fflux[kk*_meqn+mm]+sy[kk]*Gflux[kk*_meqn+mm]);
-            phiS[kk*_meqn+mm] = _w[kk]*J[kk]*Src[kk*_meqn+mm];
+            CC[kk*_meqn+mm] = _w[kk]*J[kk]*Src[kk*_meqn+mm];
         }
 
     MatrixVectorMult(_NPE,_pts,_meqn,_DrT,RR,ddx);
     MatrixVectorMult(_NPE,_pts,_meqn,_DsT,SS,ddy);
-    MatrixVectorMult(_NPE,_pts,_meqn,_VT,phiS,SRC);
+    MatrixVectorMult(_NPE,_pts,_meqn,_VT ,CC,src);
 
     // Add x-dir and y-dir contributions
     for(unsigned kk=0; kk<_NPE*_meqn; kk++)
-        VolInt[kk] = ddx[kk] + ddy[kk] + SRC[kk];
+        VolInt[kk] = ddx[kk] + ddy[kk] + src[kk];
 
-    checkNAN(_NPE*_meqn, VolInt, "Not-a-number in VolInt.\n");
+//    checkNAN(_NPE*_meqn, VolInt, "Not-a-number in VolInt.\n");
 }
 
 template <typename REAL>
@@ -321,7 +363,7 @@ template <typename REAL>
 void
 WxCubature2d<REAL>::calculateSurfaceIntegral(REAL* numFlux, REAL* surfInt)
 {
-    checkNAN(3*_gQuad*_meqn, numFlux, "Not-a-number in numFlux.\n");
+//    checkNAN(3*_gQuad*_meqn, numFlux, "Not-a-number in numFlux.\n");
     REAL W[3*_gQuad];
 
     for(unsigned kk=0; kk<3; kk++)
@@ -333,7 +375,7 @@ WxCubature2d<REAL>::calculateSurfaceIntegral(REAL* numFlux, REAL* surfInt)
             numFlux[kk*_meqn+mm] *= W[kk];
 
     MatrixVectorMult(_NPE,3*_gQuad,_meqn,_interpT,numFlux,surfInt);
-    checkNAN(_NPE*_meqn, surfInt, "Not-a-number in surfInt.\n");
+//    checkNAN(_NPE*_meqn, surfInt, "Not-a-number in surfInt.\n");
 }
 
 template <typename REAL>

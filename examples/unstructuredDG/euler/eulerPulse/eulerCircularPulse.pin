@@ -24,8 +24,8 @@ P_ORDER = 1
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, TEND] # start, end times
-   Output_files = 1 # no. of output files to write
+   Time = [0.0, 1.0] # start, end times
+   Output_files = 10 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    Gridname = 'grid2.msh'
@@ -41,9 +41,9 @@ P_ORDER = 1
 	
 	Equations = [euler]
 	boundaryConditions = [Wall]
-	Limiter = [eulerLimit]
+	#Limiter = [eulerLimit]
 	
-	## setup data structure, [fieldNumber,FieldName]
+	## setup data structure, [fieldNumber,FieldName,number-of-nodes-per-element]
 	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
 	
 	<InitialCondition>
@@ -58,14 +58,14 @@ P_ORDER = 1
 
        # list of preiliminary expressions to execute
        progn = ["r2 = x^2 + y^2", \
-                "rho = rho0*(1.0 + pert*exp(-beta*r2))", \
-                "pr = p0*(1.0 + pert*exp(-beta*r2))"]
+                "rho = rho0*(10.0 + pert*exp(-beta*r2))", \
+                "pr = p0*(10.0 + pert*exp(-beta*r2))"]
 
        exprList = [ "rho", \
 					"0.0", \
 					"0.0", \
 					"0.0", \
-					"pr/(gm-1)"]
+					"pr/(gm-1.)"]
 		
 	</InitialCondition>
 	
@@ -74,7 +74,7 @@ P_ORDER = 1
 		Kind = eulerEqn
 		
 		gas_gamma = GAMMA
-		# either Lax-Friedrichs = LF or HLL
+		# either Lax-Friedrichs = LF, Roe, Wave, HLL
 		Numerical_Flux = HLL
 	</euler>
 	

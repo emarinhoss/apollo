@@ -317,8 +317,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
             for(unsigned component=0; component<_meqn; component++)
             {
-                If_vol[point*_meqn+component] = Fflux[component];
-                Ig_vol[point*_meqn+component] = Gflux[component];
+                  If_vol[point*_meqn+component] = Fflux[component];
+                  Ig_vol[point*_meqn+component] = Gflux[component];
                 ISrc_vol[point*_meqn+component] = _src[component];
             }
         }
@@ -428,7 +428,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         DMPlexPointLocalRef(_dm,kelem,ot,&rhs);
         for(unsigned kne=0; kne<NpE*_meqn; kne++)
-            rhs[kne] = vec_rhs[kne]/geoFacts[4];
+            rhs[kne] = (vec_rhs[kne])/geoFacts[4];
     }
     DMRestoreLocalVector(_dm, &locU);
     VecRestoreArray(out, &ot);
