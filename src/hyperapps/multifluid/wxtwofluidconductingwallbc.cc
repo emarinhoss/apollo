@@ -1,23 +1,18 @@
-#include "wxtwofluidrmfbc.h"
+#include "wxtwofluidconductingwallbc.h"
 #include <wxmath.h>
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
+WxTwoFluidConductingWallBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
   // call base class setup
   WxGridBC<REAL>::setup(wxc, dm);
-
-  _omega = wxc.template get<REAL>("frequency");
-  _baxial = wxc.template get<REAL>("B_axial");
-  _B0 = wxc.template get<REAL>("B_rmf");
-  _phase = wxc.template get<REAL>("phase");
 
 }
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxTwoFluidConductingWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
 {
     // electrons
     qBC[0] = q[0];
@@ -50,31 +45,19 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
     qBC[11] = enorm*nx[1] + etang*nx[0];
     qBC[12] = -ez;
 
-//    qBC[10] = ex;
-//    qBC[11] = ey;
-//    qBC[12] = ez;
-
     // B-field
-    // RMF
-    REAL t = xc[0]; // current time
-    REAL Bomega_x = _B0*cos(_omega*t+_phase);
-    REAL Bomega_y = _B0*sin(_omega*t+_phase);
-
     REAL bnorm = -bx*nx[0] - by*nx[1];
     REAL btang = -bx*nx[1] + by*nx[0];
 
-    qBC[13] = bnorm*nx[0] - btang*nx[1] + Bomega_x;
-    qBC[14] = bnorm*nx[1] + btang*nx[0] + Bomega_y;
+    qBC[13] = bnorm*nx[0] - btang*nx[1];
+    qBC[14] = bnorm*nx[1] + btang*nx[0];
     qBC[15] = bz;
 
-//    qBC[13] = Bomega_x;
-//    qBC[14] = Bomega_y;
-//    qBC[15] = bz;
-
+    // Divergence corrections
     qBC[16] = -phi;
     qBC[17] =  psi;
 }
 
 // instantiations
-template class WxTwoFluidRMFBC<float>;
-template class WxTwoFluidRMFBC<double>;
+template class WxTwoFluidConductingWallBC<float>;
+template class WxTwoFluidConductingWallBC<double>;

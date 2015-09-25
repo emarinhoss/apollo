@@ -12,6 +12,7 @@ Import('env')
 # source files in lib
 sources = [
            'wxtwofluidrmfbc.cc',
+           'wxtwofluidconductingwallbc.cc',
             ]
 
 ##

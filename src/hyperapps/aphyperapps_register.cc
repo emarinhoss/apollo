@@ -98,3 +98,7 @@ WxCreator< WxLorentzForceSrc<double>, WxHyperbolicSrc<double> > __lorForsrc_d("l
 #include "multifluid/wxtwofluidrmfbc.h"
 WxCreator< WxTwoFluidRMFBC<float>, ApSubSolver<float> > __tfrmfBC_f("twoFluidRMFBC");
 WxCreator< WxTwoFluidRMFBC<double>, ApSubSolver<double> > __tfrmfBC_d("twoFluidRMFBC");
+
+#include "multifluid/wxtwofluidconductingwallbc.h"
+WxCreator< WxTwoFluidConductingWallBC<float>, ApSubSolver<float> > __tfcwBC_f("twoFluidConductingWallBC");
+WxCreator< WxTwoFluidConductingWallBC<double>, ApSubSolver<double> > __tfcwBC_d("twoFluidConductingWallBC");

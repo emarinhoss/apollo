@@ -42,7 +42,7 @@ ION_MIN_DENS = MI*MIN_DENS
 
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.0e-6 # seconds
+TEND = 5.0e-8 # seconds
 
 <warpx>
 
@@ -61,7 +61,7 @@ TEND = 1.0e-6 # seconds
    Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid2.msh'
+   Gridname = 'carrieXP.msh'
    NumFields = 1
    
    # Check the partition
@@ -70,7 +70,7 @@ TEND = 1.0e-6 # seconds
 	   Kind = nodalDG2d
 	
 	   Equations = [eulerElc, eulerIon, maxwell]
-	   boundaryConditions = [coil1,coil2,coil3,coil4]
+	   boundaryConditions = [cwall,coil1,coil2,coil3,coil4]
 	   #Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge]
 	
 	   polynomialOrder = P_ORDER
@@ -243,13 +243,19 @@ TEND = 1.0e-6 # seconds
 	
    </hyperbolic>
 
+   <cwall>
+    Type = ApSubSolver
+    Kind = twoFluidConductingWallBC
+    
+  </cwall>
+
    <coil1>
 		Type = ApSubSolver
 		Kind = twoFluidRMFBC
 
 		frequency = omega
 		B_axial = Bax
-		B_rmf = Bomega
+		B_rmf = -Bomega
 		phase = 0.
 		
 	</coil1>
@@ -271,7 +277,7 @@ TEND = 1.0e-6 # seconds
 
     frequency = omega
     B_axial = -Bax
-    B_rmf = -Bomega
+    B_rmf = Bomega
     phase = 0.
     
   </coil3>
