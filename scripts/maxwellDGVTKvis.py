@@ -55,25 +55,15 @@ def generateVTUfile(n):
 	dh = wxunsdgdata.WxVisData(filename,n)
 	dd = dh.readDG(spOrd)
 
-	re = dd.variables[:,0]
-	vel_ex = dd.variables[:,1]/re
-	vel_ey = dd.variables[:,2]/re
-	vel_ez = dd.variables[:,3]/re
-	ee = dd.variables[:,4]
+	Efield = zeros((3*dd.TotNumElements,3))
+	Efield[:,0] = dd.variables[:,0]
+	Efield[:,1] = dd.variables[:,1]
+	Efield[:,2] = dd.variables[:,2]
 
-	ri = dd.variables[:,5]
-	vel_ix = dd.variables[:,6]/ri
-	vel_iy = dd.variables[:,7]/ri
-	vel_iz = dd.variables[:,8]/ri
-	ei = dd.variables[:,9]
-
-	Efieldx = dd.variables[:,10]
-	Efieldy = dd.variables[:,11]
-	Efieldz = dd.variables[:,12]
-
-	Bfieldx = dd.variables[:,13]
-	Bfieldy = dd.variables[:,14]
-	Bfieldz = dd.variables[:,15]
+	Bfield = zeros((3*dd.TotNumElements,3))
+	Bfield[:,0] = dd.variables[:,3]
+	Bfield[:,1] = dd.variables[:,4]
+	Bfield[:,2] = dd.variables[:,5]
 
 	
 	# number of nodes per element
@@ -90,46 +80,12 @@ def generateVTUfile(n):
 
 	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
 	ug.set_cells(elem_type, tris)
-
-	ug.point_data.scalars = re
-	ug.point_data.scalars.name = 'elec_rho'
-	ug.point_data.add_array(ee)
-	ug.point_data.get_array(1).name = 'elec_en'
-
-	ug.point_data.add_array(ri)
-	ug.point_data.get_array(2).name = 'ion_rho'
-	ug.point_data.add_array(ei)
-	ug.point_data.get_array(3).name = 'ion_en'
-
-	ug.point_data.add_array(vel_ex)
-	ug.point_data.get_array(4).name = 'elec_ux'
-	ug.point_data.add_array(vel_ey)
-	ug.point_data.get_array(5).name = 'elec_vy'
-	ug.point_data.add_array(vel_ez)
-	ug.point_data.get_array(6).name = 'elec_wz'
-
-	ug.point_data.add_array(vel_ix)
-	ug.point_data.get_array(7).name = 'ion_ux'
-	ug.point_data.add_array(vel_iy)
-	ug.point_data.get_array(8).name = 'ion_vy'
-	ug.point_data.add_array(vel_iz)
-	ug.point_data.get_array(9).name = 'ion_wz'
-
-	ug.point_data.add_array(Efieldx)
-	ug.point_data.get_array(10).name = 'Ex'
-	ug.point_data.add_array(Efieldy)
-	ug.point_data.get_array(11).name = 'Ey'
-	ug.point_data.add_array(Efieldz)
-	ug.point_data.get_array(12).name = 'Ez'
-
-	ug.point_data.add_array(Bfieldx)
-	ug.point_data.get_array(13).name = 'Bx'
-	ug.point_data.add_array(Bfieldy)
-	ug.point_data.get_array(14).name = 'By'
-	ug.point_data.add_array(Bfieldz)
-	ug.point_data.get_array(15).name = 'Bz'
-
-	outfile = filename + '_2Fluid_' + str('%03d' % n)  + '.vtu'
+	
+	ug.point_data.vectors = Efield
+	ug.point_data.vectors.name = 'Efield'
+	ug.point_data.add_array(Bfield)
+	ug.point_data.get_array(1).name = 'Bfield'
+	outfile = filename + '_Maxwell_' + str('%03d' % n)  + '.vtu'
 	save_xml(ug, outfile)
 	print "Frame "+str("%d" % n)+" COMPLETE."
 

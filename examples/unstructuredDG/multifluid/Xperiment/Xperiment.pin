@@ -42,7 +42,7 @@ ION_MIN_DENS = MI*MIN_DENS
 
 
 TIME = 2.*PI/omega # seconds
-TEND = 5.0e-8 # seconds
+TEND = 10.0e-6 # seconds
 
 <warpx>
 

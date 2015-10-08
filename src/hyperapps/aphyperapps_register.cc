@@ -67,6 +67,14 @@ WxCreator< WxMaxwellTransverseMagnetic<double>, ApSubSolver<double> > __mTMBC_d(
 WxCreator< WxPHMaxwellConductingWallBC<float>, ApSubSolver<float> > __mCWBC_f("phmConductingWallBC");
 WxCreator< WxPHMaxwellConductingWallBC<double>, ApSubSolver<double> > __mCWBC_d("phmConductingWallBC");
 
+#include "maxwell/wxphmaxwellopenbc.h"
+WxCreator< WxPHMaxwellOpenBC<float>, ApSubSolver<float> > __phOBC_f("phmOpenBC");
+WxCreator< WxPHMaxwellOpenBC<double>, ApSubSolver<double> > __phOBC_d("phmOpenBC");
+
+#include "maxwell/wxmaxwellrmfbc.h"
+WxCreator< WxMaxwellRMFBC<float>, ApSubSolver<float> > __phmRMFBC_f("maxwellRMFBC");
+WxCreator< WxMaxwellRMFBC<double>, ApSubSolver<double> > __phmRMFBC_d("maxwellRMFBC");
+
 // ------------------ Source Terms --------------------------//
 #include "maxwell/wxpulsetrainsrc.h"
 WxCreator< WxPulseTrainSrc<float>, WxHyperbolicSrc<float> > __ptsrc_f("pulseTrain");
@@ -75,6 +83,10 @@ WxCreator< WxPulseTrainSrc<double>, WxHyperbolicSrc<double> > __ptsrc_d("pulseTr
 #include "maxwell/wxtransversemagneticsrc.h"
 WxCreator< WxTransverseMagneticSrc<float>, WxHyperbolicSrc<float> > __tmsrc_f("tranverseMagneticSrc");
 WxCreator< WxTransverseMagneticSrc<double>, WxHyperbolicSrc<double> > __tmsrc_d("tranverseMagneticSrc");
+
+#include "maxwell/wxpointcurrent.h"
+WxCreator< WxpointCurrentSrc<float>, WxHyperbolicSrc<float> > __pcsrc_f("pointCurrentSrc");
+WxCreator< WxpointCurrentSrc<double>, WxHyperbolicSrc<double> > __pcsrc_d("pointCurrentSrc");
 
 
 /**
@@ -93,6 +105,10 @@ WxCreator< WxCurrentSrc<double>, WxHyperbolicSrc<double> > __currsrc_d("currents
 #include "multifluid/wxlorentzforcesrc.h"
 WxCreator< WxLorentzForceSrc<float>, WxHyperbolicSrc<float> > __lorForsrc_f("lorentzForces");
 WxCreator< WxLorentzForceSrc<double>, WxHyperbolicSrc<double> > __lorForsrc_d("lorentzForces");
+
+#include "multifluid/wxbraginskiifrictionsrc.h"
+WxCreator< WxBragFrictionSrc<float>, WxHyperbolicSrc<float> > __BFricSrc_f("bragFriction");
+WxCreator< WxBragFrictionSrc<double>, WxHyperbolicSrc<double> > __BFricSrc_d("bragFriction");
 
 // ------------------ Boundary Conditions --------------------------//
 #include "multifluid/wxtwofluidrmfbc.h"

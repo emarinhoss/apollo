@@ -14,6 +14,8 @@ sources = [
         'wxphmaxwelleqn.cc',
         'wxmaxwelltranversemagneticbc.cc',
         'wxphmaxwellconductingwallbc.cc',
+        'wxphmaxwellopenbc.cc',
+        'wxmaxwellrmfbc.cc',
            ]
 
 ##

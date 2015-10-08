@@ -1,0 +1,114 @@
+# -*- python -*- 
+
+import math
+
+PI = math.pi
+
+P_ORDER = 1
+
+# constants
+MI = 1.67e-27 # [kg] ion mass
+mass_ratio = 1836
+ME = MI/mass_ratio
+Q = 1.6e-19 # [C] charge
+MU0 = PI*4.0e-7 # [H/m]  permiability of free space
+LIGHT = 3.0e6 # [m/s] speed of light
+EPS0 = 1.0/(MU0*LIGHT*LIGHT)
+
+# parameters
+omega = 10.e6
+B_omega = 20.e-4
+
+
+##############################
+
+TEND = 1.e-6
+OUT  = 100
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = maxwell2d
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = info
+
+ <maxwell2d>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND] # start, end times
+   Output_files = OUT # no. of output files to write
+   Dt = 0.01 # initial dt to try
+   Dimensions = 2
+   Gridname = 'circle.msh'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = nodalDG2d
+	
+	Equations = [maxwell]
+	boundaryConditions = [boundary]
+	
+	polynomialOrder = P_ORDER
+	cfl = 0.5/((2.*(P_ORDER+1)-1))
+	
+	DataStructure = [0,dg,8*(P_ORDER+1)*(P_ORDER+2)/2]
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		XC = 0.0
+		YC = 0.0
+		pi = PI
+
+        exprList = ["0.0", \
+		 		    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0"]
+		
+	</InitialCondition>
+	
+	<maxwell>
+		Type = WxHyperbolicEqn
+		Kind = phMaxwellEqn
+		
+		c0 = LIGHT
+		chi = 1.0
+		gamma = 1.0
+	</maxwell>
+	
+   </hyperbolic>
+
+   <boundary>
+		Type = ApSubSolver
+		Kind = maxwellRMFBC
+
+		frequency = omega
+  		B_rmf = B_omega
+  		phase = 0.
+	</boundary>
+	
+   <stepHyper>
+    	Type = WxSubSolverStep
+    	SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </maxwell2d>
+
+</warpx>

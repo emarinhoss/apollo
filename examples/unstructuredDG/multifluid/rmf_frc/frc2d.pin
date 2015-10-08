@@ -19,12 +19,12 @@ DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 20.*1.e-4  # T, rmf B field
+Bomega = 5.0e-4  # T, rmf B field
 Baxial = 30.e-4
 Bax = Baxial
-omega  = 2.2e6 # Hz, rmf frequency
+omega  = 3.e5 # Hz, rmf frequency
 PHASE  = PI/2.
-Te = 50. # eV, electron temperature
+Te = 1. # eV, electron temperature
 Temp = Te*Q/BOLTZ #K, temperature in Kelvin
 Radius = 1.  # m, flux conserver radius
 domain = 2.*Radius
@@ -61,7 +61,7 @@ TEND = 1.0e-6 # seconds
    Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid2.msh'
+   Gridname = 'circle.msh'
    NumFields = 1
    
    # Check the partition
@@ -70,8 +70,8 @@ TEND = 1.0e-6 # seconds
 	   Kind = nodalDG2d
 	
 	   Equations = [eulerElc, eulerIon, maxwell]
-	   boundaryConditions = [coil1,coil2,coil3,coil4]
-	   #Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge]
+	   boundaryConditions = [coil1]
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Friction]
 	
 	   polynomialOrder = P_ORDER
 	   cfl = 0.5/((2.*(P_ORDER+1)-1))
@@ -165,7 +165,7 @@ TEND = 1.0e-6 # seconds
        Type = WxHyperbolicSrc
        Kind = lorentzForces
 
-       InpRange = [0,1,2,3, 10,11,12,13,14,15]
+       InpRange = [0,1,2,3,10,11,12,13,14,15]
        OutRange = [1,2,3,4]
 
        mass = ME
@@ -177,7 +177,7 @@ TEND = 1.0e-6 # seconds
        Type = WxHyperbolicSrc
        Kind = lorentzForces
 
-       InpRange = [5,6,7,8, 10,11,12,13,14,15]
+       InpRange = [5,6,7,8,10,11,12,13,14,15]
        OutRange = [6,7,8,9]
 
        mass = MI
@@ -239,6 +239,23 @@ TEND = 1.0e-6 # seconds
        chi = DIVE_SPEED
        gamma = DIVB_SPEED
      </ionCharge>
+
+     # Friction
+     <Friction>
+       Type = WxHyperbolicSrc
+       Kind = bragFriction
+
+       InpRange = [0,1,2,3,4,5,6,7,8,9,13,14,15]
+       OutRange = [1,2,3,4,6,7,8,9]
+
+       mi = MI
+       me = ME
+       charge = Q
+       epsilon0 = EPS0
+       gas_gamma = GAMMA
+       boltz = BOLTZ
+
+     </Friction>
 
 	
    </hyperbolic>
