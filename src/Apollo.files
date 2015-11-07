@@ -232,3 +232,12 @@ hyperapps/multifluid/wxchargesrc.h
 hyperapps/multifluid/SConscript
 hyperapps/multifluid/wxtwofluidrmfbc.h
 hyperapps/multifluid/wxtwofluidrmfbc.cc
+hyperapps/maxwell/wxtransversemagneticsrc.h
+hyperapps/multifluid/wxtwofluidconductingwallbc.h
+hyperapps/multifluid/wxtwofluidconductingwallbc.cc
+hyperapps/maxwell/wxpointcurrent.h
+hyperapps/maxwell/wxphmaxwellopenbc.h
+hyperapps/maxwell/wxphmaxwellopenbc.cc
+hyperapps/maxwell/wxmaxwellrmfbc.h
+hyperapps/maxwell/wxmaxwellrmfbc.cc
+hyperapps/multifluid/wxbraginskiifrictionsrc.h

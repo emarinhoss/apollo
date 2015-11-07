@@ -102,9 +102,9 @@ class ApSolver : public WxSolverBase<REAL>
         return _usr;
     }
 
-    PetscViewer getViewer(){
-        return _viewer;
-    }
+//    PetscViewer getViewer(){
+//        return _viewer;
+//    }
 
     std::string getFilename_OutputVTK(){
         return _outfname;
@@ -228,7 +228,7 @@ class ApSolver : public WxSolverBase<REAL>
     Vec solution;
     char *_filename; // gridfile name
     std::string _outfname; // output file name
-    PetscViewer _viewer; // viewer for output data
+//    PetscViewer _viewer; // viewer for output data
     UserContext _usr; // user-defined context
     int _fieldsNum; // Number of fields
     std::vector<std::string> _fieldsName;

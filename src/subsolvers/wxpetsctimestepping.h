@@ -97,6 +97,7 @@ class WxPetscTimeSteppingSolver {
 
         TSSetDuration(solver,1.0e8,tend);
         TSSetInitialTimeStep(solver,tstart,dt);
+        TSSetExactFinalTime(solver,TS_EXACTFINALTIME_MATCHSTEP);
     }
 
   private:

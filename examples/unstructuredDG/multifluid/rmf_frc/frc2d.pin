@@ -8,9 +8,9 @@ ME = MI/mass_ratio
 Q = 1.6e-19 # [C] charge
 GAMMA = 1.66666666667
 BOLTZ = 1.3807e-23 # J/K  Boltzmann constant
-MU0 = PI*4.0e-7 # [H/m]  pemiability of free space
+MU0 = PI*4.0e-7 # [H/m]  permiability of free space
 LIGHT = 3.0e6 # [m/s] speed of light
-EPS0 = 1.0/(MU0*LIGHT*LIGHT)
+EPS0 = 1.0/(MU0*LIGHT*LIGHT) # 8.85418782e-12#
 
 BETA = 5.
 MEQN = 18
@@ -19,21 +19,19 @@ DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 5.0e-4  # T, rmf B field
-Baxial = 30.e-4
-Bax = Baxial
-omega  = 3.e5 # Hz, rmf frequency
+Bomega = 10.0e-4    # T, rmf B field
+Baxial = 15.0e-4 
+omega  = 2.2e6    # Hz, rmf frequency
 PHASE  = PI/2.
-Te = 1. # eV, electron temperature
+Te = 1.           # eV, electron temperature
 Temp = Te*Q/BOLTZ #K, temperature in Kelvin
-Radius = 1.  # m, flux conserver radius
+Radius = 1.       # m, flux conserver radius
 domain = 2.*Radius
-n_dens = 1.e18 # m^-3, number density
+n_dens = 1.e18    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
 # compute minimum density and pressure
 MIN_PRES = Pe*math.exp(-BETA)
-#MIN_PRES = 0.1*Pe
 MIN_DENS = MIN_PRES/BOLTZ/Temp
 ELC_MIN_PRES = MIN_PRES
 ION_MIN_PRES = MIN_PRES
@@ -42,7 +40,7 @@ ION_MIN_DENS = MI*MIN_DENS
 
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.0e-6 # seconds
+TEND = 1.e-7 # seconds
 
 <warpx>
 
@@ -61,7 +59,7 @@ TEND = 1.0e-6 # seconds
    Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'circle.msh'
+   Gridname = 'optimizedCircle.msh'
    NumFields = 1
    
    # Check the partition
@@ -132,7 +130,7 @@ TEND = 1.0e-6 # seconds
         gas_gamma = GAMMA
         minPressure = MIN_PRES
         minDensity = ELC_MIN_DENS
-        #Numerical_Flux = Roe
+        #Numerical_Flux = HLL
       </eulerElc>
 
       ##
@@ -145,7 +143,7 @@ TEND = 1.0e-6 # seconds
         gas_gamma = GAMMA
         minPressure = MIN_PRES
         minDensity = ION_MIN_DENS
-        #Numerical_Flux = Roe
+        #Numerical_Flux = HLL
       </eulerIon>
 
       ##
@@ -265,44 +263,11 @@ TEND = 1.0e-6 # seconds
 		Kind = twoFluidRMFBC
 
 		frequency = omega
-		B_axial = Bax
+		B_axial = 0.
 		B_rmf = Bomega
 		phase = 0.
 		
 	</coil1>
-
-  <coil2>
-    Type = ApSubSolver
-    Kind = twoFluidRMFBC
-
-    frequency = omega
-    B_axial = Bax
-    B_rmf = Bomega
-    phase = PHASE
-    
-  </coil2>
-
-  <coil3>
-    Type = ApSubSolver
-    Kind = twoFluidRMFBC
-
-    frequency = omega
-    B_axial = -Bax
-    B_rmf = -Bomega
-    phase = 0.
-    
-  </coil3>
-
-  <coil4>
-    Type = ApSubSolver
-    Kind = twoFluidRMFBC
-
-    frequency = omega
-    B_axial = -Bax
-    B_rmf = -Bomega
-    phase = PHASE
-    
-  </coil4>
 	
    <stepHyper>
       Type = WxSubSolverStep

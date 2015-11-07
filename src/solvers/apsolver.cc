@@ -33,7 +33,7 @@ ApSolver<REAL>::~ApSolver()
   delete tssolver;
 //  DMDestroy(&_dm);
   VecDestroy(&solution);
-  PetscViewerDestroy(&_viewer);
+//  PetscViewerDestroy(&_viewer);
 }
 
 template <typename REAL>
@@ -151,8 +151,8 @@ ApSolver<REAL>::setup(const WxCryptSet& wxc)
     this->SetupLocalSpace(&_dm);
 
     // Create viewer to output data into grid
-    PetscViewerCreate(PetscObjectComm((PetscObject)_dm), &_viewer);
-    PetscViewerSetType(_viewer, PETSCVIEWERVTK);
+//    PetscViewerCreate(PetscObjectComm((PetscObject)_dm), &_viewer);
+//    PetscViewerSetType(_viewer, PETSCVIEWERVTK);
 }
 
 template <typename REAL>
@@ -259,7 +259,7 @@ ApSolver<REAL>::init()
     REAL suggestedDt;
 
     // Solution vector
-    DMCreateLocalVector(_dm, &solution);
+    DMCreateGlobalVector(_dm, &solution);
     PetscObjectSetName((PetscObject) solution, "solution");
 
     // time step
@@ -286,7 +286,7 @@ ApSolver<REAL>::init()
     // Initialize the timestepping solver
     tssolver = new WxPetscTimeSteppingSolver<REAL, ApSolver>(_dm, this, PETSC_COMM_WORLD);
 
-    DMCreateGlobalVector(_dm, &_usr.cg_vars);
+    // DMCreateGlobalVector(_dm, &_usr.cg_vars);
     // run startOnly subsolvers
     debStrm << "Running StartOnly steps...\n" << std::endl;
     startOnly();
@@ -393,6 +393,7 @@ template<typename REAL>
 void
 ApSolver<REAL>::OutputVTK(DM dm, char *filename, PetscViewer *viewer)
 {
+    PetscFunctionBeginUser;
     PetscViewerCreate(PetscObjectComm((PetscObject)dm), viewer);
     PetscViewerSetType(*viewer, PETSCVIEWERVTK);
     PetscViewerFileSetName(*viewer, filename);
@@ -405,10 +406,13 @@ ApSolver<REAL>::writeData(Vec X)
     PetscViewer viewer;
     std::stringstream ss; ss << _frameNum;
     std::string fname = this->runName() + "_" + ss.str() + ".vtu";
-    //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
+//    std::string fname = this->runName() + "_" + ss.str() + ".h5";
+//    PetscViewerHDF5Open(PetscObjectComm((PetscObject)_dm),&fname[0],FILE_MODE_WRITE,&viewer);
     this->OutputVTK(_dm,&fname[0],&viewer);
+    PetscBarrier((PetscObject) _dm);
     VecView(X,viewer);
     _frameNum += 1;
+//    PetscBarrier((PetscObject) _dm);
     PetscViewerDestroy(&viewer);
 }
 
@@ -419,26 +423,16 @@ ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void 
     WxLogger *log = WxLogger::get("apollo-root.console");
     WxLogStream infStrm = log->getInfoStream();
 
-//    if ((stepnum == -1) ^ (stepnum % _nout == 0))
-//    {
-//        PetscViewer viewer;
-//        if(stepnum == -1) {/* Final time is not multiple of normal time interval, write it anyway */
-//          TSGetTimeStepNumber(ts,&stepnum);}
-
-//        std::stringstream ss; ss << _frameNum;
-//        std::string fname = this->runName() + "_" + ss.str() + ".vtu";
-//        //PetscViewerHDF5Open(PetscObjectComm((PetscObject)ts),&fname[0],FILE_MODE_WRITE,&viewer);
-//        this->OutputVTK(_dm,&fname[0],&viewer);
-//        VecView(X,viewer);
-//        _frameNum += 1;
-//        PetscViewerDestroy(&viewer);
-//      }
-
     // Adjust time-step
-    if(fabs(_tend_temp-time)<_dt_temp){_dt_temp = fabs(_tend_temp-time);}
-    TSSetTimeStep(ts,_dt_temp);
+//    if(fabs(_tend_temp-time)<_dt_temp){_dt_temp = fabs(_tend_temp-time);}
+//    REAL newdt = _dt_temp;
+//    MPI_Allreduce(&newdt, &_dt_temp, 1,
+//                  MPI_FLOAT, MPI_MIN,
+//                  MPI_COMM_WORLD);
+//    TSSetTimeStep(ts,_dt_temp);
     PetscReal dtStep;
     TSGetTimeStep(ts,&dtStep);
+//    PetscBarrier((PetscObject) _dm);
     infStrm << " Simulation dt = " << dtStep << " at t = " << time << std::endl;
     PetscFunctionReturn(0);
 }
@@ -474,9 +468,11 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             status = ss->step(t,_dt_temp, u, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
             VecAXPY(F,1.0, X);
+//            REAL newdt = status.getSuggestedDt();
             _dt_temp = fmin(status.getSuggestedDt(),_dt_temp);
         }
     }
+    PetscBarrier((PetscObject) _dm);
     VecDestroy(&X);
     return 0;
 }

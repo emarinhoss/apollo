@@ -55,12 +55,18 @@ class WxDGArray:
         if(self.order==1):
             r = array([-1.,1.,-1.])
             s = array([-1.,-1.,1.])
+            enum = 1
+            connect = array([[0,1,2]])
         elif(self.order==2):
             r = array([-1.,0,1.,-1.,0,-1.])
             s = array([-1.,-1.,-1.,0,0.,1.])
+            enum = 4
+            connect = array([[0,1,3],[1,2,4],[1,4,3],[3,4,5]])
         elif(self.order==3):
             r = array([-1.,-0.447213595499958,0.447213595499958,1,-1,-0.333333333333333,0.447213595499958,-1.,-0.447213595499958,-1.])
             s = array([-1.,-1.,-1.,-1.,-0.447213595499958,-0.333333333333333,-0.447213595499958,0.447213595499958,0.447213595499958,1.])
+            enum = 9
+            connect = array([[0,5,4],[0,1,5],[1,2,5],[2,6,5],[2,3,6],[4,5,7],[5,8,7],[5,6,8],[7,8,9]])
         
         #r, s = elemtNodalPoints(self.order)
         
@@ -75,10 +81,10 @@ class WxDGArray:
                 pts[np,0] = 0.5*(-p1[0]*(r[np]+s[np]) + p2[0]*(1.+r[np]) + p3[0]*(1.+ s[np]))
                 pts[np,1] = 0.5*(-p1[1]*(r[np]+s[np]) + p2[1]*(1.+r[np]) + p3[1]*(1.+ s[np]))
 
-            tri = Delaunay(pts)
-            connect = tri.simplices.copy()
-            self.TotNumElements += connect.shape[0] # Total number of Elements
-            for kk in range(connect.shape[0]):
+            #tri = Delaunay(pts)
+            #connect = tri.simplices.copy()
+            self.TotNumElements += enum # Total number of Elements
+            for kk in range(enum):
                 for mm in  range(3):
                     coords = append(coords,pts[connect[kk,mm],0])
                     coords = append(coords,pts[connect[kk,mm],1])

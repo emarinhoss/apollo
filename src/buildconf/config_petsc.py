@@ -7,7 +7,7 @@ Import('warpMConstructionEnv')
 
 #Add specified library paths to search paths for libs and headers
 if warpMConstructionEnv['petsc_base'] == '':
-	warpMConstructionEnv['petsc_base']  = warpMConstructionEnv['$HOME/software'] + '/petsc-moab'
+	warpMConstructionEnv['petsc_base']  = warpMConstructionEnv['$HOME/software'] + '/petsc-full'
 	
 if warpMConstructionEnv['petsc_base'] != '':
 	#add base directory to path
@@ -25,7 +25,7 @@ if not conf.CheckCXXHeader('petscdmplex.h'):
 	Exit(1)
 
 if not conf.CheckCXXHeader('petsc.h'):
-        print "Header 'petsc.h' was not found compile this program!"
+        print "Header 'petsc.h' was not found!"
         Exit(1)
 
 #if not conf.CheckLib('MOAB'):
@@ -39,6 +39,10 @@ if not conf.CheckLib('petsc'):
 if not conf.CheckLib('exodus'):
         print "You need exodus library to compile this program!"
         Exit(1)
+
+if not conf.CheckLib('MOAB'):
+        print "You need MOAB library to compile this program!"
+        Exit(1)        
 
 #if not conf.CheckLib('exoIIv2for'):
 #        print "You need exodus library to compile this program!"

@@ -60,8 +60,8 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
     REAL Bomega_x = _B0*cos(_omega*t+_phase);
     REAL Bomega_y = _B0*sin(_omega*t+_phase);
 
-    REAL bnorm = -bx*nx[0] - by*nx[1];
-    REAL btang = -bx*nx[1] + by*nx[0];
+//    REAL bnorm = -bx*nx[0] - by*nx[1];
+//    REAL btang = -bx*nx[1] + by*nx[0];
 
 //    qBC[13] = bnorm*nx[0] - btang*nx[1] + Bomega_x;
 //    qBC[14] = bnorm*nx[1] + btang*nx[0] + Bomega_y;
@@ -69,7 +69,7 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
 
     qBC[13] = Bomega_x;
     qBC[14] = Bomega_y;
-    qBC[15] = bz;
+    qBC[15] = _baxial;
 
     qBC[16] = -phi;
     qBC[17] =  psi;

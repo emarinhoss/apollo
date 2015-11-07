@@ -174,7 +174,7 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
 
             // reference this cell to the proper location on the solution
             // vector
-            DMPlexPointLocalRef(_dm,k,x,&xc);
+            DMPlexPointGlobalRef(_dm,k,x,&xc);
             // assign value returned by the initialization function
             // to the solution vector
             if(xc){
@@ -197,11 +197,18 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
     }
     VecRestoreArray(out, &x);
 
-//    isInfinityOrNAN(out, "NAN/INF in initialization!\n");
+    isInfinityOrNAN(out, "NAN/INF in initialization!\n");
 
     // Suggested initial dt
     REAL timeStep = 2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
-    this->setDt(timeStep);
+
+    REAL SmallestDT;
+    PetscBarrier((PetscObject) _dm);
+    MPI_Allreduce(&timeStep, &SmallestDT, 1,
+                      MPI_DOUBLE, MPI_MIN,
+                      MPI_COMM_WORLD);
+
+    this->setDt(SmallestDT);
 
 }
 
@@ -209,7 +216,7 @@ template <typename REAL>
 WxStepperStatus<REAL>
 WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
-    isInfinityOrNAN(in, "NAN/INF in input Vector to DG step-function");
+    Vec local_out;
 
     // Apply Limiter
     if(_haveLimiter==true){
@@ -225,22 +232,25 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // create local vector
     DMGetLocalVector(_dm, &locU);
+    DMGetLocalVector(_dm, &local_out);
 
     // zero entries of the vectors that will be used to store
     // information
     VecZeroEntries(locU);
-    VecZeroEntries(out);
+    VecZeroEntries(local_out);
 
     // get local values of the global vector in into locX
     DMGlobalToLocalBegin(_dm, in, INSERT_VALUES, locU);
     DMGlobalToLocalEnd(_dm, in, INSERT_VALUES, locU);
+
+    isInfinityOrNAN(locU, "NAN/INF in input Vector to DG step-function");
 
     // get first and last element number
     PetscInt kStart, kEnd, kEndInterior;
     DMPlexGetHeightStratum(_dm, 0, &kStart, &kEnd);
     DMPlexGetHybridBounds(_dm, &kEndInterior, NULL , NULL, NULL);
     VecGetArray(locU, &u);
-    VecGetArray(out, &ot);
+    VecGetArray(local_out, &ot);
 
     int NpE = _geom->NpElem(); // Number of nodes per Element
     int NfE = _geom->NfElem(); // Number of edge/faces per Element
@@ -430,16 +440,24 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         for(unsigned kne=0; kne<NpE*_meqn; kne++)
             rhs[kne] = (vec_rhs[kne])/geoFacts[4];
     }
-    DMRestoreLocalVector(_dm, &locU);
-    VecRestoreArray(out, &ot);
 
-    isInfinityOrNAN(out, "NAN/INF encountered in RHS Vector of DG step-function.\n");
+    VecRestoreArray(locU, &u);
+    VecRestoreArray(local_out, &ot);
+
+    isInfinityOrNAN(local_out, "NAN/INF encountered in RHS Vector of DG step-function.\n");
+
+    DMLocalToGlobalBegin(_dm, local_out, INSERT_VALUES, out);
+    DMLocalToGlobalEnd(_dm, local_out, INSERT_VALUES, out);
+
+    DMRestoreLocalVector(_dm, &locU);
+    DMRestoreLocalVector(_dm, &local_out);
 
     REAL newDt =  2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
     status.setStatus(true);
     status.setSuggestedDt(newDt);
 
     return status;
+    VecDestroy(&local_out);
 }
 
 template <typename REAL>

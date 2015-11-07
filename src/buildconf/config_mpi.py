@@ -16,8 +16,8 @@ if warpMConstructionEnv['mpi_base'] != '':
 	warpMConstructionEnv.AppendUnique(CPPPATH=(warpMConstructionEnv['mpi_base']+'/include'))
 #testing
 import os
-output = os.popen('which mpicc').read()
-print "Which mpicc output", output
+output = os.popen('which mpicxx').read()
+print "Which mpicxx output", output
 print "mpi_base set as ", warpMConstructionEnv['mpi_base']
 ##print "path is ", warpMConstructionEnv['ENV']['PATH']
 

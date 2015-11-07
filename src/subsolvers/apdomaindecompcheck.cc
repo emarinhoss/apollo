@@ -34,7 +34,7 @@ ApDomainDecompCheck<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     PetscScalar *x;
     Vec X;
     MPI_Comm comm;
-    PetscViewer viewer = this->getParent()->getViewer();
+//    PetscViewer viewer = this->getParent()->getViewer();
 
     DMGetGlobalVector(_dm, &X);
     PetscObjectSetName((PetscObject) X, "partition");
@@ -51,7 +51,7 @@ ApDomainDecompCheck<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     }
 
     VecRestoreArray(X, &x);
-    VecView(X,viewer);
+//    VecView(X,viewer);
     return true;
 
 }

@@ -134,7 +134,8 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
       // compute electron-electron collision frequency
       REAL edebye = sqrt(_eps0*_k*Te/(ne*_qe*_qe));
       REAL loglambda = log(4./3.*_pi*ne*pow(edebye,3.0));
-      REAL nue = 1e5;//(pow(_qe,4.0)*ne*loglambda)/(4.*_pi*_eps0*_eps0*_mi*_me)/(pow(vi_mag,3)+1.3*pow(Vte,3));
+//      REAL nue = (pow(_qe,4.0)*ne*loglambda)/(4.*_pi*_eps0*_eps0*_mi*_me)/(pow(vi_mag,3)+1.3*pow(Vte,3));
+      REAL nue = 8.06e5*ni*loglambda/pow(Vte,3);
 
       if (nue<0)
       {
@@ -205,15 +206,17 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
         Ruz = -alpha_par*wpar - alpha_perp*wperp + alpha_cross*wbcrossu;
       }
 
-      s[0] = -Rux;
-      s[1] = -Ruy;
-      s[2] = -Ruz;
-      s[3] = -(Rux*ui+Ruy*vi+Ruz*wi);
+      REAL Q_delta = 3*_mi/_me*ne*nue*(Pe/ne-Pi/ni);
 
-      s[4] = Rux;
-      s[5] = Ruy;
-      s[6] = Ruz;
-      s[7] = Rux*ui+Ruy*vi+Ruz*wi;
+      s[0] = Rux;
+      s[1] = Ruy;
+      s[2] = Ruz;
+      s[3] = -(Rux*ui+Ruy*vi+Ruz*wi)-Q_delta;
+
+      s[4] = -Rux;
+      s[5] = -Ruy;
+      s[6] = -Ruz;
+      s[7] = Q_delta;
 
       return true;
     }
