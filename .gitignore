@@ -8,3 +8,4 @@ src/.sconf_temp/
 src/build-debug/
 src/build-opt/
 /.project
+/.cproject

@@ -190,6 +190,7 @@ ApSolver<REAL>::solve()
     for (unsigned i=0; i<_nout; ++i)
     {
         _tend_temp = (i+1)*tsize;
+//        _dt_temp = tsize/(ceil(tsize/_dt));
         _dt_temp = _dt;
         tssolver->setTimeParameters(i*tsize, _tend_temp, _dt_temp);
 
@@ -424,12 +425,12 @@ ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void 
     WxLogStream infStrm = log->getInfoStream();
 
     // Adjust time-step
-//    if(fabs(_tend_temp-time)<_dt_temp){_dt_temp = fabs(_tend_temp-time);}
-//    REAL newdt = _dt_temp;
-//    MPI_Allreduce(&newdt, &_dt_temp, 1,
-//                  MPI_FLOAT, MPI_MIN,
-//                  MPI_COMM_WORLD);
-//    TSSetTimeStep(ts,_dt_temp);
+    if(fabs(_tend_temp-time)<_dt_temp){_dt_temp = fabs(_tend_temp-time);}
+    REAL newdt = _dt_temp;
+    MPI_Allreduce(&newdt, &_dt_temp, 1,
+                  MPI_DOUBLE, MPI_MIN,
+                  MPI_COMM_WORLD);
+    TSSetTimeStep(ts,_dt_temp);
     PetscReal dtStep;
     TSGetTimeStep(ts,&dtStep);
 //    PetscBarrier((PetscObject) _dm);
