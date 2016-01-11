@@ -365,6 +365,19 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
 }
 
 template <typename REAL>
+REAL
+wxNodalDGgeometry2D<REAL>::elementArea(int k)
+{
+    REAL x1 = _xcoord[k][_Fmask[0*_NpF]], y1 = _ycoord[k][_Fmask[0*_NpF]];
+    REAL x2 = _xcoord[k][_Fmask[1*_NpF]], y2 = _ycoord[k][_Fmask[1*_NpF]];
+    REAL x3 = _xcoord[k][_Fmask[2*_NpF]], y3 = _ycoord[k][_Fmask[2*_NpF]];
+
+    REAL area = (x1*(y2-y3)+x2*(y3-y1)+x3*(y1-y2))/2.;
+
+    return area;
+}
+
+template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::Normals2d(int k, REAL norms[])
 {
@@ -385,6 +398,7 @@ wxNodalDGgeometry2D<REAL>::Normals2d(int k, REAL norms[])
           WxLogger *l = WxLogger::get("apollo-root.console");
           WxLogStream errStrm = l->getErrorStream();
           errStrm << "Error: Edge length of " << sJ << " found in element " << k;
+//          PetscFinalize();
           exit(1); // abort execution
       }
       norms[_NfE*f]   /= sJ;
@@ -413,6 +427,7 @@ wxNodalDGgeometry2D<REAL>::GeometricFactors2d(int k, REAL geom[])
         WxLogger *l = WxLogger::get("apollo-root.console");
         WxLogStream errStrm = l->getErrorStream();
         errStrm << "Error: Jacobian determinant for element " << k << " is " << J;
+//        PetscFinalize();
         exit(1); // abort execution
     }
 

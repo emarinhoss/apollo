@@ -1,0 +1,191 @@
+# -*- python -*- 
+
+import math
+
+PI = math.pi
+
+P_ORDER = 1
+
+# constants
+MI = 1.67e-27 # [kg] ion mass
+mass_ratio = 1836
+ME = MI/mass_ratio
+Q = 1.6e-19 # [C] charge
+MU0 = PI*4.0e-7 # [H/m]  permiability of free space
+LIGHT = 3.0e6 # [m/s] speed of light
+EPS0 = 1.0/(MU0*LIGHT*LIGHT)
+
+# parameters
+omega = 1.e7
+B_omega = 90.e-4
+
+### magnetic fields ###
+I=2.*PI*B_omega*1.1e-2/MU0
+
+B_AE = MU0*I/(2.*PI*1.1e-2)
+B_BF = MU0*I/(2.*PI*.55e-2)
+B_CG = MU0*I/(2.*PI*.83e-2)
+B_DH = MU0*I/(2.*PI*.50e-2)
+
+##############################
+
+TEND = 1.e-7
+OUT  = 100
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = maxwell2d
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = info
+
+ <maxwell2d>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND] # start, end times
+   Output_files = OUT # no. of output files to write
+   Dt = 0.01 # initial dt to try
+   Dimensions = 2
+   Gridname = 'experiment.msh'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = nodalDG2d
+	
+	Equations = [maxwell]
+	boundaryConditions = [antA,antB,antC,antD,antE,antF,antG,antH,wall]
+	
+	polynomialOrder = P_ORDER
+	cfl = 0.5/((2.*(P_ORDER+1)-1))
+	
+	DataStructure = [0,dg,8*(P_ORDER+1)*(P_ORDER+2)/2]
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		XC = 0.0
+		YC = 0.0
+		pi = PI
+
+        exprList = ["0.0", \
+		 		    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0", \
+				    "0.0"]
+		
+	</InitialCondition>
+	
+	<maxwell>
+		Type = WxHyperbolicEqn
+		Kind = phMaxwellEqn
+		
+		c0 = LIGHT
+		chi = 1.0
+		gamma = 1.0
+	</maxwell>
+	
+   </hyperbolic>
+
+   <antA>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = -B_omega
+  		phase = 0.
+  		rise_time = 1.0e-9
+	</antA>
+	<antB>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = -B_omega
+  		phase = 0.
+  		rise_time = 1.0e-9
+	</antB>
+	<antC>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = B_omega
+  		phase = PI/2.
+  		rise_time = 1.0e-9
+	</antC>
+	<antD>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = B_omega
+  		phase = PI/2.
+  		rise_time = 1.0e-9
+	</antD>
+	<antE>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = B_omega
+  		phase = 0.
+  		rise_time = 1.0e-9
+	</antE>
+	<antF>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = B_omega
+  		phase = 0.
+  		rise_time = 1.0e-9
+	</antF>
+	<antG>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = -B_omega
+  		phase = PI/2.
+  		rise_time = 1.0e-9
+	</antG>
+	<antH>
+		Type = ApSubSolver
+		Kind = maxwellRMFAntennaBC
+
+		frequency = omega
+  		B_rmf = -B_omega
+  		phase = PI/2.
+  		rise_time = 1.0e-9
+	</antH>
+	<wall>
+		Type = ApSubSolver
+		#Kind = phmConductingWallBC
+		Kind = phmOpenBC
+
+	</wall>
+	
+   <stepHyper>
+    	Type = WxSubSolverStep
+    	SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </maxwell2d>
+
+</warpx>

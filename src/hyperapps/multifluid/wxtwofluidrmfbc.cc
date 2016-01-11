@@ -12,12 +12,17 @@ WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _baxial = wxc.template get<REAL>("B_axial");
   _B0 = wxc.template get<REAL>("B_rmf");
   _phase = wxc.template get<REAL>("phase");
+  _rise = wxc.template get<REAL>("rise_time");
+  _a = wxc.template get<REAL>("plasma_radius");
+  _b = wxc.template get<REAL>("flux_conserver_radius");
+
+  _pi = 3.141592653589793;
 
 }
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     // electrons
     qBC[0] = q[0];
@@ -36,11 +41,12 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
     REAL ex = q[10];
     REAL ey = q[11];
     REAL ez = q[12];
-    REAL bx = q[13];
-    REAL by = q[14];
-    REAL bz = q[15];
+
     REAL phi= q[16];
     REAL psi= q[17];
+
+    // Area integral \int B_z \cdot dA
+    REAL intBzda = AreaInts[15];
 
     // E-field
     REAL enorm = ex*nx[0] + ey*nx[1];
@@ -57,20 +63,16 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qB
     // B-field
     // RMF
     REAL t = xc[0]; // current time
-    REAL Bomega_x = _B0*cos(_omega*t+_phase);
-    REAL Bomega_y = _B0*sin(_omega*t+_phase);
-
-//    REAL bnorm = -bx*nx[0] - by*nx[1];
-//    REAL btang = -bx*nx[1] + by*nx[0];
-
-//    qBC[13] = bnorm*nx[0] - btang*nx[1] + Bomega_x;
-//    qBC[14] = bnorm*nx[1] + btang*nx[0] + Bomega_y;
-//    qBC[15] = bz;
+    REAL Bt = _B0*(1.-exp(-t/_rise));
+    REAL Bomega_x = Bt*cos(2.*_pi*_omega*t+_phase);
+    REAL Bomega_y = Bt*sin(2.*_pi*_omega*t+_phase);
 
     qBC[13] = Bomega_x;
     qBC[14] = Bomega_y;
-    qBC[15] = _baxial;
 
+//    REAL testvalue = 1.413716694115407e-05;
+    REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
+    qBC[15] = newBz;
     qBC[16] = -phi;
     qBC[17] =  psi;
 }

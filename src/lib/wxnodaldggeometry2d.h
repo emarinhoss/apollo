@@ -127,6 +127,9 @@ class wxNodalDGgeometry2D
 ///** return the evaluate the filter matrix */
 //    void calculateFilter(REAL *filter, REAL *filterMatrix);
 
+/** Calculate the area of a given element */
+    REAL elementArea(int k);
+
   private:
 /**
  * Find which faces in one element connect to what

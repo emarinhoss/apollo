@@ -19,7 +19,7 @@ WxEulerDirichletBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxEulerDirichletBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxEulerDirichletBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     qBC[0] = _rho;
     qBC[1] = _rho*_u;

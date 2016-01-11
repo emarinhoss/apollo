@@ -2,9 +2,11 @@
 import math
 PI = math.pi
 
-MI = 1.67e-27 # [kg] ion mass
+MP = 1.67e-27 # [kg] ion mass
+MI = MP # hydrogen
+#MI = 39.981*1.6605390402e-27 # Argon
 mass_ratio = 1836
-ME = MI/mass_ratio
+ME = MP/mass_ratio
 Q = 1.6e-19 # [C] charge
 GAMMA = 1.66666666667
 BOLTZ = 1.3807e-23 # J/K  Boltzmann constant
@@ -19,15 +21,18 @@ DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 10.0e-4    # T, rmf B field
-Baxial = 15.0e-4 
-omega  = 2.2e6    # Hz, rmf frequency
-PHASE  = PI/2.
-Te = 1.           # eV, electron temperature
+Bomega = 50.0e-4    # T, rmf B field
+Baxial = 75.0e-4 
+omega  = 5.e6    # Hz, rmf frequency
+PHASE  = 0.
+RISE   = 3.e-7
+
+# Plasma
+Te = 5.           # eV, electron temperature
 Temp = Te*Q/BOLTZ #K, temperature in Kelvin
 Radius = 1.       # m, flux conserver radius
 domain = 2.*Radius
-n_dens = 1.e18    # m^-3, number density
+n_dens = 1.e19    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
 # compute minimum density and pressure
@@ -40,7 +45,7 @@ ION_MIN_DENS = MI*MIN_DENS
 
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.e-5 # seconds
+TEND = 1.e-6 # seconds
 
 <warpx>
 
@@ -88,7 +93,7 @@ TEND = 1.e-5 # seconds
          beta = BETA
          rds = Radius
          Tt = Temp
-         Bz = Baxial
+         Bz = -Baxial
 
          progn = ["r = sqrt(x*x+y*y)", \
                   "gaus = exp(-beta*r*r)", \
@@ -263,9 +268,10 @@ TEND = 1.e-5 # seconds
 		Kind = twoFluidRMFBC
 
 		frequency = omega
-		B_axial = 0.
+		B_axial = Baxial
 		B_rmf = Bomega
-		phase = 0.
+		phase = PHASE
+		rise_time = RISE
 		
 	</coil1>
 	

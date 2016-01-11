@@ -62,6 +62,9 @@ class WxCubature2d
  */
     void checkNAN(int n, REAL *y , std::string msg);
 
+/** Evaluate the volume integrals using cubature integration */
+    void CalculateAreaIntegrals(REAL* xcoords, REAL* ycoords, REAL *Src, REAL *AreaInt);
+
   private:
 /** create amatrix that takes into account the number of equations in the system */
     void numEqnMatExpand(int N, Mat A, Mat *B);

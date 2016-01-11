@@ -839,6 +839,7 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
       WxLogger *l = WxLogger::get("apollo-root.console");
       WxLogStream errStrm = l->getErrorStream();
       errStrm << "*** Negative density in Euler flux calculations. ***\n" ;
+//      PetscFinalize();
       exit(1); // abort execution
   }
   if(rho < _minDens)
@@ -850,14 +851,17 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
   E = q[4];
   p = gas_gamma1*(E-0.5*rho*(u*u+v*v+w*w));
 
-  if(_minPres==0.0 && p<=0){
-      WxLogger *l = WxLogger::get("apollo-root.console");
-      WxLogStream errStrm = l->getErrorStream();
-      errStrm << "*** Negative pressure in Euler flux calculations. ***\n" ;
-      exit(1); // abort execution
+  if(p<=0){
+      if(_minPres==0.0){
+          WxLogger *l = WxLogger::get("apollo-root.console");
+          WxLogStream errStrm = l->getErrorStream();
+          errStrm << "*** Negative pressure in Euler flux calculations. ***\n" ;
+//          PetscFinalize();
+          exit(1); // abort execution
+      }
+      else
+          p = _minPres;
   }
-  if(p<_minPres)
-      p = _minPres;
 
   f[0] = rho*u;
   f[mu] = rho*u*u + p;

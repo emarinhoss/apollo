@@ -4,6 +4,7 @@
 // WarpX hyper includes
 #include <wxhyperboliceqnset.h>
 #include <wxhyperbolicsrcset.h>
+#include <apareaintegralset.h>
 
 // WarpX subsolver includes
 #include <apsolver.h>
@@ -81,7 +82,7 @@ class WxNodalDG2dMethod : public ApSubSolver<REAL>
 /**
  *  Apply boundary conditions
  */
-    void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC);
+    void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
 /**
  *  Apply boundary conditions
@@ -124,6 +125,9 @@ private:
   WxHyperbolicEqnSet<REAL> _eqnSet;
 /** Set of source terms in equation system */
   WxHyperbolicSrcSet<REAL> _srcSet;
+/** Set of area integral terms in equation system */
+  ApAreaIntegralSet<REAL> _areaSet;
+
 /** Arrays for passing to and fro from Reimann solver */
   // jumps, cons. var in left and right of edge i
   REAL *_qM, *_qP, *_fM, *_fP, *_gM, *_gP, *_qauxM, *_qauxP, *_numericalFLux;
@@ -131,6 +135,7 @@ private:
   REAL *_sx, *_sy; // speeds
   REAL **_wave; // waves
   REAL *_src; // source
+  REAL *_areaInts, *_AgregateAreaIntegral; // area Integrals
 /** Arrays for passing to and from from Reimann solver */
   REAL *_df;
 /** Equations and waves */

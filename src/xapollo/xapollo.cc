@@ -32,6 +32,7 @@ apolloMain(int argc, char **argv)
   if (!inp)
   { // we need to print to cerr as loggers have not been initialized
        std::cerr << "Input filename " << inpFileName << " not found.  Exiting." << std::endl;
+//       PetscFinalize();
        exit(1);
   }
 
@@ -66,6 +67,7 @@ apolloMain(int argc, char **argv)
     {
       std::cerr << "Exception caught...." << std::endl;
       std::cerr << e.what() << std::endl;
+//      PetscFinalize();
       exit(1);
     }
   }

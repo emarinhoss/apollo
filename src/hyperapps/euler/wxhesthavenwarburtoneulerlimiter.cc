@@ -181,7 +181,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
                     qCons[kk] = ConsAve[kk][0];
 
                 // Apply BC to cell averages of ghost cells
-                applyBc(abs(connect[2*elem+1]),XC,NX,qCons,0,qBC);
+                applyBc(abs(connect[2*elem+1]),XC,NX,qCons,0,0,qBC);
                 // Calculate Primitives
                 primitiveVariables(qBC,qPrim);
 
@@ -201,7 +201,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
                         qCons[kk] = qIn[faceIDs[elem*NpF+nodes]*meqn+kk];
 
                     // Apply BC
-                    applyBc(abs(connect[2*elem+1]),XC,NX,qCons,0,qBC);
+                    applyBc(abs(connect[2*elem+1]),XC,NX,qCons,0,0,qBC);
 
                     // store BC evaluation
                     for(unsigned kk=0; kk<meqn; kk++)
@@ -502,12 +502,12 @@ WxHestavenWarburtonEulerLimiter<REAL>::computeConservedAndPrimitiveAVEVariables(
 
 template<typename REAL>
 void
-WxHestavenWarburtonEulerLimiter<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxHestavenWarburtonEulerLimiter<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     // apply boundary conditions
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _bcSubSolvers.at(bcNum-1) );
     // cast this to the a grid BC and call step function
-    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,qBC);
+    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,AreaInts,qBC);
 }
 
 template<typename REAL>

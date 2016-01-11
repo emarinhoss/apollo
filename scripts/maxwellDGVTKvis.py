@@ -55,16 +55,16 @@ def generateVTUfile(n):
 	dh = wxunsdgdata.WxVisData(filename,n)
 	dd = dh.readDG(spOrd)
 
-	Efield = zeros((3*dd.TotNumElements,3))
-	Efield[:,0] = dd.variables[:,0]
-	Efield[:,1] = dd.variables[:,1]
-	Efield[:,2] = dd.variables[:,2]
+	Ex = dd.variables[:,0]
+	Ey = dd.variables[:,1]
+	Ez = dd.variables[:,2]
 
-	Bfield = zeros((3*dd.TotNumElements,3))
-	Bfield[:,0] = dd.variables[:,3]
-	Bfield[:,1] = dd.variables[:,4]
-	Bfield[:,2] = dd.variables[:,5]
-
+	Bx = dd.variables[:,3]
+	By = dd.variables[:,4]
+	Bz = dd.variables[:,5]
+	
+	phi = dd.variables[:,6]
+	psi = dd.variables[:,6]
 	
 	# number of nodes per element
 	nodesP = (spOrd+1)*(spOrd+2)/2
@@ -81,10 +81,26 @@ def generateVTUfile(n):
 	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
 	ug.set_cells(elem_type, tris)
 	
-	ug.point_data.vectors = Efield
-	ug.point_data.vectors.name = 'Efield'
-	ug.point_data.add_array(Bfield)
-	ug.point_data.get_array(1).name = 'Bfield'
+	ug.point_data.scalars = Ex
+	ug.point_data.scalars.name = 'Ex'
+	ug.point_data.add_array(Ey)
+	ug.point_data.get_array(1).name = 'Ey'
+	ug.point_data.add_array(Ey)
+	ug.point_data.get_array(2).name = 'Ez'
+	
+	ug.point_data.add_array(Bx)
+	ug.point_data.get_array(3).name = 'Bx'
+	ug.point_data.add_array(By)
+	ug.point_data.get_array(4).name = 'By'
+	ug.point_data.add_array(Bz)
+	ug.point_data.get_array(5).name = 'Bz'
+	
+	ug.point_data.add_array(phi)
+	ug.point_data.get_array(6).name = 'phi'
+	ug.point_data.add_array(psi)
+	ug.point_data.get_array(7).name = 'psi'
+	
+
 	outfile = filename + '_Maxwell_' + str('%03d' % n)  + '.vtu'
 	save_xml(ug, outfile)
 	print "Frame "+str("%d" % n)+" COMPLETE."

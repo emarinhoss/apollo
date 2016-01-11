@@ -12,7 +12,7 @@ WxEulerWallBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxEulerWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxEulerWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     qBC[0] = q[0];
     qBC[1] = q[1]-2.*(nx[0]*q[1]+nx[1]*q[2])*nx[0];

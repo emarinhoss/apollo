@@ -36,7 +36,7 @@ class WxGridFixedBC : public WxGridBC<REAL>
  * @param dir direction in which to apply BC
  * @param arr array to which apply BC
  */
-    void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC);
+    void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
   private:
     REAL _value;

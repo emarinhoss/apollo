@@ -61,7 +61,7 @@ class WxHestavenWarburtonEulerLimiter : public WxNodalDGLimiter<REAL>
 /**
  *  Apply boundary conditions
  */
-    void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC);
+    void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
 /**
  * Compute the primitive variables from the conserved variables

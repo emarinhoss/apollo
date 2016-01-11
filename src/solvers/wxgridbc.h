@@ -53,7 +53,7 @@ class WxGridBC : public ApSubSolver<REAL>
  * can call BCs from inside other subsolvers
  *
  */    
-    void applyToArray(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC);
+    void applyToArray(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
   protected:
 
@@ -63,7 +63,7 @@ class WxGridBC : public ApSubSolver<REAL>
  * @param dir direction in which to apply BC
  * @param arr array to which apply BC
  */
-    virtual void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC) = 0;
+    virtual void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC) = 0;
 
   private:
 

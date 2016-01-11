@@ -11,7 +11,7 @@ WxPHMaxwellOpenBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxPHMaxwellOpenBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxPHMaxwellOpenBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
 
     for(unsigned k=0; k<8; k++)

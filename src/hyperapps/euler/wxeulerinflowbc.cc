@@ -18,7 +18,7 @@ WxEulerInflowBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxEulerInflowBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxEulerInflowBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     REAL pi = 3.141592653589793;
 

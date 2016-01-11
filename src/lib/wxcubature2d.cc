@@ -339,6 +339,7 @@ WxCubature2d<REAL>::geometricFactors2D(REAL* xcoords, REAL* ycoords, REAL* rx, R
             WxLogger *l = WxLogger::get("apollo-root.console");
             WxLogStream errStrm = l->getErrorStream();
             errStrm << "Error: Jacobian determinant is " << J[kk] << ".\n";
+//            PetscFinalize();
             exit(1); // abort execution
         }
     }
@@ -425,9 +426,30 @@ WxCubature2d<REAL>::checkNAN(int n, REAL *y, std::string msg)
             WxLogger *l = WxLogger::get("apollo-root.console");
             WxLogStream errStrm = l->getInfoStream();
             errStrm << msg ;
+//            PetscFinalize();
             exit(1); // abort execution
         }
     }
+}
+
+template <typename REAL>
+void
+WxCubature2d<REAL>::CalculateAreaIntegrals(REAL* xcoords, REAL* ycoords, REAL *Src, REAL *AreaInt)
+{
+    REAL rx[_pts], sx[_pts], ry[_pts], sy[_pts], J[_pts];
+    geometricFactors2D(xcoords,ycoords,rx,sx,ry,sy,J);
+
+    for(unsigned mm=0; mm<_meqn; mm++)
+        AreaInt[mm] = 0.0;
+
+    for(unsigned mm=0; mm<_meqn; mm++)
+        for(unsigned kk=0; kk<_pts; kk++)
+            AreaInt[mm] += _w[kk]*Src[kk*_meqn+mm];
+
+    REAL AA = AreaInt[15];
+//    REAL AB = Src[15];
+//    REAL AC = J[0];
+    REAL tt = 0.0;
 }
 
 // instantiations

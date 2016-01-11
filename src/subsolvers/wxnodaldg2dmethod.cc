@@ -24,6 +24,8 @@ WxNodalDG2dMethod<REAL>::~WxNodalDG2dMethod() {
     delete [] _gM;
     delete [] _gP;
     delete [] _src;
+    delete [] _areaInts;
+    delete [] _AgregateAreaIntegral;
     delete [] _df;
     delete [] _amdq;
     delete [] _apdq;
@@ -78,12 +80,17 @@ WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _srcSet.setNumEqns(_meqn); // set no of equations
   _srcSet.setup(wxc);
 
+  _areaSet.setNumEqns(_meqn); // set no of equations
+  _areaSet.setup(wxc);
+
   _qM = alloc_1d<REAL>(_meqn);
   _qP = alloc_1d<REAL>(_meqn);
   _qauxM = alloc_1d<REAL>(_meqn);
   _qauxP = alloc_1d<REAL>(_meqn);
   _df = alloc_1d<REAL>(_meqn); // jump
   _src = alloc_1d<REAL>(_meqn);
+  _areaInts = alloc_1d<REAL>(_meqn);
+  _AgregateAreaIntegral = alloc_1d<REAL>(_meqn);
   _fM = alloc_1d<REAL>(_meqn);
   _fP = alloc_1d<REAL>(_meqn);
   _gM = alloc_1d<REAL>(_meqn);
@@ -210,6 +217,9 @@ WxNodalDG2dMethod<REAL>::init(PetscReal newDt, Vec out)
 
     this->setDt(SmallestDT);
 
+    for(unsigned kx=0; kx<_meqn; kx++)
+        _AgregateAreaIntegral[kx] = 0.0;
+
 }
 
 template <typename REAL>
@@ -219,7 +229,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     Vec local_out;
 
     // Apply Limiter
-    if(_haveLimiter==true){
+    if(_haveLimiter){
         applyLimiter(in,in);
         isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
     }
@@ -268,16 +278,23 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // Volume integral
     REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
-    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn], ISrc_vol[Ncubature*_meqn];
+    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn],
+            ISrc_vol[Ncubature*_meqn], Iarea_vol[Ncubature*_meqn];
     REAL IXcoords[Ncubature], IYcoords[Ncubature];
 
     // Surface integral
     REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
-    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn], Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
+    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn],
+            Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
     REAL qgtemp[NfE*Ngauss*_meqn];
 
     // to evaluate the fluxes at each cubature point
-    REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn];
+    REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn], AreaIntegrals[_meqn];
+
+    //
+    REAL TotalAreaInt[_meqn];
+    for(unsigned eqs=0; eqs<_meqn; eqs++)
+        TotalAreaInt[eqs] = 0.0;
 
     PetscScalar *qVal;
     for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
@@ -324,17 +341,22 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
             _srcSet.sourceTerms(xc, Qvar, Qvaraux, _src);
+            _areaSet.areaTerms(xc, Qvar, Qvaraux, _areaInts);
 
             for(unsigned component=0; component<_meqn; component++)
             {
                   If_vol[point*_meqn+component] = Fflux[component];
                   Ig_vol[point*_meqn+component] = Gflux[component];
                 ISrc_vol[point*_meqn+component] = _src[component];
+                Iarea_vol[point*_meqn+component] = _areaInts[component];
             }
         }
 
         // Compute volume terms, which includes the sources: (dphidx, F) + (dphidy, G) + (phi, S)
         _cub->evaluatedVolumeIntegrals(xcoord,ycoord,If_vol,Ig_vol,ISrc_vol,volInt);
+
+        // Calculate the area integrals
+        _cub->CalculateAreaIntegrals(xcoord,ycoord,Iarea_vol,AreaIntegrals);
 
 
         /** *******************************************************
@@ -373,7 +395,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                     for(unsigned cmp=0; cmp<_meqn; cmp++)
                         _qM[cmp] = QM[(edge*Ngauss+gpoint)*_meqn+cmp];
 
-                    applyBc(abs(edgeNum), xc, nx, _qM, _qauxM, _qP);
+                    applyBc(abs(edgeNum), xc, nx, _qM, _qauxM, _AgregateAreaIntegral, _qP);
 
                     for(unsigned comp=0; comp<_meqn; comp++)
                         QP[(edge*Ngauss+gpoint)*_meqn+comp] = _qP[comp];
@@ -439,6 +461,13 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         DMPlexPointLocalRef(_dm,kelem,ot,&rhs);
         for(unsigned kne=0; kne<NpE*_meqn; kne++)
             rhs[kne] = (vec_rhs[kne])/geoFacts[4];
+
+        // compute \int q\cdot dA, add contribution from all elements
+        REAL elementArea = _geom->elementArea(kelem);
+        for(unsigned ar=0; ar<_meqn; ar++){
+//            REAL AA = AreaIntegrals[15];
+            TotalAreaInt[ar] += elementArea*AreaIntegrals[ar];
+        }
     }
 
     VecRestoreArray(locU, &u);
@@ -456,8 +485,18 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     status.setStatus(true);
     status.setSuggestedDt(newDt);
 
-    return status;
+    // add the surface integral contributions from all processors
+    REAL inValue, outValue;
+    for(unsigned numeq=0; numeq<_meqn; numeq++)
+    {
+        inValue = TotalAreaInt[numeq];
+        MPI_Allreduce(&inValue, &outValue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        _AgregateAreaIntegral[numeq] = outValue;
+    }
+
+//    REAL AB = _AgregateAreaIntegral[15];
     VecDestroy(&local_out);
+    return status;
 }
 
 template <typename REAL>
@@ -474,6 +513,7 @@ WxNodalDG2dMethod<REAL>::isInfinityOrNAN(Vec f, std::string location)
         WxLogger *l = WxLogger::get("apollo-root.console");
         WxLogStream errStrm = l->getErrorStream();
         errStrm << location ;
+//        PetscFinalize();
         exit(1); // abort execution
     }
     return 0;
@@ -481,21 +521,21 @@ WxNodalDG2dMethod<REAL>::isInfinityOrNAN(Vec f, std::string location)
 
 template<typename REAL>
 void
-WxNodalDG2dMethod<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxNodalDG2dMethod<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     // apply boundary conditions
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _bcSubSolvers.at(bcNum-1) );
     // cast this to the a grid BC and call step function
-    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,qBC);
+    dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,AreaInts,qBC);
 }
 
 template<typename REAL>
 void
 WxNodalDG2dMethod<REAL>::applyLimiter(Vec Qin, Vec Qlimited)
 {
-    // apply boundary conditions
+    // apply limiters
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _limiterSubSolvers.at(0));
-    // cast this to the a grid BC and call step function
+    // cast this to the limiter and call step function
     dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,Qin,Qlimited);
 }
 

@@ -13,6 +13,8 @@ sources = [
         'wxhyperbolicsrc.cc',
         'wxhyperbolicsrcset.cc',
         'aphyperscheme_register.cc',
+        'apareaintegralset.cc',
+        'apareaintegral.cc',
            ]
 
 ##

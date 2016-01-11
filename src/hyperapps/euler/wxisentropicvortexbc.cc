@@ -19,7 +19,7 @@ WxIsentropicVortexBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxIsentropicVortexBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxIsentropicVortexBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     REAL t = xc[0];
     REAL x = xc[1];

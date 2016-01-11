@@ -12,7 +12,7 @@ WxEulerZeroGradientBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxEulerZeroGradientBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxEulerZeroGradientBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     qBC[0] = q[0];
     qBC[1] = q[1];

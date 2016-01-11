@@ -11,7 +11,7 @@ WxPHMaxwellConductingWallBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxPHMaxwellConductingWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *qBC)
+WxPHMaxwellConductingWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     REAL ex = q[0];
     REAL ey = q[1];

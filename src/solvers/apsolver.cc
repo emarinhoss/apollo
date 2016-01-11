@@ -333,6 +333,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
     else
     {
         std::cerr << "Mesh input filename " << _filename << " not found.  Exiting." << std::endl;
+//        PetscFinalize();
         exit(1);
     }
 

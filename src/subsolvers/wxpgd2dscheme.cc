@@ -435,6 +435,7 @@ WxpDG2Dscheme<REAL>::isInfinityOrNAN(Vec f, std::string location)
         WxLogger *l = WxLogger::get("apollo-root.console");
         WxLogStream errStrm = l->getErrorStream();
         errStrm << location ;
+//        PetscFinalize();
         exit(1); // abort execution
     }
     return 0;
