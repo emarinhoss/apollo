@@ -484,6 +484,9 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
     ibz = 4;
   }
 
+//  REAL AA = q[ibx];
+//  REAL AB = q[7];
+
   f[iex] = _chi*_c0*_c0*q[6];
   f[iey] = _c0*_c0*q[ibz];
   f[iez] = -_c0*_c0*q[iby];

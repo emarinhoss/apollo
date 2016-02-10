@@ -1,0 +1,121 @@
+# -*- python -*- 
+
+import math
+
+PI = math.pi
+
+P_ORDER = 1
+
+#c_i = 400.
+T_i = 398.06
+p_i = 114285.7
+R_i = 287.11
+gamma = 1.4
+rho_i = 1.
+u_i = 200.
+c_i = math.sqrt(gamma*R_i*T_i)
+alpha = 4.
+phi = 1.
+
+
+DT = 1.07421875e-5
+TEND = 0.011
+NOUT = 1
+
+<warpx>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = Vortex
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = debug
+
+ <Vortex>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND] # start, end times
+   Output_files = NOUT # write output file after every step
+   Dt = DT # initial dt to try
+   Dimensions = 2
+   Gridname = 'newIV.msh'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = nodalDG2d
+	
+	Equations = [euler]
+	boundaryConditions = [allSides]
+	
+	polynomialOrder = P_ORDER
+	cfl = 1.0/((2.*(P_ORDER+1)-1))
+
+	
+	# Field number, Field name, number of unknowns per element
+	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		A = alpha
+        P = phi
+        pi = PI
+        Rinf = R_i
+        Tinf = T_i
+        gm = gamma
+        rhoInf = rho_i
+        uinf = u_i
+        pinf = p_i
+
+        exprList = ["rho",  \
+        			"rhoU", \
+        			"rhoV", \
+        			"0.0",  \
+        			"energy"]
+
+        progn = ["r = sqrt(x*x+y*y)", \
+             "du = -sqrt(Rinf*Tinf)*A/(2.*pi)*y*exp(P*(1-r*r))", \
+             "dv =  sqrt(Rinf*Tinf)*A/(2.*pi)*x*exp(P*(1-r*r))", \
+             "dT = -Tinf*A*A*(gm-1)/(16.*P*gm*pi*pi)*exp(2.*P*(1-r*r))", \
+             "Temp = Tinf + dT", \
+             "pres = pinf*(Temp/Tinf)^(gm/(gm-1))", \ 
+             "rho = rhoInf*(Temp/Tinf)^(1./(gm-1))", \
+             "rhoU = rho*(uinf + du)", \
+             "rhoV = rho*dv", \
+             "energy = pres/(gm-1)+0.5*(rhoU*rhoU+rhoV*rhoV)/rho"]
+		
+	</InitialCondition>
+	
+	<euler>
+		Type = WxHyperbolicEqn
+		Kind = eulerEqn
+		
+		gas_gamma = 1.4
+	</euler>
+	
+   </hyperbolic>
+
+   <allSides>
+	  Type = ApSubSolver
+	  Kind = eulerZeroGradientBC
+	</allSides>
+	
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </Vortex>
+
+</warpx>

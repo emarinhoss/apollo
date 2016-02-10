@@ -59,7 +59,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::~WxHestavenWarburtonEulerLimiter()
 
 template <typename REAL>
 void
-WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, Vec qk, Vec q_limited)
+WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited)
 {
     int kNodes = geom->NpElem();         // Number of nodes per elements
     int NpF = geom->NpFaces();           // Number of nodes per face

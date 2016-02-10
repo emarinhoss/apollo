@@ -203,6 +203,27 @@ WxHyperbolicEqnSet<REAL>::DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REA
 
 template<typename REAL>
 void
+WxHyperbolicEqnSet<REAL>::DGLimiterTrigger(REAL *qIn, REAL *qOut)
+{
+  unsigned mloc = 0;
+  unsigned meqn;
+
+  // loop over each equation system, computing fluxes. Fluxes from
+  // each equation are accumulated to compute the full flux
+  typename std::vector<WxHyperbolicEqn<REAL>* >::const_iterator i;
+  for (i=_eqnSys.begin(); i!=_eqnSys.end(); ++i)
+  {
+    meqn = (*i)->meqn();
+    // call flux for the equation
+    (*i)->DGLimiterTrigger(qIn+mloc, qOut+mloc);
+
+    // move location pointer
+    mloc += meqn;
+  }
+}
+
+template<typename REAL>
+void
 WxHyperbolicEqnSet<REAL>::fluxJacobian(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL **f)
 {
   unsigned mloc = 0;

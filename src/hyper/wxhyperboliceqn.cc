@@ -113,6 +113,16 @@ WxHyperbolicEqn<REAL>::DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *
 
 template <typename REAL>
 void
+WxHyperbolicEqn<REAL>::DGLimiterTrigger(REAL *qIn, REAL *qOut)
+{
+  WxExcept wxe;
+  wxe << "Numerical Flux function DGLimiterTrigger() of equation system " << _name
+      << " not implemented." << std::endl;
+  throw wxe;
+}
+
+template <typename REAL>
+void
 WxHyperbolicEqn<REAL>::fluxJacobian(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL **f)
 {
   WxExcept wxe;

@@ -381,6 +381,30 @@ WxCubature2d<REAL>::calculateSurfaceIntegral(REAL* numFlux, REAL* surfInt)
 
 template <typename REAL>
 void
+WxCubature2d<REAL>::discontinuityDetectorIntegral(REAL* surfaceVals, REAL* IntPerFace)
+{
+    REAL W[3*_gQuad];
+
+    for(unsigned kk=0; kk<_meqn; kk++)
+        IntPerFace[kk] = 0.0;
+
+    for(unsigned kk=0; kk<3; kk++)
+        for(unsigned mm=0; mm<_gQuad; mm++)
+            W[kk*_gQuad+mm] = _gw[mm];
+
+    for(unsigned kk=0; kk<3*_gQuad; kk++)
+        for(unsigned mm=0; mm<_meqn; mm++)
+            surfaceVals[kk*_meqn+mm] *= W[kk];
+
+    for(unsigned kk=0; kk<3; kk++)
+        for(unsigned mm=0; mm<_meqn; mm++)
+            for(unsigned quads=0; quads<_gQuad; quads++)
+                IntPerFace[mm] += surfaceVals[kk*_gQuad*_meqn+quads*_meqn+mm];
+}
+
+
+template <typename REAL>
+void
 WxCubature2d<REAL>::MatrixTranspose(Mat A, Mat *A_trans)
 {
     PetscInt ccols, rrows;

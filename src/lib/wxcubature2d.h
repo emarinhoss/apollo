@@ -51,6 +51,9 @@ class WxCubature2d
 /** Evaluate the surface integral */
     void calculateSurfaceIntegral(REAL *numFlux, REAL *surfInt);
 
+/** Evaluate the face integral for discontinuity detection */
+    void discontinuityDetectorIntegral(REAL *surfaceVals, REAL *IntPerFace);
+
 /** Interpolate the nodal values to the Gaussian points at all 3 edges of the element.
  *  The solution is stack in order of the surface number */
     void nodesTOSurfaceGaussians(int len, REAL *input, REAL *outPut);

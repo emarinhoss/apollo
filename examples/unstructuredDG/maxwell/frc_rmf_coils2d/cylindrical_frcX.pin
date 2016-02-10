@@ -18,6 +18,7 @@ EPS0 = 1.0/(MU0*LIGHT*LIGHT)
 # parameters
 omega = 1.e7
 B_omega = 90.e-4
+TAU = 1.e-9
 
 ### magnetic fields ###
 I=2.*PI*B_omega*1.1e-2/MU0
@@ -49,7 +50,7 @@ OUT  = 100
    Output_files = OUT # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'experiment.msh'
+   Gridname = 'test.msh'
    NumFields = 1
    
    # Check the partition
@@ -101,7 +102,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = -B_omega
   		phase = 0.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antA>
 	<antB>
 		Type = ApSubSolver
@@ -110,7 +112,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = -B_omega
   		phase = 0.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antB>
 	<antC>
 		Type = ApSubSolver
@@ -119,7 +122,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = B_omega
   		phase = PI/2.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antC>
 	<antD>
 		Type = ApSubSolver
@@ -128,7 +132,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = B_omega
   		phase = PI/2.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antD>
 	<antE>
 		Type = ApSubSolver
@@ -137,7 +142,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = B_omega
   		phase = 0.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antE>
 	<antF>
 		Type = ApSubSolver
@@ -146,7 +152,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = B_omega
   		phase = 0.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antF>
 	<antG>
 		Type = ApSubSolver
@@ -155,7 +162,8 @@ OUT  = 100
 		frequency = omega
   		B_rmf = -B_omega
   		phase = PI/2.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antG>
 	<antH>
 		Type = ApSubSolver
@@ -164,12 +172,17 @@ OUT  = 100
 		frequency = omega
   		B_rmf = -B_omega
   		phase = PI/2.
-  		rise_time = 1.0e-9
+  		rise_time = TAU
+  		relative_permittivity = 4.5
 	</antH>
 	<wall>
 		Type = ApSubSolver
+		Kind = phmDielectricBC
 		#Kind = phmConductingWallBC
-		Kind = phmOpenBC
+		#Kind = phmOpenBC
+
+		relative_permittivity = 4.5
+		relative_permeability = 1.0
 
 	</wall>
 	

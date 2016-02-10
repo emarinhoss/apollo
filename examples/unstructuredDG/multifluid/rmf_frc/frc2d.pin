@@ -14,36 +14,36 @@ MU0 = PI*4.0e-7 # [H/m]  permiability of free space
 LIGHT = 3.0e6 # [m/s] speed of light
 EPS0 = 1.0/(MU0*LIGHT*LIGHT) # 8.85418782e-12#
 
-BETA = 5.
 MEQN = 18
 P_ORDER = 1
 DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 90.0e-4    # T, rmf B field
-Baxial = 50.0e-4 
-omega  = 5.e6    # Hz, rmf frequency
-PHASE  = 0.
-RISE   = 3.e-8
+Bomega = 20.e-4   # T, rmf B-field
+Baxial = 30.e-4   # T, bias B-field
+omega  = 2.2e6    # Hz, rmf frequency
+PHASE  = 0.       # rads
+RISE   = 3.0e-8   # sec
+ETA    = 25.e-4   # Ohm-m
 
 # Plasma
-Te = 5.           # eV, electron temperature
-Temp = Te*Q/BOLTZ #K, temperature in Kelvin
+Te = 3.0          # eV, electron temperature
+Temp = Te*Q/BOLTZ # K, temperature in Kelvin
 n_dens = 1.e19    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
 # compute minimum density and pressure
-MIN_PRES = Pe*math.exp(-BETA)
+MIN_PRES = 0.001*Pe
 MIN_DENS = MIN_PRES/BOLTZ/Temp
 ELC_MIN_PRES = MIN_PRES
 ION_MIN_PRES = MIN_PRES
 ELC_MIN_DENS = ME*MIN_DENS
 ION_MIN_DENS = MI*MIN_DENS
 
-
 TIME = 2.*PI/omega # seconds
 TEND = 1.e-7 # seconds
+OUT  = 100
 
 <warpx>
 
@@ -59,7 +59,7 @@ TEND = 1.e-7 # seconds
    Kind = comboSolver
 
    Time = [0.0, TEND] # start, end times
-   Output_files = 100 # no. of output files to write
+   Output_files = OUT # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
    Gridname = 'optimizedCircle.msh'
@@ -72,8 +72,8 @@ TEND = 1.e-7 # seconds
 	
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
-	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Friction]
-	   AreaIntegrals = [fluxConsercation]
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity]
+	   AreaIntegrals = [fluxConservation]
 	
 	   polynomialOrder = P_ORDER
 	   cfl = 0.5/((2.*(P_ORDER+1)-1))
@@ -83,14 +83,14 @@ TEND = 1.e-7 # seconds
 		    Type = WxFunction
 		    Kind = exprFunc
 		
-	       gm1 = GAMMA-1.
-         me = ME     # electron mass
-         mi = MI     # ion mass
-         pi = PI
+	     gm1 = GAMMA-1.
+         me  = ME     # electron mass
+         mi  = MI     # ion mass
+         pi  = PI
          num_dens = n_dens
-         p0 = Pe
-         Tt = Temp
-         Bz = Baxial
+         p0  = Pe
+         Tt  = Temp
+         Bz  = Baxial
 
          progn = ["rhoe = num_dens*me", \
                   "rhoi = num_dens*mi", \
@@ -128,7 +128,7 @@ TEND = 1.e-7 # seconds
         gas_gamma = GAMMA
         minPressure = MIN_PRES
         minDensity = ELC_MIN_DENS
-        #Numerical_Flux = HLL
+
       </eulerElc>
 
       ##
@@ -141,7 +141,7 @@ TEND = 1.e-7 # seconds
         gas_gamma = GAMMA
         minPressure = MIN_PRES
         minDensity = ION_MIN_DENS
-        #Numerical_Flux = HLL
+
       </eulerIon>
 
       ##
@@ -239,7 +239,7 @@ TEND = 1.e-7 # seconds
      # Friction
      <Friction>
        Type = WxHyperbolicSrc
-       Kind = bragFriction
+       Kind = MomentumXfer2D
 
        InpRange = [0,1,2,3,4,5,6,7,8,9,13,14,15]
        OutRange = [1,2,3,4,6,7,8,9]
@@ -253,19 +253,34 @@ TEND = 1.e-7 # seconds
 
      </Friction>
 
+     <Resistivity>
+       Type = WxHyperbolicSrc
+       Kind = constantResistivity
+
+       InpRange = [0,1,2,3,4,5,6,7,8,9]
+       OutRange = [  1,2,3,4,  6,7,8,9]
+
+       mi = MI
+       me = ME
+       charge = Q
+       gas_gamma = GAMMA
+       boltz = BOLTZ
+       resistivity = ETA
+
+     </Resistivity>
+
      # Flux conservation ring
-     <fluxConsercation>
+     <fluxConservation>
        Type = ApAreaIntegral
        Kind = MagneticFlux
 
-       plasma_radius = 0.03
+       plasma_radius = 0.015
 
        InpRange = [15]
        OutRange = [15]
 
-     </fluxConsercation>
+     </fluxConservation>
 
-	
    </hyperbolic>
 
    <coil1>

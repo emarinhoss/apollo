@@ -130,6 +130,16 @@ class WxHyperbolicEqnSet : public WxObject
     virtual void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
 
 /**
+ * DG limiter trigger variable
+ *
+ * @param qIn  [in] get all the variables for set equations system
+ * @param qOut [out] returns the variable that is the trigger
+ */
+    virtual void DGLimiterTrigger(REAL *qIn, REAL *qOut);
+
+
+
+/**
  * Computes flux jacobian from individual equations and assembles them into the
  * full flux jacobian for the equation system being solved
  *

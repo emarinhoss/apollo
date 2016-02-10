@@ -1,5 +1,5 @@
-#ifndef APMAXWELLRMFANTENNABC_H
-#define APMAXWELLRMFANTENNABC_H
+#ifndef APPHMAXWELLDIELECTRICBC_H
+#define APPHMAXWELLDIELECTRICBC_H
 
 // WarpX subsolver includes
 #include <wxgridbc.h>
@@ -9,15 +9,15 @@
  * grid box.
  */
 template <typename REAL>
-class WxMaxwellRMFAntennaBC : public WxGridBC<REAL>
+class WxPHMaxwellDielectricBC : public WxGridBC<REAL>
 {
   public:
 
 /**
  * Construct a new grid-bc object
  */
-    WxMaxwellRMFAntennaBC()
-       : WxGridBC<REAL>("maxwellRMFAntennaBC") {
+    WxPHMaxwellDielectricBC()
+       : WxGridBC<REAL>("phmDielectricBC") {
     }
 
   protected:
@@ -38,7 +38,9 @@ class WxMaxwellRMFAntennaBC : public WxGridBC<REAL>
     void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
   private:
-    REAL _omega, _B0, _phase, _rise, _pi, _epsilon_r;
+    REAL _epsilon_r, _mu_r;
+
 
 };
-#endif // APMAXWELLRMFANTENNABC_H
+
+#endif // APPHMAXWELLDIELECTRICBC_H

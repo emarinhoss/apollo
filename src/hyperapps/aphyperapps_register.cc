@@ -79,6 +79,10 @@ WxCreator< WxMaxwellRMFBC<double>, ApSubSolver<double> > __phmRMFBC_d("maxwellRM
 WxCreator< WxMaxwellRMFAntennaBC<float>, ApSubSolver<float> > __phmRMFantBC_f("maxwellRMFAntennaBC");
 WxCreator< WxMaxwellRMFAntennaBC<double>, ApSubSolver<double> > __phmRMFantBC_d("maxwellRMFAntennaBC");
 
+#include "maxwell/apphmaxwelldielectricbc.h"
+WxCreator< WxPHMaxwellDielectricBC<float>, ApSubSolver<float> > __phmDieBC_f("phmDielectricBC");
+WxCreator< WxPHMaxwellDielectricBC<double>, ApSubSolver<double> > __phmDieBC_d("phmDielectricBC");
+
 // ------------------ Source Terms --------------------------//
 #include "maxwell/wxpulsetrainsrc.h"
 WxCreator< WxPulseTrainSrc<float>, WxHyperbolicSrc<float> > __ptsrc_f("pulseTrain");
@@ -117,6 +121,14 @@ WxCreator< WxBragFrictionSrc<double>, WxHyperbolicSrc<double> > __BFricSrc_d("br
 #include "multifluid/apmagneticfluxcalc.h"
 WxCreator< ApMagneticFluxCalc<float>, ApAreaIntegral<float> > __MagFluxC_f("MagneticFlux");
 WxCreator< ApMagneticFluxCalc<double>, ApAreaIntegral<double> > __MagFluxC_d("MagneticFlux");
+
+#include "multifluid/ap2dmomentumxfer.h"
+WxCreator< Ap2DMomentumXfer<float>, WxHyperbolicSrc<float> > __2DMXfer_f("MomentumXfer2D");
+WxCreator< Ap2DMomentumXfer<double>, WxHyperbolicSrc<double> > __2DMXfer_d("MomentumXfer2D");
+
+#include "multifluid/apconstantresistivity.h"
+WxCreator< ApConstantResistivity<float>, WxHyperbolicSrc<float> > __ConsRes_f("constantResistivity");
+WxCreator< ApConstantResistivity<double>, WxHyperbolicSrc<double> > __ConsRes_d("constantResistivity");
 
 // ------------------ Boundary Conditions --------------------------//
 #include "multifluid/wxtwofluidrmfbc.h"

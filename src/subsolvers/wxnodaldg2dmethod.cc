@@ -536,7 +536,7 @@ WxNodalDG2dMethod<REAL>::applyLimiter(Vec Qin, Vec Qlimited)
     // apply limiters
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _limiterSubSolvers.at(0));
     // cast this to the limiter and call step function
-    dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,Qin,Qlimited);
+    dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,_cub,Qin,Qlimited);
 }
 
 // instantiations

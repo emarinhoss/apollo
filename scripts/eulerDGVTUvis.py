@@ -11,7 +11,6 @@ from numpy import *
 from tvtk.api import tvtk
 from optparse import OptionParser
 from joblib import Parallel, delayed
-from time import time
 import multiprocessing
 
 # set command line options
@@ -31,6 +30,10 @@ parser.add_option('-s', '--start', action = 'store',
                   dest = 'startFrame',
                   help = 'First frame to start plotting.',
                   default = 0)
+parser.add_option('-g', '--gamma', action = 'store',
+                  dest = 'gas_gamma',
+                  help = 'Ratio of specific heats.',
+                  default = 1.4)
 parser.add_option('-n', '--numProcs', action = 'store',
                   dest = 'num_cores',
                   help = 'Number of cores to use.',
@@ -48,93 +51,58 @@ def save_xml(ug, file_name):
 
 frame = int(options.frame)
 stt = int(options.startFrame)
+gm = double(options.gas_gamma)
 
 def generateVTUfile(n):
-	startT = time()
 	spOrd = int(options.spatialOrder)
 	filename = options.inputFile
 
 	dh = wxunsdgdata.WxVisData(filename,n)
 	dd = dh.readDG(spOrd)
 
-	re = dd.variables[:,0]
-	vel_ex = dd.variables[:,1]/re
-	vel_ey = dd.variables[:,2]/re
-	vel_ez = dd.variables[:,3]/re
-	ee = dd.variables[:,4]
+	rho = dd.variables[:,0]
+	rhou = dd.variables[:,1]
+	rhov = dd.variables[:,2]
+	rhow = dd.variables[:,3]
+	e = dd.variables[:,4]
 
-	ri = dd.variables[:,5]
-	vel_ix = dd.variables[:,6]/ri
-	vel_iy = dd.variables[:,7]/ri
-	vel_iz = dd.variables[:,8]/ri
-	ei = dd.variables[:,9]
+	u = rhou/rho
+	v = rhov/rho
+	w = rhow/rho
 
-	Efieldx = dd.variables[:,10]
-	Efieldy = dd.variables[:,11]
-	Efieldz = dd.variables[:,12]
-
-	Bfieldx = dd.variables[:,13]
-	Bfieldy = dd.variables[:,14]
-	Bfieldz = dd.variables[:,15]
-
+	p = (gm-1.)*(e - 0.5*rho*(u*u+v*v+w*w))
 	
 	# number of nodes per element
 	nodesP = (spOrd+1)*(spOrd+2)/2
 	# element Type
 	elem_type = tvtk.Triangle().cell_type
-	tris = range(3*dd.TotNumElements)
+	tris = zeros((dd.TotNumElements,3),'int')
+	sk = 0
 	
-	tris = reshape(tris,(-1,3))
+	for K in range(dd.TotNumElements):
+		for pots in range(3):
+			tris[K,pots] = sk
+			sk += 1
 
 	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
 	ug.set_cells(elem_type, tris)
+	
+	ug.point_data.scalars = rho
+	ug.point_data.scalars.name = 'rho'
+	ug.point_data.add_array(u)
+	ug.point_data.get_array(1).name = 'u'
+	ug.point_data.add_array(v)
+	ug.point_data.get_array(2).name = 'v'
+	ug.point_data.add_array(w)
+	ug.point_data.get_array(3).name = 'w'
+	ug.point_data.add_array(p)
+	ug.point_data.get_array(4).name = 'p'	
 
-	ug.point_data.scalars = re
-	ug.point_data.scalars.name = 'elec_rho'
-	ug.point_data.add_array(ee)
-	ug.point_data.get_array(1).name = 'elec_en'
-
-	ug.point_data.add_array(ri)
-	ug.point_data.get_array(2).name = 'ion_rho'
-	ug.point_data.add_array(ei)
-	ug.point_data.get_array(3).name = 'ion_en'
-
-	ug.point_data.add_array(vel_ex)
-	ug.point_data.get_array(4).name = 'elec_ux'
-	ug.point_data.add_array(vel_ey)
-	ug.point_data.get_array(5).name = 'elec_vy'
-	ug.point_data.add_array(vel_ez)
-	ug.point_data.get_array(6).name = 'elec_wz'
-
-	ug.point_data.add_array(vel_ix)
-	ug.point_data.get_array(7).name = 'ion_ux'
-	ug.point_data.add_array(vel_iy)
-	ug.point_data.get_array(8).name = 'ion_vy'
-	ug.point_data.add_array(vel_iz)
-	ug.point_data.get_array(9).name = 'ion_wz'
-
-	ug.point_data.add_array(Efieldx)
-	ug.point_data.get_array(10).name = 'Ex'
-	ug.point_data.add_array(Efieldy)
-	ug.point_data.get_array(11).name = 'Ey'
-	ug.point_data.add_array(Efieldz)
-	ug.point_data.get_array(12).name = 'Ez'
-
-	ug.point_data.add_array(Bfieldx)
-	ug.point_data.get_array(13).name = 'Bx'
-	ug.point_data.add_array(Bfieldy)
-	ug.point_data.get_array(14).name = 'By'
-	ug.point_data.add_array(Bfieldz)
-	ug.point_data.get_array(15).name = 'Bz'
-
-	outfile = filename + '_2Fluid_' + str('%03d' % n)  + '.vtu'
+	outfile = filename + '_Euler_' + str('%03d' % n)  + '.vtu'
 	save_xml(ug, outfile)
-	endT = time()
-	totTime = endT - startT
-	print "Frame "+str("%d" % n)+" COMPLETED in "+str("%3.2f" % totTime)+" secs."
+	print "Frame "+str("%d" % n)+" COMPLETE."
 
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)
 print "Generating plots using "+str("%d" % num_cores)+" processors."
 Parallel(n_jobs=num_cores)(delayed(generateVTUfile)(n) for n in inputs)
-#generateVTUfile(0)

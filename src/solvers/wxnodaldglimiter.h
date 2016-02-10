@@ -5,6 +5,7 @@
 #include <apsubsolver.h>
 #include "apsolver.h"
 #include <wxnodaldggeometry2d.h>
+#include "wxcubature2d.h"
 #include <petscdmplex.h>
 
 /**
@@ -53,7 +54,7 @@ class WxNodalDGLimiter : public ApSubSolver<REAL>
  * Return limited value.
  *
  */
-    void applyToVector(wxNodalDGgeometry2D<REAL> *geom, Vec qk, Vec q_limited);
+    void applyToVector(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited);
 
   protected:
 
@@ -65,7 +66,7 @@ class WxNodalDGLimiter : public ApSubSolver<REAL>
  * @param qk [in] conserved variables to which limiter is to be applied
  * @param q_limited [out] comverved variables after the limiter has been applied
  */
-    virtual void applyLimiter(wxNodalDGgeometry2D<REAL> *geom, Vec qk, Vec q_limited) = 0;
+    virtual void applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited) = 0;
 
   private:
 

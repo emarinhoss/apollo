@@ -19,9 +19,9 @@ WxNodalDGLimiter<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
 template <typename REAL>
 void
-WxNodalDGLimiter<REAL>::applyToVector(wxNodalDGgeometry2D<REAL> *geom, Vec qk, Vec q_limited)
+WxNodalDGLimiter<REAL>::applyToVector(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited)
 {
-    this->applyLimiter(geom,qk,q_limited);
+    this->applyLimiter(geom,cub,qk,q_limited);
 }
 
 // instantiations

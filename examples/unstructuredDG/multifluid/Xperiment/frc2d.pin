@@ -21,17 +21,15 @@ DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 50.0e-4    # T, rmf B field
-Baxial = 75.0e-4 
+Bomega = 90.0e-4    # T, rmf B field
+Baxial = 50.0e-4 
 omega  = 5.e6    # Hz, rmf frequency
 PHASE  = 0.
-RISE   = 3.e-7
+RISE   = 3.e-8
 
 # Plasma
 Te = 5.           # eV, electron temperature
 Temp = Te*Q/BOLTZ #K, temperature in Kelvin
-Radius = 1.       # m, flux conserver radius
-domain = 2.*Radius
 n_dens = 1.e19    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
@@ -45,7 +43,7 @@ ION_MIN_DENS = MI*MIN_DENS
 
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.e-6 # seconds
+TEND = 1.e-7 # seconds
 
 <warpx>
 
@@ -64,7 +62,7 @@ TEND = 1.e-6 # seconds
    Output_files = 100 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'optimizedCircle.msh'
+   Gridname = 'experiment.msh'
    NumFields = 1
    
    # Check the partition
@@ -75,6 +73,7 @@ TEND = 1.e-6 # seconds
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
 	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Friction]
+	   AreaIntegrals = [fluxConsercation]
 	
 	   polynomialOrder = P_ORDER
 	   cfl = 0.5/((2.*(P_ORDER+1)-1))
@@ -90,16 +89,10 @@ TEND = 1.e-6 # seconds
          pi = PI
          num_dens = n_dens
          p0 = Pe
-         beta = BETA
-         rds = Radius
          Tt = Temp
-         Bz = -Baxial
+         Bz = Baxial
 
-         progn = ["r = sqrt(x*x+y*y)", \
-                  "gaus = exp(-beta*r*r)", \
-                  "mval = exp(-beta*rds*rds)", \
-                  "value = if(r>rds,gaus,mval)", \
-                  "rhoe = num_dens*me", \
+         progn = ["rhoe = num_dens*me", \
                   "rhoi = num_dens*mi", \
                   "energy= p0/gm1"]
 
@@ -260,6 +253,18 @@ TEND = 1.e-6 # seconds
 
      </Friction>
 
+     # Flux conservation ring
+     <fluxConsercation>
+       Type = ApAreaIntegral
+       Kind = MagneticFlux
+
+       plasma_radius = 0.03
+
+       InpRange = [15]
+       OutRange = [15]
+
+     </fluxConsercation>
+
 	
    </hyperbolic>
 
@@ -272,6 +277,8 @@ TEND = 1.e-6 # seconds
 		B_rmf = Bomega
 		phase = PHASE
 		rise_time = RISE
+		plasma_radius = 0.03
+		flux_conserver_radius = 0.035
 		
 	</coil1>
 	

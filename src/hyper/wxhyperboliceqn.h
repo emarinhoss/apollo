@@ -159,6 +159,14 @@ class WxHyperbolicEqn : public WxObject
     virtual void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
 
 /**
+ * DG limiter trigger variable
+ *
+ * @param qIn  [in] get all the variables for set equations system
+ * @param qOut [out] returns the variable that is the trigger
+ */
+     virtual void DGLimiterTrigger(REAL *qIn, REAL *qOut);
+
+/**
  * Flux Jacobian function
  *
  * @param d direction along which flux is required

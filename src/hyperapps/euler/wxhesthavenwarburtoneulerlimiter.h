@@ -39,7 +39,7 @@ class WxHestavenWarburtonEulerLimiter : public WxNodalDGLimiter<REAL>
  * @param dir direction in which to apply BC
  * @param arr array to which apply BC
  */
-    void applyLimiter(wxNodalDGgeometry2D<REAL> *geom, Vec qk, Vec q_limited);
+    void applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited);
 
   private:
     REAL _gamma;    // ratio of specific heats for Euler equantions

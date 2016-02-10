@@ -5,14 +5,9 @@ Created on Mon Nov 24 15:42:19 2014
 @author: sousae
 """
 import os
-from vtk import *
-from numpy import *
+import vtk
+from numpy import array, zeros, append, reshape
 from vtk.util.numpy_support import vtk_to_numpy
-from scipy.spatial import Delaunay
-from pyvisfile.vtk import ( 
-    UnstructuredGrid, DataArray,
-    AppendedDataXMLGenerator,
-    VTK_VERTEX, VF_LIST_OF_VECTORS, VF_LIST_OF_COMPONENTS)
 
 class WxDGArray:
     r"""WxDGArray(fname, frame, spOrd) -> WxDGArray
@@ -48,9 +43,6 @@ class WxDGArray:
         self.NumComp    = (self.NumArrays-1)/self.nodesPerElem # number of components per node
         #self.gridPoints = zeros((self.TotNumElements*self.nodesPerElem,3))
         #self.variables  = zeros((self.TotNumElements*self.nodesPerElem,self.NumComp))
-        coords = array([])
-        varbls = array([])
-        pts = zeros((self.nodesPerElem,2))
         
         if(self.order==1):
             r = array([-1.,1.,-1.])
@@ -69,6 +61,9 @@ class WxDGArray:
             connect = array([[0,5,4],[0,1,5],[1,2,5],[2,6,5],[2,3,6],[4,5,7],[5,8,7],[5,6,8],[7,8,9]])
         
         #r, s = elemtNodalPoints(self.order)
+        coords = array([])
+        varbls = array([])
+        pts = zeros((self.nodesPerElem,2))
         
         for k in range(data.GetNumberOfCells()):
             cid=data.GetCell(k)

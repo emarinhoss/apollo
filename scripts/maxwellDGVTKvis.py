@@ -64,7 +64,7 @@ def generateVTUfile(n):
 	Bz = dd.variables[:,5]
 	
 	phi = dd.variables[:,6]
-	psi = dd.variables[:,6]
+	psi = dd.variables[:,7]
 	
 	# number of nodes per element
 	nodesP = (spOrd+1)*(spOrd+2)/2
@@ -85,7 +85,7 @@ def generateVTUfile(n):
 	ug.point_data.scalars.name = 'Ex'
 	ug.point_data.add_array(Ey)
 	ug.point_data.get_array(1).name = 'Ey'
-	ug.point_data.add_array(Ey)
+	ug.point_data.add_array(Ez)
 	ug.point_data.get_array(2).name = 'Ez'
 	
 	ug.point_data.add_array(Bx)

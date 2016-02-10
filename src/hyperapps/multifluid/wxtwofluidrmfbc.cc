@@ -8,7 +8,7 @@ WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   // call base class setup
   WxGridBC<REAL>::setup(wxc, dm);
 
-  _omega = wxc.template get<REAL>("frequency");
+  REAL freq = wxc.template get<REAL>("frequency");
   _baxial = wxc.template get<REAL>("B_axial");
   _B0 = wxc.template get<REAL>("B_rmf");
   _phase = wxc.template get<REAL>("phase");
@@ -18,12 +18,19 @@ WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
   _pi = 3.141592653589793;
 
+  _omega = 2*_pi*freq;
+
+
 }
 
 template <typename REAL>
 void
 WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
+    REAL x = xc[1];
+    REAL y = xc[2];
+    REAL r = sqrt(x*x+y*y);
+
     // electrons
     qBC[0] = q[0];
     qBC[1] = q[1]-2.*(nx[0]*q[1]+nx[1]*q[2])*nx[0];
@@ -40,7 +47,6 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
 
     REAL ex = q[10];
     REAL ey = q[11];
-    REAL ez = q[12];
 
     REAL phi= q[16];
     REAL psi= q[17];
@@ -49,24 +55,27 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
     REAL intBzda = AreaInts[15];
 
     // E-field
-    REAL enorm = ex*nx[0] + ey*nx[1];
-    REAL etang = ex*nx[1] - ey*nx[0];
+//    REAL enorm = ex*nx[0] + ey*nx[1];
+//    REAL etang = ex*nx[1] - ey*nx[0];
 
-    qBC[10] = enorm*nx[0] - etang*nx[1];
-    qBC[11] = enorm*nx[1] + etang*nx[0];
-    qBC[12] = -ez;
+//    qBC[10] = enorm*nx[0] - etang*nx[1];
+//    qBC[11] = enorm*nx[1] + etang*nx[0];
+//    qBC[12] = -ez;
 
-//    qBC[10] = ex;
-//    qBC[11] = ey;
+    qBC[10] = ex;
+    qBC[11] = ey;
 //    qBC[12] = ez;
 
     // B-field
     // RMF
     REAL t = xc[0]; // current time
-    REAL Bt = _B0*(1.-exp(-t/_rise));
-    REAL Bomega_x = Bt*cos(2.*_pi*_omega*t+_phase);
-    REAL Bomega_y = Bt*sin(2.*_pi*_omega*t+_phase);
+    REAL Bt = 0.5*_B0*(1.-exp(-t/_rise));
+    REAL Bomega_x = Bt*sin(_omega*t+_phase)*x/sqrt(r);
+    REAL Bomega_y = Bt*sin(_omega*t+_phase)*y/sqrt(r);
 
+    REAL ez = 0.5*_B0*r*(-exp(-t/_rise)/_rise*sin(_omega*t+_phase)
+                         +_omega*(1.-exp(-t/_rise))*cos(_omega*t+_phase));
+    qBC[12] = ez;
     qBC[13] = Bomega_x;
     qBC[14] = Bomega_y;
 
