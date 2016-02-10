@@ -50,7 +50,7 @@ OUT  = 100
    Output_files = OUT # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'test.msh'
+   Gridname = 'newCoilsConfiguarion.msh'
    NumFields = 1
    
    # Check the partition
@@ -104,6 +104,7 @@ OUT  = 100
   		phase = 0.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antA>
 	<antB>
 		Type = ApSubSolver
@@ -114,6 +115,7 @@ OUT  = 100
   		phase = 0.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antB>
 	<antC>
 		Type = ApSubSolver
@@ -124,6 +126,7 @@ OUT  = 100
   		phase = PI/2.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antC>
 	<antD>
 		Type = ApSubSolver
@@ -134,6 +137,7 @@ OUT  = 100
   		phase = PI/2.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antD>
 	<antE>
 		Type = ApSubSolver
@@ -144,6 +148,7 @@ OUT  = 100
   		phase = 0.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antE>
 	<antF>
 		Type = ApSubSolver
@@ -154,6 +159,7 @@ OUT  = 100
   		phase = 0.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antF>
 	<antG>
 		Type = ApSubSolver
@@ -164,6 +170,7 @@ OUT  = 100
   		phase = PI/2.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antG>
 	<antH>
 		Type = ApSubSolver
@@ -174,6 +181,7 @@ OUT  = 100
   		phase = PI/2.
   		rise_time = TAU
   		relative_permittivity = 4.5
+  		relative_permeability = 1.0
 	</antH>
 	<wall>
 		Type = ApSubSolver

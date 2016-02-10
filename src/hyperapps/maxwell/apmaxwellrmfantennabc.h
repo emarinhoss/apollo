@@ -38,7 +38,7 @@ class WxMaxwellRMFAntennaBC : public WxGridBC<REAL>
     void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
   private:
-    REAL _omega, _B0, _phase, _rise, _pi, _epsilon_r;
+    REAL _omega, _B0, _phase, _rise, _pi, _epsilon_r, _mu_r;
 
 };
 #endif // APMAXWELLRMFANTENNABC_H
