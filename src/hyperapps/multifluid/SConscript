@@ -13,6 +13,10 @@ Import('env')
 sources = [
            'wxtwofluidrmfbc.cc',
            'wxtwofluidconductingwallbc.cc',
+           'aptwofluiddielectricbc.cc',
+           'aptwofluidrmfantennabc.cc',
+           'aptwofluidrmfwithharmonics.cc',
+           'aptwofluidsimplifiedrmfbc.cc',
             ]
 
 ##

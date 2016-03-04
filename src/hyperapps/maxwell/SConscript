@@ -18,6 +18,8 @@ sources = [
         'wxmaxwellrmfbc.cc',
         'apmaxwellrmfantennabc.cc',
         'apphmaxwelldielectricbc.cc',
+        'apemfielsrmfwithharmonics.cc',
+        'apsimplifiedrmfbc.cc',
            ]
 
 ##

@@ -15,9 +15,12 @@ MU0 = PI*4.0e-7 # [H/m]  permiability of free space
 LIGHT = 3.0e6 # [m/s] speed of light
 EPS0 = 1.0/(MU0*LIGHT*LIGHT)
 
+# wall
+EPS_R = 4.50
+MU_R  = -1.0
 # parameters
 omega = 1.e7
-B_omega = 90.e-4
+B_omega = 30.e-4
 TAU = 1.e-9
 
 ### magnetic fields ###
@@ -103,8 +106,8 @@ OUT  = 100
   		B_rmf = -B_omega
   		phase = 0.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antA>
 	<antB>
 		Type = ApSubSolver
@@ -114,8 +117,8 @@ OUT  = 100
   		B_rmf = -B_omega
   		phase = 0.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antB>
 	<antC>
 		Type = ApSubSolver
@@ -125,8 +128,8 @@ OUT  = 100
   		B_rmf = B_omega
   		phase = PI/2.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antC>
 	<antD>
 		Type = ApSubSolver
@@ -136,8 +139,8 @@ OUT  = 100
   		B_rmf = B_omega
   		phase = PI/2.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antD>
 	<antE>
 		Type = ApSubSolver
@@ -147,8 +150,8 @@ OUT  = 100
   		B_rmf = B_omega
   		phase = 0.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antE>
 	<antF>
 		Type = ApSubSolver
@@ -158,8 +161,8 @@ OUT  = 100
   		B_rmf = B_omega
   		phase = 0.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antF>
 	<antG>
 		Type = ApSubSolver
@@ -169,8 +172,8 @@ OUT  = 100
   		B_rmf = -B_omega
   		phase = PI/2.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antG>
 	<antH>
 		Type = ApSubSolver
@@ -180,17 +183,17 @@ OUT  = 100
   		B_rmf = -B_omega
   		phase = PI/2.
   		rise_time = TAU
-  		relative_permittivity = 4.5
-  		relative_permeability = 1.0
+  		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 	</antH>
 	<wall>
 		Type = ApSubSolver
-		Kind = phmDielectricBC
-		#Kind = phmConductingWallBC
+		#Kind = phmDielectricBC
+		Kind = phmConductingWallBC
 		#Kind = phmOpenBC
 
-		relative_permittivity = 4.5
-		relative_permeability = 1.0
+		relative_permittivity = EPS_R
+  		relative_permeability = MU_R
 
 	</wall>
 	

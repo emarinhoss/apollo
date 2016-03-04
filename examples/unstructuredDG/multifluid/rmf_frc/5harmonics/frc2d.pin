@@ -23,17 +23,17 @@ DIVE_SPEED = 1.0
 Bomega = 10.e-4   # T, rmf B-field
 Baxial = 30.e-4   # T, bias B-field
 omega  = 2.2e6    # Hz, rmf frequency
-PHASE  = PI/4.    # rads
+PHASE  = 0.       # rads
 RISE   = 3.0e-8   # sec
 
 ETA    = 25.e-6  # Ohm-m
-HARMONICS = 10
+HARMONICS = 5
 RAD_PLASMA= 0.030
-RAD_COIL  = 0.040
+RAD_COIL  = 0.035
 RAD_fluxCo= 0.035
 
 # Plasma
-Te = 5.          # eV, electron temperature
+Te = 5.0          # eV, electron temperature
 Temp = Te*Q/BOLTZ # K, temperature in Kelvin
 n_dens = 1.e19    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
@@ -291,7 +291,6 @@ OUT  = 100
    <coil1>
 		Type = ApSubSolver
     	Kind = twoFluidRMFHarmonicsBC
-    	#Kind = twoFluidSimplifiedRMFBC
 		#Kind = twoFluidRMFBC
 
 		frequency = omega

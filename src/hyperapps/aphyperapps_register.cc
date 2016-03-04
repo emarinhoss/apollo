@@ -83,6 +83,14 @@ WxCreator< WxMaxwellRMFAntennaBC<double>, ApSubSolver<double> > __phmRMFantBC_d(
 WxCreator< WxPHMaxwellDielectricBC<float>, ApSubSolver<float> > __phmDieBC_f("phmDielectricBC");
 WxCreator< WxPHMaxwellDielectricBC<double>, ApSubSolver<double> > __phmDieBC_d("phmDielectricBC");
 
+#include "maxwell/apemfielsrmfwithharmonics.h"
+WxCreator< ApEMFieldsRMFWithHarmonics<float>, ApSubSolver<float> > __phmrmfWHBC_f("maxwellRMFHarmonicsBC");
+WxCreator< ApEMFieldsRMFWithHarmonics<double>, ApSubSolver<double> > __phmrmfWHBC_d("maxwellRMFHarmonicsBC");
+
+#include "maxwell/apsimplifiedrmfbc.h"
+WxCreator< APsimplifiedRMFbc<float>, ApSubSolver<float> > __phmsrmfBC_f("simplifiedRMFBC");
+WxCreator< APsimplifiedRMFbc<double>, ApSubSolver<double> > __phmsrmfBC_d("simplifiedRMFBC");
+
 // ------------------ Source Terms --------------------------//
 #include "maxwell/wxpulsetrainsrc.h"
 WxCreator< WxPulseTrainSrc<float>, WxHyperbolicSrc<float> > __ptsrc_f("pulseTrain");
@@ -138,3 +146,19 @@ WxCreator< WxTwoFluidRMFBC<double>, ApSubSolver<double> > __tfrmfBC_d("twoFluidR
 #include "multifluid/wxtwofluidconductingwallbc.h"
 WxCreator< WxTwoFluidConductingWallBC<float>, ApSubSolver<float> > __tfcwBC_f("twoFluidConductingWallBC");
 WxCreator< WxTwoFluidConductingWallBC<double>, ApSubSolver<double> > __tfcwBC_d("twoFluidConductingWallBC");
+
+#include "multifluid/aptwofluiddielectricbc.h"
+WxCreator< WxTwoFluidDielectricBC<float>, ApSubSolver<float> > __tfdBC_f("twoFluidDielectricBC");
+WxCreator< WxTwoFluidDielectricBC<double>, ApSubSolver<double> > __tfdBC_d("twoFluidDielectricBC");
+
+#include "multifluid/aptwofluidrmfantennabc.h"
+WxCreator< WxTwoFluidRMFAntennaBC<float>, ApSubSolver<float> > __tfrmfaBC_f("twoFluidAntennaBC");
+WxCreator< WxTwoFluidRMFAntennaBC<double>, ApSubSolver<double> > __tfrmfaBC_d("twoFluidAntennaBC");
+
+#include "multifluid/aptwofluidrmfwithharmonics.h"
+WxCreator< WxTwoFluidRMFWithHarmonicsBC<float>, ApSubSolver<float> > __tfrmfwhBC_f("twoFluidRMFHarmonicsBC");
+WxCreator< WxTwoFluidRMFWithHarmonicsBC<double>, ApSubSolver<double> > __tfrmfwhBC_d("twoFluidRMFHarmonicsBC");
+
+#include "multifluid/aptwofluidsimplifiedrmfbc.h"
+WxCreator< APTwoFluidSimplifiedRMFBC<float>, ApSubSolver<float> > __tfsrmfBC_f("twoFluidSimplifiedRMFBC");
+WxCreator< APTwoFluidSimplifiedRMFBC<double>, ApSubSolver<double> > __tfsrmfBC_d("twoFluidSimplifiedRMFBC");

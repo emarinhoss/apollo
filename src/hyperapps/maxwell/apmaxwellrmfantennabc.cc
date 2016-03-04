@@ -45,27 +45,45 @@ WxMaxwellRMFAntennaBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, RE
     // B-field
     // RMF
     REAL t = xc[0]; // current time
-    REAL Bt = _B0*(1.-exp(-t/_rise))*cos(_omega*t+_phase);
+    REAL Bt = _B0*(1.-exp(-t/_rise))*sin(_omega*t+_phase);
 
-    REAL Ez_rmf = _B0*(-exp(-t/_rise)/_rise*cos(_omega*t+_phase)
-                       -(1.-exp(-t/_rise))*sin(_omega*t+_phase)*_omega);
+    REAL Ez_rmf = _B0*(-exp(-t/_rise)/_rise*sin(_omega*t+_phase)
+                       +(1.-exp(-t/_rise))*cos(_omega*t+_phase)*_omega);
 
     REAL bnorm = bx*nx[0] + by*nx[1];
     REAL btang = bx*nx[1] - by*nx[0];
 
     REAL newBtang = _mu_r*btang;
 
+    // dielectric + RMF BC
+//    qBC[0] = newEnorm*nx[0] + etang*nx[1];
+//    qBC[1] = newEnorm*nx[1] - etang*nx[0];
+//    qBC[2] = ez + Ez_rmf;
+
+//    qBC[3] = Bt*nx[1] + bnorm*nx[0] + newBtang*nx[1];
+//    qBC[4] =-Bt*nx[0] + bnorm*nx[1] - newBtang*nx[0];
+//    qBC[5] = _mu_r*bz;
 
     qBC[0] = newEnorm*nx[0] + etang*nx[1];
     qBC[1] = newEnorm*nx[1] - etang*nx[0];
-    qBC[2] = ez + Ez_rmf;
+    qBC[2] = Ez_rmf;
 
-    qBC[3] = Bt*nx[1] + bnorm*nx[0] + newBtang*nx[1];
-    qBC[4] =-Bt*nx[0] + bnorm*nx[1] - newBtang*nx[0];
-    qBC[5] = _mu_r*bz;;
+    qBC[3] = Bt*nx[1];
+    qBC[4] =-Bt*nx[0];
+    qBC[5] = _mu_r*bz;
 
-    qBC[6] = q[6];
-    qBC[7] = q[7];
+
+    // RMF only BC
+//    qBC[0] = bnorm*nx[0] + etang*nx[1];
+//    qBC[1] = bnorm*nx[1] - etang*nx[0];
+//    qBC[2] = Ez_rmf;
+
+//    qBC[3] = Bt*nx[1];
+//    qBC[4] =-Bt*nx[0];
+//    qBC[5] = bz;
+
+    qBC[6] = -phi;
+    qBC[7] = psi;
 }
 
 // instantiations

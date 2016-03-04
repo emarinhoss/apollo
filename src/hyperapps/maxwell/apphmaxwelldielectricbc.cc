@@ -46,7 +46,7 @@ WxPHMaxwellDielectricBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, 
     qBC[5] = _mu_r*bz;
 
     // Corrections
-    qBC[6] = phi;
+    qBC[6] =-phi;
     qBC[7] = psi;
 
 }

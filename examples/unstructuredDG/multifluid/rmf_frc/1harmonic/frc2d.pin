@@ -27,7 +27,7 @@ PHASE  = PI/4.    # rads
 RISE   = 3.0e-8   # sec
 
 ETA    = 25.e-6  # Ohm-m
-HARMONICS = 10
+HARMONICS = 1
 RAD_PLASMA= 0.030
 RAD_COIL  = 0.040
 RAD_fluxCo= 0.035

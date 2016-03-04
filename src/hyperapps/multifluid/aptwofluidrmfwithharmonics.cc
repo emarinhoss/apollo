@@ -1,9 +1,9 @@
-#include "wxtwofluidrmfbc.h"
+#include "aptwofluidrmfwithharmonics.h"
 #include <wxmath.h>
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
+WxTwoFluidRMFWithHarmonicsBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
   // call base class setup
   WxGridBC<REAL>::setup(wxc, dm);
@@ -16,6 +16,9 @@ WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _a = wxc.template get<REAL>("plasma_radius");
   _b = wxc.template get<REAL>("flux_conserver_radius");
 
+  _harmonics = wxc.template get<int>("numberOfHarmonics");
+  _rmfCoil = wxc.template get<REAL>("coilRadius");
+
   _pi = 3.141592653589793;
 
   _omega = 2*_pi*freq;
@@ -25,11 +28,14 @@ WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
+WxTwoFluidRMFWithHarmonicsBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
+    REAL t = xc[0]; // current time
+    REAL alpha = _pi/4.;    // angular spacing between the two coils at different phases
     REAL x = xc[1];
     REAL y = xc[2];
     REAL r = sqrt(x*x+y*y);
+    REAL theta = atan(xc[2]/xc[1]);
 
     // electrons
     qBC[0] = q[0];
@@ -58,32 +64,36 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
     REAL enorm = ex*nx[0] + ey*nx[1];
     REAL etang = ex*nx[1] - ey*nx[0];
 
-    qBC[10] = enorm*nx[0] - etang*nx[1];
-    qBC[11] = enorm*nx[1] + etang*nx[0];
+    qBC[10] = enorm*nx[0] + etang*nx[1];
+    qBC[11] = enorm*nx[1] - etang*nx[0];
 
 //    qBC[10] = ex;
 //    qBC[11] = ey;
 
-    // B-field
     // RMF
-    REAL t = xc[0]; // current time
-    REAL Bt = 0.5*_B0*(1.-exp(-t/_rise));
-    REAL Bomega_x = Bt*cos(_omega*t+_phase)*x/r;
-    REAL Bomega_y = Bt*cos(_omega*t+_phase)*y/r;
 
-    REAL ez = 0.5*_B0*r*(-exp(-t/_rise)/_rise*cos(_omega*t+_phase)
-                         -_omega*(1.-exp(-t/_rise))*sin(_omega*t+_phase));
-    qBC[12] = ez;
-    qBC[13] = Bomega_x;
-    qBC[14] = Bomega_y;
+    REAL Br=0., Bt=0., Ez=0.;
+    REAL Bmag = _B0*(1.-exp(-t/_rise));
+    for(unsigned j=1; j<_harmonics+1; j++){
+        Br += -pow(-1.,j)*cos(0.5*(2.*j-1.)*alpha)/r
+                *pow(r/_rmfCoil,2.*j-1.)*cos(_omega*t+pow(-1.,j)*(2.*j-1.)*theta+_phase);
+        Bt += cos(0.5*(2.*j-1.)*alpha)/(2.*j-1.)/_rmfCoil
+                *pow(r/_rmfCoil,2.*j-2.)*sin(_omega*t+pow(-1.,j)*(2.*j-1.)*theta+_phase);
+        Ez += _omega*cos(0.5*(2.*j-1.)*alpha)/(2.*j-1.)
+                *pow(r/_rmfCoil,2.*j-1.)*cos(_omega*t+pow(-1.,j)*(2.*j-1.)*theta+_phase);
+    }
 
-//    REAL testvalue = 1.413716694115407e-05;
+    qBC[12] = Bmag*_rmfCoil*Ez;
+
+    qBC[13] = Bmag*_rmfCoil*Bt;
+    qBC[14] = Bmag*_rmfCoil*Br;
+
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
-    qBC[15] = newBz;
+    qBC[15] =  newBz;
     qBC[16] = -phi;
     qBC[17] =  psi;
 }
 
 // instantiations
-template class WxTwoFluidRMFBC<float>;
-template class WxTwoFluidRMFBC<double>;
+template class WxTwoFluidRMFWithHarmonicsBC<float>;
+template class WxTwoFluidRMFWithHarmonicsBC<double>;

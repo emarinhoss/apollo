@@ -1,9 +1,9 @@
-#include "wxtwofluidrmfbc.h"
+#include "aptwofluidsimplifiedrmfbc.h"
 #include <wxmath.h>
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
+APTwoFluidSimplifiedRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 {
   // call base class setup
   WxGridBC<REAL>::setup(wxc, dm);
@@ -25,11 +25,12 @@ WxTwoFluidRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
 
 template <typename REAL>
 void
-WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
+APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC)
 {
     REAL x = xc[1];
     REAL y = xc[2];
     REAL r = sqrt(x*x+y*y);
+    REAL theta = atan(y/x);
 
     // electrons
     qBC[0] = q[0];
@@ -67,15 +68,16 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
     // B-field
     // RMF
     REAL t = xc[0]; // current time
-    REAL Bt = 0.5*_B0*(1.-exp(-t/_rise));
-    REAL Bomega_x = Bt*cos(_omega*t+_phase)*x/r;
-    REAL Bomega_y = Bt*cos(_omega*t+_phase)*y/r;
+    REAL Bt = _B0*(1.-exp(-t/_rise));
 
-    REAL ez = 0.5*_B0*r*(-exp(-t/_rise)/_rise*cos(_omega*t+_phase)
-                         -_omega*(1.-exp(-t/_rise))*sin(_omega*t+_phase));
-    qBC[12] = ez;
-    qBC[13] = Bomega_x;
-    qBC[14] = Bomega_y;
+    REAL Br = -Bt*(sin(_omega*t+theta)+sin(_omega*t+theta+_pi/4.));
+    REAL Bc = -Bt*(cos(_omega*t+theta)+cos(_omega*t+theta+_pi/4.));
+
+    REAL Ez = Bt*r*_omega*(sin(_omega*t+theta)+sin(_omega*t+theta+_pi/4.));
+
+    qBC[12] = Ez;
+    qBC[13] = Br;
+    qBC[14] = Bc;
 
 //    REAL testvalue = 1.413716694115407e-05;
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
@@ -85,5 +87,5 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
 }
 
 // instantiations
-template class WxTwoFluidRMFBC<float>;
-template class WxTwoFluidRMFBC<double>;
+template class APTwoFluidSimplifiedRMFBC<float>;
+template class APTwoFluidSimplifiedRMFBC<double>;
