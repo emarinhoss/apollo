@@ -68,12 +68,12 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     // B-field
     // RMF
     REAL t = xc[0]; // current time
-    REAL Bt = _B0*(1.-exp(-t/_rise));
+    REAL Bt = 0.5*_B0*(1.-exp(-t/_rise));
 
-    REAL Br = -Bt*(sin(_omega*t+theta)+sin(_omega*t+theta+_pi/4.));
-    REAL Bc = -Bt*(cos(_omega*t+theta)+cos(_omega*t+theta+_pi/4.));
+    REAL Br =Bt*sin(_omega*t);
+    REAL Bc =Bt*cos(_omega*t);
 
-    REAL Ez = Bt*r*_omega*(sin(_omega*t+theta)+sin(_omega*t+theta+_pi/4.));
+    REAL Ez =r*(0.5*_B0*(-exp(-t/_rise))/_rise*cos(_omega*t)-Bt*_omega*sin(_omega*t));
 
     qBC[12] = Ez;
     qBC[13] = Br;

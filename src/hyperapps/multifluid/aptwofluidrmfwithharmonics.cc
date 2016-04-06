@@ -73,20 +73,20 @@ WxTwoFluidRMFWithHarmonicsBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *q
     // RMF
 
     REAL Br=0., Bt=0., Ez=0.;
-    REAL Bmag = _B0*(1.-exp(-t/_rise));
+    REAL Bmag = 0.5*_B0*(1.-exp(-t/_rise));
     for(unsigned j=1; j<_harmonics+1; j++){
-        Br += -pow(-1.,j)*cos(0.5*(2.*j-1.)*alpha)/r
+        Br += pow(-1.,j)*cos(0.5*(2.*j-1.)*alpha)/r
                 *pow(r/_rmfCoil,2.*j-1.)*cos(_omega*t+pow(-1.,j)*(2.*j-1.)*theta+_phase);
-        Bt += cos(0.5*(2.*j-1.)*alpha)/(2.*j-1.)/_rmfCoil
+        Bt += -cos(0.5*(2.*j-1.)*alpha)/(2.*j-1.)/_rmfCoil
                 *pow(r/_rmfCoil,2.*j-2.)*sin(_omega*t+pow(-1.,j)*(2.*j-1.)*theta+_phase);
-        Ez += _omega*cos(0.5*(2.*j-1.)*alpha)/(2.*j-1.)
+        Ez += -_omega*cos(0.5*(2.*j-1.)*alpha)/(2.*j-1.)
                 *pow(r/_rmfCoil,2.*j-1.)*cos(_omega*t+pow(-1.,j)*(2.*j-1.)*theta+_phase);
     }
 
     qBC[12] = Bmag*_rmfCoil*Ez;
 
-    qBC[13] = Bmag*_rmfCoil*Bt;
-    qBC[14] = Bmag*_rmfCoil*Br;
+    qBC[13] = Bmag*_rmfCoil*Br;
+    qBC[14] = Bmag*_rmfCoil*Bt;
 
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
     qBC[15] =  newBz;

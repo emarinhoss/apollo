@@ -138,6 +138,10 @@ WxCreator< Ap2DMomentumXfer<double>, WxHyperbolicSrc<double> > __2DMXfer_d("Mome
 WxCreator< ApConstantResistivity<float>, WxHyperbolicSrc<float> > __ConsRes_f("constantResistivity");
 WxCreator< ApConstantResistivity<double>, WxHyperbolicSrc<double> > __ConsRes_d("constantResistivity");
 
+#include "multifluid/apanisotropicresistivitysrc.h"
+WxCreator< ApAnisotropicResistivitySrc<float>, WxHyperbolicSrc<float> > __anisoRes_f("anisotropicResistivity");
+WxCreator< ApAnisotropicResistivitySrc<double>, WxHyperbolicSrc<double> > __anisoRes_d("anisotropicResistivity");
+
 // ------------------ Boundary Conditions --------------------------//
 #include "multifluid/wxtwofluidrmfbc.h"
 WxCreator< WxTwoFluidRMFBC<float>, ApSubSolver<float> > __tfrmfBC_f("twoFluidRMFBC");

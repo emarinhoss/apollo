@@ -68,8 +68,8 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
     // RMF
     REAL t = xc[0]; // current time
     REAL Bt = 0.5*_B0*(1.-exp(-t/_rise));
-    REAL Bomega_x = Bt*cos(_omega*t+_phase)*x/r;
-    REAL Bomega_y = Bt*cos(_omega*t+_phase)*y/r;
+    REAL Bomega_x = Bt*cos(_omega*t+_phase)*y/r;
+    REAL Bomega_y =-Bt*cos(_omega*t+_phase)*x/r;
 
     REAL ez = 0.5*_B0*r*(-exp(-t/_rise)/_rise*cos(_omega*t+_phase)
                          -_omega*(1.-exp(-t/_rise))*sin(_omega*t+_phase));
@@ -77,7 +77,6 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
     qBC[13] = Bomega_x;
     qBC[14] = Bomega_y;
 
-//    REAL testvalue = 1.413716694115407e-05;
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
     qBC[15] = newBz;
     qBC[16] = -phi;
