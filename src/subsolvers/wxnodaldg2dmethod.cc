@@ -463,10 +463,10 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             rhs[kne] = (vec_rhs[kne])/geoFacts[4];
 
         // compute \int q\cdot dA, add contribution from all elements
-        REAL elementArea = _geom->elementArea(kelem);
+//        REAL elementArea = _geom->elementArea(kelem);
         for(unsigned ar=0; ar<_meqn; ar++){
 //            REAL AA = AreaIntegrals[15];
-            TotalAreaInt[ar] += elementArea*AreaIntegrals[ar];
+            TotalAreaInt[ar] += AreaIntegrals[ar];
         }
     }
 

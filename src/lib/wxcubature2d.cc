@@ -468,12 +468,12 @@ WxCubature2d<REAL>::CalculateAreaIntegrals(REAL* xcoords, REAL* ycoords, REAL *S
 
     for(unsigned mm=0; mm<_meqn; mm++)
         for(unsigned kk=0; kk<_pts; kk++)
-            AreaInt[mm] += _w[kk]*Src[kk*_meqn+mm];
+            AreaInt[mm] += _w[kk]*Src[kk*_meqn+mm]*J[kk];
 
-    REAL AA = AreaInt[15];
+//    REAL AA = AreaInt[15];
 //    REAL AB = Src[15];
 //    REAL AC = J[0];
-    REAL tt = 0.0;
+//    REAL tt = 0.0;
 }
 
 // instantiations

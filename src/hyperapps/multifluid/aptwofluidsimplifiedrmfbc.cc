@@ -54,6 +54,8 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
 
     // Area integral \int B_z \cdot dA
     REAL intBzda = AreaInts[15];
+    if(intBzda==0.0)
+        intBzda = _pi*_a*_a*_baxial;
 
     // E-field
     REAL enorm = ex*nx[0] + ey*nx[1];
@@ -62,25 +64,21 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     qBC[10] = enorm*nx[0] - etang*nx[1];
     qBC[11] = enorm*nx[1] + etang*nx[0];
 
-//    qBC[10] = ex;
-//    qBC[11] = ey;
-
     // B-field
     // RMF
     REAL t = xc[0]; // current time
-    REAL Bt = 0.5*_B0*(1.-exp(-t/_rise));
+    REAL Bt = _B0*(1.-exp(-t/_rise));
 
-    REAL Br =Bt*sin(_omega*t);
-    REAL Bc =Bt*cos(_omega*t);
+    REAL Br =Bt*sin(_omega*t+_phase);
+    REAL Bc =Bt*cos(_omega*t+_phase);
 
-    REAL Ez =r*(0.5*_B0*(-exp(-t/_rise))/_rise*cos(_omega*t)-Bt*_omega*sin(_omega*t));
+    REAL Ez =r*(_B0*(-exp(-t/_rise))/_rise*cos(_omega*t+_phase)-Bt*_omega*sin(_omega*t+_phase));
 
     qBC[12] = Ez;
     qBC[13] = Br;
     qBC[14] = Bc;
 
-//    REAL testvalue = 1.413716694115407e-05;
-    REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
+    REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-0.5*intBzda/(_b*_b-_a*_a)/_pi;
     qBC[15] = newBz;
     qBC[16] = -phi;
     qBC[17] =  psi;

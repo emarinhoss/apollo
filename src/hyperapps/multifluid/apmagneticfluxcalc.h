@@ -42,10 +42,7 @@ public:
     bool integral(unsigned n, REAL *tx, REAL *q, REAL *qaux, REAL *s) {
         // assumes that q is [rho*u, rho*v, rho*w]
 
-        REAL B = q[0];
-
-        // compute source terms
-        s[0] = B;
+        s[0] = q[0];
 
         return true;
     }
