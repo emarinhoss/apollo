@@ -40,7 +40,7 @@ WxNodalDG2dMethod<REAL>::~WxNodalDG2dMethod() {
     delete _geom;
     delete _cub;
     delete _initFunc;
-    VecDestroy(&locU);
+//    VecDestroy(&locU);
 //    DMDestroy(&_dm);
 }
 
@@ -226,40 +226,43 @@ template <typename REAL>
 WxStepperStatus<REAL>
 WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
-    Vec local_out;
+    DM dataManage;
+    Vec local_out, local_in;
 
     // Apply Limiter
-    if(_haveLimiter){
-        applyLimiter(in,in);
-        isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
-    }
+//    if(_haveLimiter){
+//        applyLimiter(in,in);
+//        isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
+//    }
 
     WxStepperStatus<REAL> status;
 
-    PetscScalar *u;
+    const PetscScalar *u;
     PetscScalar *ot, *rhs;
     REAL maxSpeed=0.0;
 
+    // get data Manager
+    VecGetDM(in,&dataManage);
     // create local vector
-    DMGetLocalVector(_dm, &locU);
-    DMGetLocalVector(_dm, &local_out);
+    DMGetLocalVector(dataManage, &local_in);
+    DMGetLocalVector(dataManage, &local_out);
 
     // zero entries of the vectors that will be used to store
     // information
-    VecZeroEntries(locU);
-    VecZeroEntries(local_out);
+//    VecZeroEntries(local_in);
+//    VecZeroEntries(local_out);
 
     // get local values of the global vector in into locX
-    DMGlobalToLocalBegin(_dm, in, INSERT_VALUES, locU);
-    DMGlobalToLocalEnd(_dm, in, INSERT_VALUES, locU);
+    DMGlobalToLocalBegin(dataManage, in, INSERT_VALUES, local_in);
+    DMGlobalToLocalEnd(dataManage, in, INSERT_VALUES, local_in);
 
-    isInfinityOrNAN(locU, "NAN/INF in input Vector to DG step-function");
+//    isInfinityOrNAN(local_in, "NAN/INF in input Vector to DG step-function");
 
     // get first and last element number
     PetscInt kStart, kEnd, kEndInterior;
-    DMPlexGetHeightStratum(_dm, 0, &kStart, &kEnd);
-    DMPlexGetHybridBounds(_dm, &kEndInterior, NULL , NULL, NULL);
-    VecGetArray(locU, &u);
+    DMPlexGetHeightStratum(dataManage, 0, &kStart, &kEnd);
+    DMPlexGetHybridBounds(dataManage, &kEndInterior, NULL , NULL, NULL);
+    VecGetArrayRead(local_in, &u);
     VecGetArray(local_out, &ot);
 
     int NpE = _geom->NpElem(); // Number of nodes per Element
@@ -307,7 +310,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         }
 
         // Get node values for this element
-        DMPlexPointLocalRef(_dm, kelem, u, &qVal);
+        DMPlexPointLocalRead(dataManage, kelem, u, &qVal);
         for(unsigned kk=0; kk<NpE*_meqn; kk++)
             q_vol[kk] = qVal[kk];
 
@@ -338,6 +341,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             for(unsigned component=0; component<_meqn; component++)
                 Qvar[component] = Iq_vol[point*_meqn+component];
 
+            REAL AA = Qvar[15];
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
             _srcSet.sourceTerms(xc, Qvar, Qvaraux, _src);
@@ -348,7 +352,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                   If_vol[point*_meqn+component] = Fflux[component];
                   Ig_vol[point*_meqn+component] = Gflux[component];
                 ISrc_vol[point*_meqn+component] = _src[component];
-                Iarea_vol[point*_meqn+component] = _areaInts[component];
+               Iarea_vol[point*_meqn+component] = _areaInts[component];
             }
         }
 
@@ -357,7 +361,6 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         // Calculate the area integrals
         _cub->CalculateAreaIntegrals(xcoord,ycoord,Iarea_vol,AreaIntegrals);
-
 
         /** *******************************************************
          *  *******************************************************
@@ -405,7 +408,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             {
                 int plusElem = connect[2*edge];
                 // get the values on the element adjacent to this edge
-                DMPlexPointLocalRef(_dm, plusElem, u, &qVal);
+                DMPlexPointLocalRead(dataManage, plusElem, u, &qVal);
                 for(unsigned kk=0; kk<NpE*_meqn; kk++)
                     qtemp[kk] = qVal[kk];
 
@@ -458,28 +461,26 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         // Multiply by the inverse Mass Matrix
         _geom->multiplyBYinverseMassMatrix(volInt,vec_rhs);
 
-        DMPlexPointLocalRef(_dm,kelem,ot,&rhs);
+        DMPlexPointLocalRef(dataManage,kelem,ot,&rhs);
         for(unsigned kne=0; kne<NpE*_meqn; kne++)
-            rhs[kne] = (vec_rhs[kne])/geoFacts[4];
+            rhs[kne] = vec_rhs[kne]/geoFacts[4];
 
         // compute \int q\cdot dA, add contribution from all elements
 //        REAL elementArea = _geom->elementArea(kelem);
-        for(unsigned ar=0; ar<_meqn; ar++){
-//            REAL AA = AreaIntegrals[15];
+        for(unsigned ar=0; ar<_meqn; ar++)
             TotalAreaInt[ar] += AreaIntegrals[ar];
-        }
     }
 
-    VecRestoreArray(locU, &u);
+    VecRestoreArrayRead(local_in, &u);
     VecRestoreArray(local_out, &ot);
 
     isInfinityOrNAN(local_out, "NAN/INF encountered in RHS Vector of DG step-function.\n");
 
-    DMLocalToGlobalBegin(_dm, local_out, INSERT_VALUES, out);
-    DMLocalToGlobalEnd(_dm, local_out, INSERT_VALUES, out);
+    DMLocalToGlobalBegin(dataManage, local_out, INSERT_VALUES, out);
+    DMLocalToGlobalEnd(dataManage, local_out, INSERT_VALUES, out);
 
-    DMRestoreLocalVector(_dm, &locU);
-    DMRestoreLocalVector(_dm, &local_out);
+    DMRestoreLocalVector(dataManage, &local_in);
+    DMRestoreLocalVector(dataManage, &local_out);
 
     REAL newDt =  2./3.*_cfl*_geom->dtscale2D()*(_geom->rMin()/maxSpeed);
     status.setStatus(true);
@@ -487,6 +488,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // add the surface integral contributions from all processors
     REAL inValue, outValue;
+//    REAL AB = _AgregateAreaIntegral[15];
     for(unsigned numeq=0; numeq<_meqn; numeq++)
     {
         inValue = TotalAreaInt[numeq];
@@ -494,8 +496,10 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         _AgregateAreaIntegral[numeq] = outValue;
     }
 
-//    REAL AB = _AgregateAreaIntegral[15];
+//    REAL AC = _AgregateAreaIntegral[15];
+//    REAL AD = AC-AB;
     VecDestroy(&local_out);
+    VecDestroy(&local_in);
     return status;
 }
 

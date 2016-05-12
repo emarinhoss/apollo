@@ -22,11 +22,6 @@ public:
         // call base-class setup function
         ApAreaIntegral<REAL>::setup(wxc);
 
-        _pi = 3.141592653589793;
-        REAL radius = wxc.template get<REAL>("plasma_radius");
-
-        _area = _pi*radius*radius;
-
     }
 
 /**
@@ -40,15 +35,15 @@ public:
  * @param s area integral term
  */
     bool integral(unsigned n, REAL *tx, REAL *q, REAL *qaux, REAL *s) {
-        // assumes that q is [rho*u, rho*v, rho*w]
+        // assumes that q is [Bz]
 
-        s[0] = q[0];
+        REAL Bz = q[0];
+        s[0] = Bz;
 
         return true;
     }
 
 private:
-    REAL _pi, _area;
 
 };
 

@@ -40,9 +40,9 @@ if not conf.CheckLib('exodus'):
         print "You need exodus library to compile this program!"
         Exit(1)
 
-if not conf.CheckLib('MOAB'):
-        print "You need MOAB library to compile this program!"
-        Exit(1)        
+#if not conf.CheckLib('MOAB'):
+#        print "You need MOAB library to compile this program!"
+#        Exit(1)        
 
 #if not conf.CheckLib('exoIIv2for'):
 #        print "You need exodus library to compile this program!"

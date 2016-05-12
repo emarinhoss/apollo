@@ -145,7 +145,7 @@ class ApSolver : public WxSolverBase<REAL>
  *@param F	- function vector
  *@param ctx	- [optional] user-defined function context
  */
-    PetscErrorCode ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx);
+    PetscErrorCode ComputeRHSforTS(TS ts, PetscReal t, Vec u, Vec global_out, void *ctx);
 
   private:
 

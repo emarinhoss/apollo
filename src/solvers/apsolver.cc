@@ -441,14 +441,14 @@ ApSolver<REAL>::MonitorVTK(TS ts, PetscInt stepnum, PetscReal time, Vec X, void 
 
 template<typename REAL>
 PetscErrorCode
-ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
+ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec global_in,Vec global_out,void *ctx)
 {
-    // don't do anything if nothing to do
+    // Don't do anything if nothing to be done.
     if (_perStep.size() == 0) return 0;
 
     Vec X;
-    VecDuplicate(u,&X);
-    VecZeroEntries(F);
+    VecDuplicate(global_in,&X);
+    VecZeroEntries(global_out);
     WxStepperStatus<REAL> status;
 
     WxLogger *log = WxLogger::get("apollo-root.console");
@@ -467,9 +467,9 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec u,Vec F,void *ctx)
             debStrm << "  SubSolver " << *ssitr << std::endl;
             ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
             // take this step
-            status = ss->step(t,_dt_temp, u, X);
+            status = ss->step(t,_dt_temp, global_in, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
-            VecAXPY(F,1.0, X);
+            VecAXPY(global_out,1.0, X);
 //            REAL newdt = status.getSuggestedDt();
             _dt_temp = fmin(status.getSuggestedDt(),_dt_temp);
         }

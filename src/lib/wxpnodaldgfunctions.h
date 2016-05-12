@@ -272,6 +272,7 @@ nodalNaturalCoordinates(unsigned N, REAL *pr, REAL *ps, int *pFmask)
         WxLogger *log = WxLogger::get("apollo-root.console");
         WxLogStream infStrm = log->getInfoStream();
         infStrm << "** The polynomial order selected " << N << " is not valid. Max N should be 8." << std::endl;
+        exit(1); // abort execution
         break;
     }
 }
