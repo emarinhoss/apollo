@@ -4,7 +4,7 @@ import math
 
 PI = math.pi
 
-P_ORDER = 1
+P_ORDER = 2
 LIGHT = 1.0
 
 
@@ -21,11 +21,11 @@ LIGHT = 1.0
    Type = WxSolver
    Kind = comboSolver
 
-   Time = [0.0, PI] # start, end times
-   Output_files = 100 # no. of output files to write
+   Time = [0.0, 10.] # start, end times
+   Output_files = 1 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'square.msh'
+   Gridname = 'square3.msh'
    NumFields = 1
    
    # Check the partition

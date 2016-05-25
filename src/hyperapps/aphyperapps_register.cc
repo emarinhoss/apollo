@@ -49,6 +49,11 @@ WxCreator< WxEulerZeroGradientBC<double>, ApSubSolver<double> > __eZGBC_d("euler
 WxCreator< WxHestavenWarburtonEulerLimiter<float>, ApSubSolver<float> > __elimHW_f("eulerLimiterHW");
 WxCreator< WxHestavenWarburtonEulerLimiter<double>, ApSubSolver<double> > __elimHW_d("eulerLimiterHW");
 
+// ------------------ Source Terms --------------------------//
+#include "euler/aprmfelectronvelocitysrc.h"
+WxCreator< ApRMFelectronVelocitySrc<float>, WxHyperbolicSrc<float> > __rmfevsrc_f("rmfElectronVelSrc");
+WxCreator< ApRMFelectronVelocitySrc<double>, WxHyperbolicSrc<double> > __rmfevsrc_d("rmfElectronVelSrc");
+
 /**
  * Maxwell
  */

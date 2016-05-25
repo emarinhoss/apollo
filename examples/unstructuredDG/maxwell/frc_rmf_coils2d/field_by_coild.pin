@@ -89,8 +89,8 @@ OUT  = 100
 
    <boundary>
 		Type = ApSubSolver
-		#Kind = maxwellRMFHarmonicsBC
-		Kind = simplifiedRMFBC
+		Kind = maxwellRMFHarmonicsBC
+		#Kind = simplifiedRMFBC
 		#Kind = maxwellRMFBC
 
 		frequency = omega

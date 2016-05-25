@@ -9,3 +9,4 @@ src/build-debug/
 src/build-opt/
 /.project
 /.cproject
+/apollo.odg

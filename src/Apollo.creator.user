@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.0.1, 2015-11-07T13:37:55. -->
+<!-- Written by QtCreator 3.0.1, 2016-05-25T14:21:24. -->
 <qtcreator>
  <data>
   <variable>ProjectExplorer.Project.ActiveTarget</variable>
@@ -151,7 +151,7 @@
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments">-i frc2d.inp</value>
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Executable">/home/sousae/apollo/src/build-debug/apollo</value>
     <value type="bool" key="ProjectExplorer.CustomExecutableRunConfiguration.UseTerminal">false</value>
-    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.WorkingDirectory">/home/sousae/apollo/examples/unstructuredDG/multifluid/rmf_frc</value>
+    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.WorkingDirectory">/home/sousae/apollo/examples/unstructuredDG/multifluid/rmf_frc/heavyIons</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Run /home/sousae/apollo/src/build-debug/apollo</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.CustomExecutableRunConfiguration</value>
@@ -171,7 +171,7 @@
  </data>
  <data>
   <variable>ProjectExplorer.Project.Updater.EnvironmentId</variable>
-  <value type="QByteArray">{8c094930-371f-426a-bb3a-d1bb0d08ccc9}</value>
+  <value type="QByteArray">{a4c69557-58fc-4e8e-b1f5-05e1564f4c90}</value>
  </data>
  <data>
   <variable>ProjectExplorer.Project.Updater.FileVersion</variable>
