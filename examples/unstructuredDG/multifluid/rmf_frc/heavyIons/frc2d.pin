@@ -21,7 +21,7 @@ DIVE_SPEED = 1.0
 
 # RMF initialiation
 Bomega = 50.e-4   # T, rmf B-field
-Baxial =-60.e-4   # T, bias B-field
+Baxial =-00.e-4   # T, bias B-field
 omega  = 8.e5     # Hz, rmf frequency
 PHASE  = PI/2. 	  # rads
 RISE   = 3.0e-8   # sec
@@ -47,7 +47,7 @@ ELC_MIN_DENS = ME*MIN_DENS
 ION_MIN_DENS = MI*MIN_DENS
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.e-9 # seconds
+TEND = 1.e-8 # seconds
 OUT  = 10
 
 <warpx>
@@ -292,7 +292,7 @@ OUT  = 10
        OutRange = [  1,2]
 
        frequency = omega
-       radius = 0.0285
+       radius = 0.025
 
      </RMFsrc>
 

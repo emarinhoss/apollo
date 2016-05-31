@@ -54,13 +54,13 @@ class ApRMFelectronVelocitySrc : public WxHyperbolicSrc<REAL>
 
         //
         REAL rho = q[0];
-        REAL Vx  = q[1]/rho;
-        REAL Vy  = q[2]/rho;
+//        REAL Vx  = q[1]/rho;
+//        REAL Vy  = q[2]/rho;
 
 //        REAL Vr = Vx*cos(theta) + Vy*sin(theta);
-        REAL Vt =-Vx*sin(theta) + Vy*cos(theta);
+//        REAL Vt =-Vx*sin(theta) + Vy*cos(theta);
 
-        REAL Vel = _omega*r - Vt;
+        REAL Vel = _omega*r;
 
         if(r>_r0){
             s[0] =-Vel*sin(theta)*rho;
