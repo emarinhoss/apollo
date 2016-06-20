@@ -109,6 +109,9 @@ WxCreator< WxTransverseMagneticSrc<double>, WxHyperbolicSrc<double> > __tmsrc_d(
 WxCreator< WxpointCurrentSrc<float>, WxHyperbolicSrc<float> > __pcsrc_f("pointCurrentSrc");
 WxCreator< WxpointCurrentSrc<double>, WxHyperbolicSrc<double> > __pcsrc_d("pointCurrentSrc");
 
+#include "maxwell/aprmfsrc.h"
+WxCreator< ApRMFSrc<float>, WxHyperbolicSrc<float> > __aprmfsrc_f("maxwellRMFSrc");
+WxCreator< ApRMFSrc<double>, WxHyperbolicSrc<double> > __aprmfsrc_d("maxwellRMFSrc");
 
 /**
  * Multifluid sources, initializations, boundary conditions, and more.
