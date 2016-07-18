@@ -78,8 +78,8 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     qBC[13] =-Br;
     qBC[14] =-Bc;
 
-    REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
-    qBC[15] = q[15];
+    REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a);//-intBzda/(_b*_b-_a*_a)/_pi;
+    qBC[15] = newBz;
     qBC[16] = -phi;
     qBC[17] =  psi;
 }

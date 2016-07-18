@@ -377,3 +377,5 @@ subsolvers/wxpgd2dscheme.h
 xapollo/apsimulation.cc
 xapollo/apsimulation.h
 xapollo/xapollo.cc
+hyperapps/euler/aprmfelectronvelocitysrc.h
+hyperapps/maxwell/aprmfsrc.h

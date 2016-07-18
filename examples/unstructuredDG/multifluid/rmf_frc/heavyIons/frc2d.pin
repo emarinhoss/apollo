@@ -5,7 +5,7 @@ PI = math.pi
 MP = 1.67e-27 # [kg] ion mass
 MI = 131*MP # hydrogen
 #MI = 39.981*1.6605390402e-27 # Argon
-mass_ratio = 100
+mass_ratio = 1836
 ME = MP/mass_ratio
 Q = 1.6e-19 # [C] charge
 GAMMA = 1.66666666667
@@ -21,12 +21,12 @@ DIVE_SPEED = 1.0
 
 # RMF initialiation
 Bomega = 50.e-4   # T, rmf B-field
-Baxial = 40.e-4   # T, bias B-field
-omega  = 8.e5     # Hz, rmf frequency
+Baxial = 60.e-4   # T, bias B-field
+omega  = 5.5e5     # Hz, rmf frequency
 PHASE  = PI/2. 	  # rads
 RISE   = 3.0e-8   # sec
 
-ETA    = 5.e-5	  # Ohm-m
+ETA    = 1.e-5	  # Ohm-m
 HARMONICS = 10
 RAD_PLASMA= 0.030
 RAD_COIL  = 0.036
@@ -35,7 +35,7 @@ RAD_fluxCo= 0.035
 # Plasma
 Te = 10.          # eV, electron temperature
 Temp = Te*Q/BOLTZ # K, temperature in Kelvin
-n_dens = 1.e19    # m^-3, number density
+n_dens = 1.e20    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
 # compute minimum density and pressure
@@ -47,12 +47,12 @@ ELC_MIN_DENS = ME*MIN_DENS
 ION_MIN_DENS = MI*MIN_DENS
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.e-7 # seconds
+TEND = 1.e-6 # seconds
 OUT  = 10
 
 <warpx>
 
- ##
+ ##silv
  # Basic parameters
  ##
  Simulation = frc2d
@@ -67,7 +67,7 @@ OUT  = 10
    Output_files = OUT # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'optimizedCircle.msh'
+   Gridname = 'optimizedCircle2.msh'
    NumFields = 1
    
    # Check the partition
@@ -77,7 +77,7 @@ OUT  = 10
 	
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
-	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] #, RMFsrc, Resistivity] #Friction/Resistivity
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] # RMFsrc, Friction/Resistivity
 	   AreaIntegrals = [fluxConservation]
 	
 	   polynomialOrder = P_ORDER

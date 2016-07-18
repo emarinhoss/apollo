@@ -20,22 +20,22 @@ DIVB_SPEED = 1.0
 DIVE_SPEED = 1.0
 
 # RMF initialiation
-Bomega = 10.e-4   # T, rmf B-field
-Baxial = 30.e-4   # T, bias B-field
-omega  = 2.2e6    # Hz, rmf frequency
-PHASE  = PI/4.    # rads
+Bomega = 50.e-4   # T, rmf B-field
+Baxial = 60.e-4   # T, bias B-field
+omega  = 5.5e5     # Hz, rmf frequency
+PHASE  = PI/2. 	  # rads
 RISE   = 3.0e-8   # sec
 
-ETA    = 25.e-6  # Ohm-m
+ETA    = 5.e-5	  # Ohm-m
 HARMONICS = 10
 RAD_PLASMA= 0.030
-RAD_COIL  = 0.050
+RAD_COIL  = 0.036
 RAD_fluxCo= 0.035
 
 # Plasma
-Te = 5.          # eV, electron temperature
+Te = 10.          # eV, electron temperature
 Temp = Te*Q/BOLTZ # K, temperature in Kelvin
-n_dens = 1.e19    # m^-3, number density
+n_dens = 1.e20    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
 
 # compute minimum density and pressure
@@ -52,7 +52,7 @@ OUT  = 10
 
 <warpx>
 
- ##
+ ##silv
  # Basic parameters
  ##
  Simulation = frc2d
@@ -77,7 +77,7 @@ OUT  = 10
 	
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
-	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Friction] #Friction
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] # RMFsrc, Friction/Resistivity
 	   AreaIntegrals = [fluxConservation]
 	
 	   polynomialOrder = P_ORDER
@@ -96,8 +96,14 @@ OUT  = 10
          p0  = Pe
          Tt  = Temp
          Bz  = Baxial
+         rds = 0.02
+         beta= 8.e3
 
-         progn = ["rhoe = num_dens*me", \
+         progn = ["r = sqrt(x*x+y*y)", \
+                  "gaus = exp(-beta*r*r)", \
+                  "mval = exp(-beta*rds*rds)", \
+                  "value = if(r>rds,gaus/mval,1.)", \
+                  "rhoe = num_dens*me", \
                   "rhoi = num_dens*mi", \
                   "energy= p0/gm1"]
 
@@ -278,12 +284,26 @@ OUT  = 10
 
      </Resistivity>
 
+     <RMFsrc>
+       Type = WxHyperbolicSrc
+       #Kind = rmfElectronVelSrc
+       Kind = maxwellRMFSrc
+
+       #InpRange = [0,1,2]
+       OutRange = [12,13,14]
+
+       frequency = omega
+       radius = 0.025
+       B_rmf = Bomega
+       phase = PHASE
+       rise_time = RISE
+
+     </RMFsrc>
+
      # Flux conservation ring
      <fluxConservation>
        Type = ApAreaIntegral
        Kind = MagneticFlux
-
-       plasma_radius = RAD_PLASMA
 
        InpRange = [15]
        OutRange = [15]
