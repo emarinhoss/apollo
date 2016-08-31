@@ -1327,10 +1327,134 @@ WxEulerEqn<REAL>::
 primitiveVariables(REAL *qCons, REAL *qPrim)
 {
     qPrim[0] = qCons[0];
+    if(qPrim[0]<=0.){
+        if(_minDens>0.0){
+            qCons[0] = _minDens;
+            qPrim[0] = _minDens;
+        }
+        else{
+            WxLogger::get("apollo-root.console")->
+                    error("*** Zero/Negative density in Euler primitive values calculation \n");
+            exit(1); // abort execution
+        }
+    }
     qPrim[1] = qCons[1]/qCons[0];
     qPrim[2] = qCons[2]/qCons[0];
     qPrim[3] = qCons[3]/qCons[0];
     qPrim[4] = (_gas_gamma-1.)*(qCons[4]-0.5*(qCons[1]*qCons[1]+qCons[2]*qCons[2]+qCons[3]*qCons[3])/qCons[0]);
+    if(qPrim[4]<=0.){
+        if(_minPres>0.){
+            qPrim[4] = _minPres;
+            qCons[4] = _minPres/(_gas_gamma-1.)+0.5*qPrim[0]*(qPrim[1]*qPrim[1]+qPrim[2]*qPrim[2]+qPrim[3]*qPrim[3]);
+        }
+        else
+        {
+            WxLogger::get("apollo-root.console")->
+                    error("*** Zero/Negative pressure in Euler primitive values calculation \n");
+            exit(1); // abort execution
+
+        }
+    }
+}
+
+
+template<typename REAL>
+void
+WxEulerEqn<REAL>::
+limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues)
+{
+    REAL Lrho, Lrhou, Lrhov, Lrhow, LEner, Lp;
+
+    REAL averho = avgPrim[0];
+    REAL aveu = avgPrim[1];
+    REAL avev = avgPrim[2];
+    REAL avew = avgPrim[3];
+    REAL avep = avgPrim[4];
+
+    REAL drho = dGrads[0];
+    REAL du = dGrads[1];
+    REAL dv = dGrads[2];
+    REAL dw = dGrads[3];
+    REAL dp = dGrads[4];
+
+    Lrho = averho + drho;
+    if(Lrho<_minDens)
+    {
+        for(unsigned riter=0; riter<4; riter++)
+        {
+            drho *= 0.5;
+            Lrho = averho + drho;
+            if (Lrho>_minDens)
+                break;
+            else if(riter==3)
+              Lrho = avgCons[0];
+        }
+    }
+
+    // Reconstruct momentum
+    Lrhou = avgCons[1] + averho*du + drho*aveu;
+    Lrhov = avgCons[2] + averho*dv + drho*avev;
+    Lrhow = avgCons[3] + averho*dw + drho*avew;
+
+    // Reconstruct energy
+    REAL dEner = dp/(_gas_gamma-1.) + 0.5*drho*(aveu*aveu+avev*avev+avew*avew)
+            + averho*(aveu*du+avev*dv+avew*dw);
+    LEner = avgCons[4] + dEner;
+    // Check for negative pressures => zero gradient
+    Lp = (_gas_gamma-1.)*(LEner - 0.5*(Lrhou*Lrhou + Lrhov*Lrhov + Lrhow*Lrhow)/Lrho);
+
+    if(Lp<_minPres)
+    {
+        for(unsigned piter=0; piter<4; piter++)
+        {
+            dp *= 0.5;
+            dEner = dp/(_gas_gamma-1.) + 0.5*drho*(aveu*aveu+avev*avev+avew*avew)
+                                + averho*(aveu*du+avev*dv+avew*dw);
+            LEner = avgCons[4] + dEner;
+            Lp = (_gas_gamma-1.)*(LEner - 0.5*(Lrhou*Lrhou + Lrhov*Lrhov + Lrhow*Lrhow)/Lrho);
+            if (Lp>_minPres)
+                break;
+            else if(piter==3)
+            {
+                LEner = avep/(_gas_gamma-1.) + 0.5*(Lrhou*Lrhou+Lrhov*Lrhov+Lrhow*Lrhow)/Lrho;
+            }
+        }
+    }
+
+    limitedValues[0] = Lrho;
+    if(Lrho!=Lrho){
+        WxLogger::get("apollo-root.console")->
+          error("*** NaN density in Euler limiter");
+        exit(1); // abort execution
+    }
+
+    limitedValues[1] = Lrhou;
+    if(Lrhou!=Lrhou){
+        WxLogger::get("apollo-root.console")->
+          error("*** NaN u-velocity in Euler limiter");
+        exit(1); // abort execution
+    }
+
+    limitedValues[2] = Lrhov;
+    if(Lrhov!=Lrhov){
+        WxLogger::get("apollo-root.console")->
+          error("*** NaN v-velocity in Euler limiter");
+        exit(1); // abort execution
+    }
+
+    limitedValues[3] = Lrhow;
+    if(Lrho!=Lrho){
+        WxLogger::get("apollo-root.console")->
+          error("*** NaN w-velocity in Euler limiter");
+        exit(1); // abort execution
+    }
+
+    limitedValues[4] = LEner;
+    if(LEner!=LEner){
+        WxLogger::get("apollo-root.console")->
+          error("*** NaN energy in Euler limiter");
+        exit(1); // abort execution
+    }
 }
 
 // instantiations

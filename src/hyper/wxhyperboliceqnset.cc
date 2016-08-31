@@ -453,6 +453,7 @@ eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev)
     mloc += meqn;
   }
 }
+
 template <typename REAL>
 void
 WxHyperbolicEqnSet<REAL>::
@@ -483,6 +484,80 @@ setIndices(int idx[3])
     (*i)->setIndices(idx);
   }
 }
+
+template <typename REAL>
+void
+WxHyperbolicEqnSet<REAL>::
+computeConservedAndPrimitiveAVEVariables(int kNodes, PetscScalar *qIn, REAL *AVE, REAL *qCons, REAL *qPrim)
+{
+    unsigned mloc = 0;
+    unsigned meqn;
+
+    // zero entry values for summation
+    for(unsigned k=0; k<_meqn; k++)
+        qCons[k] = 0.;
+
+    // calculate the average conserved variables
+    for(unsigned variables=0; variables<_meqn; variables++)
+        for(unsigned nodes=0; nodes<kNodes; nodes++)
+            qCons[variables] += AVE[nodes]*qIn[nodes*_meqn+variables];
+
+    // loop over each equation system, computing fluxes. Fluxes from
+    // each equation are accumulated to compute the full flux
+    typename std::vector<WxHyperbolicEqn<REAL>* >::const_iterator i;
+    for (i=_eqnSys.begin(); i!=_eqnSys.end(); ++i)
+    {
+      meqn = (*i)->meqn();
+      // call flux for the equation
+      (*i)->primitiveVariables(qCons+mloc,qPrim+mloc);
+
+      // move location pointer
+      mloc += meqn;
+    }
+}
+
+template<typename REAL>
+void
+WxHyperbolicEqnSet<REAL>::getPrimitiveVariable(REAL *qCons, REAL *qPrim)
+{
+  unsigned mloc = 0;
+  unsigned meqn;
+
+  // loop over each equation system, computing primitives. Primitives from
+  // each equation are accumulated to compute the full vector of primitives.
+  typename std::vector<WxHyperbolicEqn<REAL>* >::const_iterator i;
+  for (i=_eqnSys.begin(); i!=_eqnSys.end(); ++i)
+  {
+    meqn = (*i)->meqn();
+    // call flux for the equation
+    (*i)->primitiveVariables(qCons+mloc, qPrim+mloc);
+
+    // move location pointer
+    mloc += meqn;
+  }
+}
+
+template<typename REAL>
+void
+WxHyperbolicEqnSet<REAL>::tuAndAliabadiLimiter(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues)
+{
+  unsigned mloc = 0;
+  unsigned meqn;
+
+  // loop over each equation system, computing fluxes. Fluxes from
+  // each equation are accumulated to compute the full flux
+  typename std::vector<WxHyperbolicEqn<REAL>* >::const_iterator i;
+  for (i=_eqnSys.begin(); i!=_eqnSys.end(); ++i)
+  {
+    meqn = (*i)->meqn();
+    // call flux for the equation
+    (*i)->limiterTuAndAliabadi(avgCons+mloc, avgPrim+mloc, dGrads+mloc, limitedValues+mloc);
+
+    // move location pointer
+    mloc += meqn;
+  }
+}
+
 // instantiations
 template class WxHyperbolicEqnSet<float>;
 template class WxHyperbolicEqnSet<double>;

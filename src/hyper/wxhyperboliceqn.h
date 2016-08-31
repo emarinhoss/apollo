@@ -350,6 +350,27 @@ class WxHyperbolicEqn : public WxObject
 
     void getIndices(int idx[3]);
 
+    /**
+     * Calculate the primitive variables from the conserved variables
+     *
+     * @param qCons [in] conserved variables
+     * @param qPrim [out] primitive variables
+     *
+     */
+
+    virtual void primitiveVariables(REAL *qCons, REAL *qPrim);
+
+    /**
+     * Limit quantities using the Tu and Aliabadi limiter
+     *
+     * @param avgCons [in] average of the conservative variables
+     * @param avgPrim [in] average of the primitive variables
+     * @param dGrads  [in] gradients
+     * @param limitedValues [out] positivity enforced values
+     *
+     */
+    virtual void limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues);
+
 
   private:
 /** Name of equation system */
@@ -360,7 +381,7 @@ class WxHyperbolicEqn : public WxObject
     REAL _xr[3];
 /** cell face vectors */
 	REAL _norm[3], _tan1[3], _tan2[3];
-	/** cell indices 	 */
+/** cell indices 	 */
 	int _idx[3];
 };
 

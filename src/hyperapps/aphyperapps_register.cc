@@ -174,3 +174,12 @@ WxCreator< WxTwoFluidRMFWithHarmonicsBC<double>, ApSubSolver<double> > __tfrmfwh
 #include "multifluid/aptwofluidsimplifiedrmfbc.h"
 WxCreator< APTwoFluidSimplifiedRMFBC<float>, ApSubSolver<float> > __tfsrmfBC_f("twoFluidSimplifiedRMFBC");
 WxCreator< APTwoFluidSimplifiedRMFBC<double>, ApSubSolver<double> > __tfsrmfBC_d("twoFluidSimplifiedRMFBC");
+
+#include "multifluid/aptwofluidomfbc.h"
+WxCreator< APTwoFluidOMFBC<float>, ApSubSolver<float> > __tfomfBC_f("twoFluidOMFBC");
+WxCreator< APTwoFluidOMFBC<double>, ApSubSolver<double> > __tfomfBC_d("twoFluidOMFBC");
+
+// ------------------ Limiters --------------------------//
+#include "multifluid/aptualiabadilimiter.h"
+WxCreator< WxTuAliabadiLimiter<float>, ApSubSolver<float> > __taalim_f("tuAliabadiLimiter");
+WxCreator< WxTuAliabadiLimiter<double>, ApSubSolver<double> > __taalim_d("tuAliabadiLimiter");

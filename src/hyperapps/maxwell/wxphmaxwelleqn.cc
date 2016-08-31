@@ -719,7 +719,39 @@ eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev)
   lev[7][6] = 1./2.;
   lev[7][7] = 0.;
 
-} 
+}
+
+template<typename REAL>
+void
+WxPHMaxwellEqn<REAL>::
+primitiveVariables(REAL *qCons, REAL *qPrim)
+{
+    qPrim[0] = qCons[0];
+    qPrim[1] = qCons[1];
+    qPrim[2] = qCons[2];
+    qPrim[3] = qCons[3];
+    qPrim[4] = qCons[4];
+    qPrim[5] = qCons[5];
+    qPrim[6] = qCons[6];
+    qPrim[7] = qCons[7];
+}
+
+template<typename REAL>
+void
+WxPHMaxwellEqn<REAL>::
+limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues)
+{
+
+    limitedValues[0] = avgPrim[0];
+    limitedValues[1] = avgPrim[1];
+    limitedValues[2] = avgPrim[2];
+    limitedValues[3] = avgPrim[3];
+    limitedValues[4] = avgPrim[4];
+    limitedValues[5] = avgPrim[5];
+    limitedValues[6] = avgPrim[6];
+    limitedValues[7] = avgPrim[7];
+
+}
 
 // instantiations
 template class WxPHMaxwellEqn<float>;

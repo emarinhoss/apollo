@@ -116,6 +116,26 @@ class WxPHMaxwellEqn : public WxHyperbolicEqn<REAL>
  */
     void eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev);
 
+
+/** Compute the primitive variables
+ *
+ * @param qCons [in] Conserved Variables
+ * @param qPrim [out] Primitive Variables
+ */
+    void primitiveVariables(REAL *qCons, REAL *qPrim);
+
+
+/**
+ * Limit quantities using the Tu and Aliabadi limiter
+ *
+ * @param avgCons [in] average of the conservative variables
+ * @param avgPrim [in] average of the primitive variables
+ * @param dGrads  [in] gradients
+ * @param limitedValues [out] positivity enforced values
+ *
+ */
+    void limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues);
+
   private:
     REAL _c0, _chi, _gamma;
 };

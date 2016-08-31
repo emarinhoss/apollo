@@ -113,6 +113,16 @@ WxHyperbolicEqn<REAL>::DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *
 
 template <typename REAL>
 void
+WxHyperbolicEqn<REAL>::primitiveVariables(REAL *qCons, REAL *qPrim)
+{
+  WxExcept wxe;
+  wxe << "Primitive function primitiveVariables() of equation system " << _name
+      << " not implemented." << std::endl;
+  throw wxe;
+}
+
+template <typename REAL>
+void
 WxHyperbolicEqn<REAL>::DGLimiterTrigger(REAL *qIn, REAL *qOut)
 {
   WxExcept wxe;
@@ -196,6 +206,17 @@ WxHyperbolicEqn<REAL>::eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, RE
   // throw an exception if called and derived class does not define it
   WxExcept wxe;
   wxe << "Eigensystem function eigenSystem() of equation system " << _name
+      << " not implemented." << std::endl;
+  throw wxe;
+}
+
+template <typename REAL>
+void
+WxHyperbolicEqn<REAL>::limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues)
+{
+  // throw an exception if called and derived class does not define it
+  WxExcept wxe;
+  wxe << "Tu and Aliabadi Limiter function tuAndAliabadiLimiter() of equation system " << _name
       << " not implemented." << std::endl;
   throw wxe;
 }

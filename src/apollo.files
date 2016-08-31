@@ -379,3 +379,11 @@ xapollo/apsimulation.h
 xapollo/xapollo.cc
 hyperapps/euler/aprmfelectronvelocitysrc.h
 hyperapps/maxwell/aprmfsrc.h
+hyperapps/multifluid/apelectricdischargebc.h
+hyperapps/multifluid/apelectricdischargebc.cc
+hyperapps/multifluid/apdischargecollisionsrc.h
+hyperapps/multifluid/aptualiabadilimiter.h
+hyperapps/multifluid/aptualiabadilimiter.cc
+hyperapps/multifluid/SConscript
+hyperapps/multifluid/aptwofluidomfbc.h
+hyperapps/multifluid/aptwofluidomfbc.cc

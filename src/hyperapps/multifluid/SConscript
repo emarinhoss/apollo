@@ -17,6 +17,8 @@ sources = [
            'aptwofluidrmfantennabc.cc',
            'aptwofluidrmfwithharmonics.cc',
            'aptwofluidsimplifiedrmfbc.cc',
+           'aptualiabadilimiter.cc',
+           'aptwofluidomfbc.cc',
             ]
 
 ##

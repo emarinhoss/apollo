@@ -180,6 +180,38 @@ class WxHyperbolicEqnSet : public WxObject
     void calulateRHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *q, REAL *dq, REAL *rhs);
 
 /**
+ * Calculate the average values for the conserved and the primitive variables
+ *
+ * @param kNodes [in] number of nodes per element
+ * @param qIn [in] input conserved variables
+ * @param AVE {in] matrix to calculate the average
+ * @param qCons [out] average conserved variables
+ * @param qPrim [out] average primitive variables
+ *
+ */
+    void computeConservedAndPrimitiveAVEVariables(int kNodes, PetscScalar *qIn, REAL *AVE, REAL *qCons, REAL *qPrim);
+
+/**
+ * Calculate the primitive values from the conserved ones
+ *
+ * @param qIn [in] input conserved variables
+ * @param qPrim [out] primitive variables
+ *
+ */
+    void getPrimitiveVariable(REAL *qCons, REAL *qPrim);
+
+/**
+ * Limit quantities using the Tu and Aliabadi limiter
+ *
+ * @param avgCons [in] average of the conservative variables
+ * @param avgPrim [in] average of the primitive variables
+ * @param dGrads  [in] gradients
+ * @param limitedValues [out] positivity enforced values
+ *
+ */
+    void tuAndAliabadiLimiter(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedValues);
+
+/**
  * Solves the Reimann problem for individual systems and assembles
  * them into a larger system.
  */

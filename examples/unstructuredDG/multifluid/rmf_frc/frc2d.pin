@@ -4,7 +4,8 @@ PI = math.pi
 
 MP = 1.67e-27 # [kg] ion mass
 MI = MP # hydrogen
-#MI = 39.981*1.6605390402e-27 # Argon
+#MI = 39.948*MP # Argon
+#MI = 131.293*MP # Xenon
 mass_ratio = 1836
 ME = MP/mass_ratio
 Q = 1.6e-19 # [C] charge
@@ -22,18 +23,18 @@ DIVE_SPEED = 1.0
 # RMF initialiation
 Bomega = 50.e-4   # T, rmf B-field
 Baxial = 60.e-4   # T, bias B-field
-omega  = 5.5e5     # Hz, rmf frequency
+omega  = 7.95e5   # Hz, rmf frequency
 PHASE  = PI/2. 	  # rads
 RISE   = 3.0e-8   # sec
 
-ETA    = 5.e-5	  # Ohm-m
+ETA    = 0.5e-5	  # Ohm-m
 HARMONICS = 10
 RAD_PLASMA= 0.030
 RAD_COIL  = 0.036
 RAD_fluxCo= 0.035
 
 # Plasma
-Te = 10.          # eV, electron temperature
+Te = 30.          # eV, electron temperature
 Temp = Te*Q/BOLTZ # K, temperature in Kelvin
 n_dens = 1.e20    # m^-3, number density
 Pe = n_dens*BOLTZ*Temp
@@ -77,7 +78,7 @@ OUT  = 10
 	
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
-	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] # RMFsrc, Friction/Resistivity
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] #  Friction/Resistivity
 	   AreaIntegrals = [fluxConservation]
 	
 	   polynomialOrder = P_ORDER
@@ -116,7 +117,7 @@ OUT  = 10
                      "0.0", \
                      "0.0", \
                      "0.0", \
-                     "energy", \
+                     "0.1*energy", \
                      "0.0", \
                      "0.0", \
                      "0.0", \
@@ -284,22 +285,6 @@ OUT  = 10
 
      </Resistivity>
 
-     <RMFsrc>
-       Type = WxHyperbolicSrc
-       #Kind = rmfElectronVelSrc
-       Kind = maxwellRMFSrc
-
-       #InpRange = [0,1,2]
-       OutRange = [12,13,14]
-
-       frequency = omega
-       radius = 0.025
-       B_rmf = Bomega
-       phase = PHASE
-       rise_time = RISE
-
-     </RMFsrc>
-
      # Flux conservation ring
      <fluxConservation>
        Type = ApAreaIntegral
@@ -316,17 +301,18 @@ OUT  = 10
 		Type = ApSubSolver
     	#Kind = twoFluidRMFHarmonicsBC
     	Kind = twoFluidSimplifiedRMFBC
-		#Kind = twoFluidRMFBC
+		  #Kind = twoFluidRMFBC
+      #Kind = twoFluidOMFBC
 
-		frequency = omega
-		B_axial = Baxial
-		B_rmf = Bomega
-		phase = PHASE
-		rise_time = RISE
-		plasma_radius = RAD_PLASMA
-		flux_conserver_radius = RAD_fluxCo
-    numberOfHarmonics = HARMONICS
-    coilRadius = RAD_COIL
+		  frequency = omega
+		  B_axial = Baxial
+		  B_rmf = Bomega
+		  phase = PHASE
+		  rise_time = RISE
+		  plasma_radius = RAD_PLASMA
+		  flux_conserver_radius = RAD_fluxCo
+      numberOfHarmonics = HARMONICS
+      coilRadius = RAD_COIL
 		
 	</coil1>
 	
