@@ -48,7 +48,7 @@ ELC_MIN_DENS = ME*MIN_DENS
 ION_MIN_DENS = MI*MIN_DENS
 
 TIME = 2.*PI/omega # seconds
-TEND = 1.e-6 # seconds
+TEND = 2.e-6 # seconds
 OUT  = 10
 
 <warpx>
@@ -79,7 +79,8 @@ OUT  = 10
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
 	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] #  Friction/Resistivity
-	   AreaIntegrals = [fluxConservation]
+	   #AreaIntegrals = [fluxConservation]
+     #Limiter = [twoFluidLimiter]
 	
 	   polynomialOrder = P_ORDER
 	   cfl = 1.0/((2.*(P_ORDER+1)-1))
@@ -117,7 +118,7 @@ OUT  = 10
                      "0.0", \
                      "0.0", \
                      "0.0", \
-                     "0.1*energy", \
+                     "energy/2.", \
                      "0.0", \
                      "0.0", \
                      "0.0", \
@@ -315,6 +316,45 @@ OUT  = 10
       coilRadius = RAD_COIL
 		
 	</coil1>
+
+  <twoFluidLimiter>
+    Type = ApSubSolver
+    Kind = tuAliabadiLimiter
+
+    Equations = [eulerE,eulerE,maxwell]
+
+      <eulerE>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        minPressure = ELC_MIN_PRES
+        minDensity = ELC_MIN_DENS
+
+      </eulerE>
+
+      <eulerE>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        minPressure = ION_MIN_PRES
+        minDensity = ION_MIN_DENS
+
+      </eulerE>
+
+      <maxwell>
+        Type = WxHyperbolicEqn
+        Kind = phMaxwellEqn
+
+        c0 = LIGHT
+        gamma = DIVB_SPEED # error propagation speed for div(B)
+        chi = DIVE_SPEED
+      </maxwell>
+
+
+    boundaryConditions = [coil1]
+  </twoFluidLimiter>
 	
    <stepHyper>
       Type = WxSubSolverStep

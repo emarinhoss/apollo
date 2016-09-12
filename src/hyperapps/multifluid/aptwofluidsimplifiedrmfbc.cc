@@ -53,9 +53,9 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     REAL psi= q[17];
 
     // Area integral \int B_z \cdot dA
-    REAL intBzda = AreaInts[15];
-    if(intBzda==0.0)
-        intBzda = _pi*_a*_a*_baxial;
+//    REAL intBzda = AreaInts[15];
+//    if(intBzda==0.0)
+//        intBzda = _pi*_a*_a*_baxial;
 
     // E-field
     REAL enorm = ex*nx[0] + ey*nx[1];
