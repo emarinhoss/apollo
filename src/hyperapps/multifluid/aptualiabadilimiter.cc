@@ -412,6 +412,9 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
     VecRestoreArrayRead(local_in, &u);
     VecRestoreArray(local_out, &v);
 
+//    isInfinityOrNAN(local_in,"Limiter in NAN/INF");
+//    isInfinityOrNAN(local_out,"Limiter in NAN/INF");
+
     DMLocalToGlobalBegin(_dm, local_out, INSERT_VALUES, q_limited);
     DMLocalToGlobalEnd(_dm, local_out, INSERT_VALUES, q_limited);
 
@@ -431,6 +434,23 @@ WxTuAliabadiLimiter<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL 
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _bcSubSolvers.at(bcNum-1) );
     // cast this to the a grid BC and call step function
     dynamic_cast<WxGridBC<REAL>* >(ss)->applyToArray(xc,nx,q,qaux,AreaInts,qBC);
+}
+
+template <typename REAL>
+PetscErrorCode
+WxTuAliabadiLimiter<REAL>::isInfinityOrNAN(Vec f, std::string location)
+{
+    PetscReal fnorm;
+    VecNormBegin(f,NORM_2,&fnorm);	/* fnorm <- ||F||  */
+    VecNormEnd(f,NORM_2,&fnorm);
+    if (PetscIsInfOrNanReal(fnorm))
+    {
+        WxLogger *l = WxLogger::get("apollo-root.console");
+        WxLogStream errStrm = l->getErrorStream();
+        errStrm << location ;
+        exit(1); // abort execution
+    }
+    return 0;
 }
 
 // instantiations

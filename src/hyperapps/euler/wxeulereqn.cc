@@ -1327,37 +1327,17 @@ WxEulerEqn<REAL>::
 primitiveVariables(REAL *qCons, REAL *qPrim)
 {
     qPrim[0] = qCons[0];
-    if(qPrim[0]<=0.)
-//    {
-//        if(_minDens>0.0){
-//            qCons[0] = _minDens;
-//            qPrim[0] = _minDens;
-//        }
-//        else
-    {
-            WxLogger::get("apollo-root.console")->
-                    error("*** Zero/Negative density in Euler primitive values calculation \n");
-            exit(1); // abort execution
-    }
-//    }
+    if(qPrim[0]<=0.){
+        qCons[0] = _minDens;
+        qPrim[0] = _minDens;}
+
     qPrim[1] = qCons[1]/qCons[0];
     qPrim[2] = qCons[2]/qCons[0];
     qPrim[3] = qCons[3]/qCons[0];
     qPrim[4] = (_gas_gamma-1.)*(qCons[4]-0.5*(qCons[1]*qCons[1]+qCons[2]*qCons[2]+qCons[3]*qCons[3])/qCons[0]);
-    if(qPrim[4]<=0.)
-//    {
-//        if(_minPres>0.){
-//            qPrim[4] = _minPres;
-//            qCons[4] = _minPres/(_gas_gamma-1.)+0.5*qPrim[0]*(qPrim[1]*qPrim[1]+qPrim[2]*qPrim[2]+qPrim[3]*qPrim[3]);
-//        }
-//        else
-        {
-            WxLogger::get("apollo-root.console")->
-                    error("*** Zero/Negative pressure in Euler primitive values calculation \n");
-            exit(1); // abort execution
-
-        }
-//    }
+    if(qPrim[4]<=0.){
+        qPrim[4] = _minPres;
+        qCons[4] = _minPres/(_gas_gamma-1.)+0.5*qPrim[0]*(qPrim[1]*qPrim[1]+qPrim[2]*qPrim[2]+qPrim[3]*qPrim[3]);}
 }
 
 
@@ -1431,6 +1411,12 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
         exit(1); // abort execution
     }
 
+    if(Lrho<=0.){
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative density in Euler limiter ***\n");
+        exit(1); // abort execution
+    }
+
     limitedValues[1] = Lrhou;
     if(Lrhou!=Lrhou){
         WxLogger::get("apollo-root.console")->
@@ -1458,6 +1444,12 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
           error("*** NaN energy in Euler limiter ***\n");
         exit(1); // abort execution
     }
+
+//    if(Lp<=0.){
+//        WxLogger::get("apollo-root.console")->
+//          error("*** Negative pressure in Euler limiter ***\n");
+//        exit(1); // abort execution
+//    }
 }
 
 // instantiations

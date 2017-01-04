@@ -47,6 +47,18 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
       else
         _ionMinPres = 0.0;
 
+      // set minimum electron pressure to prevent negative
+      if (wxc.has("elcMinDensity"))
+        _elcMinDens = wxc.template get<REAL>("elcMinDensity");
+      else
+        _elcMinDens = 0.0;
+
+      // set minimum ion pressure to prevent negative
+      if (wxc.has("ionMinDensity"))
+        _ionMinDens = wxc.template get<REAL>("ionMinDensity");
+      else
+        _ionMinDens = 0.0;
+
 
       _pi = 3.14159265;
 
@@ -70,12 +82,15 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
       //  rhoi, rhoi*ui, rhoi*vi, rhoi*wi, Ei]
 
       REAL rhoe  = q[0];
-      if (rhoe<0.0)
+      if (rhoe<_elcMinDens && _elcMinDens==0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative electron density in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative electron density in ConstantResistivity src ***\n");
         exit(1); // abort execution
       }
+      if(rhoe<_elcMinDens)
+          rhoe = _elcMinDens;
+
       REAL ne = rhoe/_me;
       REAL ue = q[1]/rhoe;
       REAL ve = q[2]/rhoe;
@@ -84,8 +99,8 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
       REAL Pe = (_gas_gamma-1)*(Ee-0.5*rhoe*(ue*ue+ve*ve+we*we));
       if (Pe<_elcMinPres && _elcMinPres==0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative electron pressure in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative electron pressure in ConstantResistivity src ***\n");
         exit(1); // abort execution
       }
       if (Pe<_elcMinPres)
@@ -93,12 +108,15 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
       REAL Te = Pe/(_k*ne);
 
       REAL rhoi  = q[5];
-      if (rhoi<0.0)
+      if (rhoi<_ionMinDens && _ionMinDens==0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative ion density in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative ion density in ConstantResistivity src ***\n");
         exit(1); // abort execution
       }
+      if(rhoi<_ionMinDens)
+          rhoi = _ionMinDens;
+
       REAL ni = rhoi/_mi;
       REAL ui = q[6]/rhoi;
       REAL vi = q[7]/rhoi;
@@ -107,8 +125,8 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
       REAL Pi = (_gas_gamma-1)*(Ei-0.5*rhoi*(ui*ui+vi*vi+wi*wi));
       if (Pi<_ionMinPres && _ionMinPres==0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative ion pressure in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative ion pressure in ConstantResistivity src ***\n");
         exit(1); // abort execution
       }
       if (Pi<_ionMinPres)
@@ -138,7 +156,7 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
     REAL _qi, _mi, _me, _qe, _eta;
     // ion charge, ion mass, elc mass, elc charge,
     // resistivity
-    REAL _gas_gamma, _k, _elcMinPres, _ionMinPres, _pi;
+    REAL _gas_gamma, _k, _elcMinPres, _ionMinPres, _elcMinDens, _ionMinDens, _pi;
 
 };
 

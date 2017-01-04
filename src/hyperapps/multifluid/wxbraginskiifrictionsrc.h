@@ -78,8 +78,8 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
       REAL rhoe  = q[0];
       if (rhoe<0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative electron density in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative electron density in bragFriction src");
         exit(1); // abort execution
       }
       REAL ne = rhoe/_me;
@@ -90,8 +90,8 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
       REAL Pe = (_gas_gamma-1)*(Ee-0.5*rhoe*(ue*ue+ve*ve+we*we));
       if (Pe<_elcMinPres && _elcMinPres==0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative electron pressure in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative electron pressure in bragFriction src");
         exit(1); // abort execution
       }
       if (Pe<_elcMinPres)
@@ -102,8 +102,8 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
       REAL rhoi  = q[5];
       if (rhoi<0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative ion density in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative ion density in bragFriction src");
         exit(1); // abort execution
       }
       REAL ni = rhoi/_mi;
@@ -114,8 +114,8 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
       REAL Pi = (_gas_gamma-1)*(Ei-0.5*rhoi*(ui*ui+vi*vi+wi*wi));
       if (Pi<_ionMinPres && _ionMinPres==0.0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative ion pressure in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative ion pressure in bragFriction src");
         exit(1); // abort execution
       }
       if (Pi<_ionMinPres)
@@ -139,8 +139,8 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
 
       if (nue<0)
       {
-        WxLogger::get("warpx-root.console")->
-          error("*** Negative electron collision frequency in bragFrictionThermalForce src");
+        WxLogger::get("apollo-root.console")->
+          error("*** Negative electron collision frequency in bragFriction src");
         exit(1); // abort execution
       }
 

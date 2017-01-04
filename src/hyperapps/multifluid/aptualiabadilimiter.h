@@ -67,6 +67,12 @@ class WxTuAliabadiLimiter : public WxNodalDGLimiter<REAL>
  */
     void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
+/**
+ * Infinity/Not-a-Number check
+ */
+    PetscErrorCode isInfinityOrNAN(Vec f, std::string location);
+
+
 };
 
 

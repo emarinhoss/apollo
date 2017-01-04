@@ -231,6 +231,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // Apply Limiter
     if(_haveLimiter){
+//        isInfinityOrNAN(in, "NAN/INF encountered before limiting occurs.\n");
         applyLimiter(in,in);
         isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
     }
@@ -455,26 +456,47 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         _cub->calculateSurfaceIntegral(numFlux,q_surf);
 
         // add surface and volume contributions
-        for(unsigned kk=0; kk<NpE*_meqn; kk++)
+        for(unsigned kk=0; kk<NpE*_meqn; kk++){
             volInt[kk] -= q_surf[kk];
+
+            if(q_surf[kk]!=q_surf[kk]){
+                WxLogger::get("apollo-root.console")->
+                  error("*** NaN in surface integral evaluation RHS ***\n");
+                exit(1); // abort execution
+            }
+
+            if(volInt[kk]!=volInt[kk]){
+                WxLogger::get("apollo-root.console")->
+                  error("*** NaN in volume integral evaluation RHS ***\n");
+                exit(1); // abort execution
+            }
+        }
 
         // Multiply by the inverse Mass Matrix
         _geom->multiplyBYinverseMassMatrix(volInt,vec_rhs);
 
         DMPlexPointLocalRef(dataManage,kelem,ot,&rhs);
-        for(unsigned kne=0; kne<NpE*_meqn; kne++)
+        for(unsigned kne=0; kne<NpE*_meqn; kne++){
             rhs[kne] = vec_rhs[kne]/geoFacts[4];
+
+            if(vec_rhs[kne]!=vec_rhs[kne]){
+                WxLogger::get("apollo-root.console")->
+                  error("*** NaN after Mass matrix multiplication RHS ***\n");
+                exit(1); // abort execution
+            }
+
+        }
 
         // compute \int q\cdot dA, add contribution from all elements
 //        REAL elementArea = _geom->elementArea(kelem);
-        for(unsigned ar=0; ar<_meqn; ar++)
-            TotalAreaInt[ar] += AreaIntegrals[ar];
+//        for(unsigned ar=0; ar<_meqn; ar++)
+//            TotalAreaInt[ar] += AreaIntegrals[ar];
     }
 
     VecRestoreArrayRead(local_in, &u);
     VecRestoreArray(local_out, &ot);
 
-    isInfinityOrNAN(local_out, "NAN/INF encountered in RHS Vector of DG step-function.\n");
+//    isInfinityOrNAN(local_out, "NAN/INF encountered in RHS Vector of DG step-function.\n");
 
     DMLocalToGlobalBegin(dataManage, local_out, INSERT_VALUES, out);
     DMLocalToGlobalEnd(dataManage, local_out, INSERT_VALUES, out);
@@ -487,14 +509,14 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     status.setSuggestedDt(newDt);
 
     // add the surface integral contributions from all processors
-    REAL inValue, outValue;
+//    REAL inValue, outValue;
 //    REAL AB = _AgregateAreaIntegral[15];
-    for(unsigned numeq=0; numeq<_meqn; numeq++)
-    {
-        inValue = TotalAreaInt[numeq];
-        MPI_Allreduce(&inValue, &outValue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        _AgregateAreaIntegral[numeq] = outValue;
-    }
+//    for(unsigned numeq=0; numeq<_meqn; numeq++)
+//    {
+//        inValue = TotalAreaInt[numeq];
+//        MPI_Allreduce(&inValue, &outValue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+//        _AgregateAreaIntegral[numeq] = outValue;
+//    }
 
 //    REAL AC = _AgregateAreaIntegral[15];
 //    REAL AD = AC-AB;
