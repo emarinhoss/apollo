@@ -36,6 +36,7 @@ APsimplifiedRMFbc<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *
 
 //    qBC[0] = q[0];
 //    qBC[1] = q[1];
+//    REAL AA = AreaInts[5];
 
     // B-field
     // RMF
@@ -58,6 +59,7 @@ APsimplifiedRMFbc<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *
 
     qBC[6] =-phi;
     qBC[7] = psi;
+
 }
 
 // instantiations

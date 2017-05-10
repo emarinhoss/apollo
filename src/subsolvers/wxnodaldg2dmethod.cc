@@ -342,7 +342,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             for(unsigned component=0; component<_meqn; component++)
                 Qvar[component] = Iq_vol[point*_meqn+component];
 
-            REAL AA = Qvar[15];
+//            REAL AA = Qvar[15];
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
             _srcSet.sourceTerms(xc, Qvar, Qvaraux, _src);
@@ -489,8 +489,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         // compute \int q\cdot dA, add contribution from all elements
 //        REAL elementArea = _geom->elementArea(kelem);
-//        for(unsigned ar=0; ar<_meqn; ar++)
-//            TotalAreaInt[ar] += AreaIntegrals[ar];
+        for(unsigned ar=0; ar<_meqn; ar++)
+            TotalAreaInt[ar] += AreaIntegrals[ar];
     }
 
     VecRestoreArrayRead(local_in, &u);
@@ -509,14 +509,14 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     status.setSuggestedDt(newDt);
 
     // add the surface integral contributions from all processors
-//    REAL inValue, outValue;
-//    REAL AB = _AgregateAreaIntegral[15];
-//    for(unsigned numeq=0; numeq<_meqn; numeq++)
-//    {
-//        inValue = TotalAreaInt[numeq];
-//        MPI_Allreduce(&inValue, &outValue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-//        _AgregateAreaIntegral[numeq] = outValue;
-//    }
+    REAL inValue, outValue;
+    REAL AB = _AgregateAreaIntegral[15];
+    for(unsigned numeq=0; numeq<_meqn; numeq++)
+    {
+        inValue = TotalAreaInt[numeq];
+        MPI_Allreduce(&inValue, &outValue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        _AgregateAreaIntegral[numeq] = outValue;
+    }
 
 //    REAL AC = _AgregateAreaIntegral[15];
 //    REAL AD = AC-AB;
