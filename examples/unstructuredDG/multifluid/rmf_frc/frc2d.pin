@@ -24,7 +24,7 @@ DIVE_SPEED = 1.0
 Bomega = 50.e-4   # T, rmf B-field
 Baxial = 60.e-4   # T, bias B-field
 omega  = 7.95e5   # Hz, rmf frequency
-PHASE  = PI/2. 	  # rads
+PHASE  = 0. 	  # rads
 RISE   = 3.0e-8   # sec
 
 ETA    = 0.5e-5	  # Ohm-m
@@ -79,7 +79,7 @@ OUT  = 10
 	   Equations = [eulerElc, eulerIon, maxwell]
 	   boundaryConditions = [coil1]
 	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity] #  Friction/Resistivity
-	   #AreaIntegrals = [fluxConservation]
+	   AreaIntegrals = [fluxConservation]
      #Limiter = [twoFluidLimiter]
 	
 	   polynomialOrder = P_ORDER

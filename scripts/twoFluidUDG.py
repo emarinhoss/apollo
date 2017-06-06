@@ -45,10 +45,6 @@ def save_xml(ug, file_name):
     w = tvtk.XMLUnstructuredGridWriter(input=ug, file_name=file_name)
     w.write()
 
-
-frame = int(options.frame)
-stt = int(options.startFrame)
-
 def generateVTUfile(n):
 	startT = time()
 	spOrd = int(options.spatialOrder)
@@ -133,6 +129,8 @@ def generateVTUfile(n):
 	totTime = endT - startT
 	print "Frame "+str("%d" % n)+" COMPLETED in "+str("%3.2f" % totTime)+" secs."
 
+frame = int(options.frame)
+stt = int(options.startFrame)
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)
 print "Generating plots using "+str("%d" % num_cores)+" processors."
