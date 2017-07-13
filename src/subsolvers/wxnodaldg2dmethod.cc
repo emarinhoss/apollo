@@ -231,7 +231,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // Apply Limiter
     if(_haveLimiter){
-//        isInfinityOrNAN(in, "NAN/INF encountered before limiting occurs.\n");
+//      isInfinityOrNAN(in, "NAN/INF encountered before limiting occurs.\n");
         applyLimiter(in,in);
         isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
     }
