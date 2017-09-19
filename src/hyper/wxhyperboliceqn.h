@@ -49,6 +49,13 @@ class WxHyperbolicEqn : public WxObject
     virtual unsigned meqn() const = 0;
 
 /**
+ * Returns number of variables to calculate gradients for equations in system.
+ *
+ * @return number of gradients for the equations in system.
+ */
+    virtual unsigned mgrads() const = 0;
+
+/**
  * Returns number of waves in Riemann solver.
  *
  * @return Number of waves in Riemann solver.

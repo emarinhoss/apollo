@@ -133,6 +133,16 @@ WxNodalDG2dMethod<REAL>::setup(const WxCryptSet& wxc, DM dm)
           _limiterSubSolvers.push_back( wx_any_cast<std::string>(*i) );
   }
 
+  _calculateGradients = false;
+  if (wxc.has("Gradients"))
+  {
+      std::vector<WxAny> grt;
+      grt = wxc.template get<std::vector<WxAny> >("Gradients");
+      _calculateGradients = true;
+      for (i=grt.begin(); i!=grt.end(); ++i)
+          _gradientSubSolvers.push_back( wx_any_cast<std::string>(*i) );
+  }
+
   // Calculate connectivity, coordinates and Matrices
   _geom = new wxNodalDGgeometry2D<REAL>(_dm, _meqn, _polyOrder);
 
@@ -227,13 +237,19 @@ WxStepperStatus<REAL>
 WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 {
     DM dataManage;
-    Vec local_out, local_in;
+    Vec local_out, local_in, gradients;
 
     // Apply Limiter
     if(_haveLimiter){
 //      isInfinityOrNAN(in, "NAN/INF encountered before limiting occurs.\n");
         applyLimiter(in,in);
         isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
+    }
+
+    if(_calculateGradients){
+        VecDuplicate(in,&gradients);
+        calculateGradients(in,gradients);
+        isInfinityOrNAN(in, "NAN/INF encountered in gradient vector of DG step-function.\n");
     }
 
     WxStepperStatus<REAL> status;
@@ -563,6 +579,16 @@ WxNodalDG2dMethod<REAL>::applyLimiter(Vec Qin, Vec Qlimited)
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _limiterSubSolvers.at(0));
     // cast this to the limiter and call step function
     dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,_cub,Qin,Qlimited);
+}
+
+template<typename REAL>
+void
+WxNodalDG2dMethod<REAL>::calculateGradients(Vec Qin, Vec Qgrads)
+{
+    // apply limiters
+    ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _gradientSubSolvers.at(0));
+    // cast this to the limiter and call step function
+    dynamic_cast<ApNodalDGcalculateGradients<REAL>* >(ss)->calculateGradients(_geom,_cub,Qin,Qgrads);
 }
 
 // instantiations

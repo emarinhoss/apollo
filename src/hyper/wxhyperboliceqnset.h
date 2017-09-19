@@ -265,8 +265,8 @@ class WxHyperbolicEqnSet : public WxObject
 /** Private to prevent assignment */
     WxHyperbolicEqnSet<REAL>& operator=(const WxHyperbolicEqnSet<REAL>&);
 
-/** Total number of waves and equations */
-    unsigned _mwave, _meqn;
+/** Total number of waves, equations, and gradients */
+    unsigned _mwave, _meqn, _mgrads;
 /** List of equations to solve */
     std::vector<WxHyperbolicEqn<REAL>* > _eqnSys;
 /** Direction vector to adjust for radial problems */

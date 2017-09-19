@@ -11,6 +11,7 @@
 #include "apsubsolver.h"
 #include <wxgridbc.h>
 #include <wxnodaldglimiter.h>
+#include <apnodaldgcalculategradients.h>
 
 // WarpX lib includes
 #include <wxfunction.h>
@@ -85,9 +86,14 @@ class WxNodalDG2dMethod : public ApSubSolver<REAL>
     void applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
 /**
- *  Apply boundary conditions
+ *  Apply Limiter
  */
     void applyLimiter(Vec Qin, Vec Qlimited);
+
+/**
+ *  Apply Limiter
+ */
+    void calculateGradients(Vec Qin, Vec Qgrads);
 
  /**
  * Compute the RHS using CG spatial discretization.
@@ -164,6 +170,10 @@ private:
 /** Filtering variables **/
   REAL *_filterdiag, *_filterMatrix, _cutoff;
   int _orderSP;
+
+/** Gradient calculation */
+  bool _calculateGradients;
+  std::vector<std::string> _gradientSubSolvers;
 
 };
 

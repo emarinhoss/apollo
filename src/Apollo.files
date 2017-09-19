@@ -270,3 +270,7 @@ hyperapps/multifluid/apanisotropicresistivitysrc.h
 hyperapps/euler/aprmfelectronvelocitysrc.h
 hyperapps/multifluid/aptualiabadilimiter.cc
 hyperapps/multifluid/aptualiabadilimiter.h
+solvers/apnodaldgcalculategradients.h
+solvers/apnodaldgcalculategradients.cc
+hyperapps/multifluid/aphwcalculategradients.h
+hyperapps/multifluid/aphwcalculategradients.cc

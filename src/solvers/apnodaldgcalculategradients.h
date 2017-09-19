@@ -1,5 +1,5 @@
-#ifndef WXNODALDGLIMITER_H
-#define WXNODALDGLIMITER_H
+#ifndef APNODALDGCALCULATEGRADIENTS_H
+#define APNODALDGCALCULATEGRADIENTS_H
 
 // WarpX subsolver includes
 #include <apsubsolver.h>
@@ -9,22 +9,22 @@
 #include <petscdmplex.h>
 
 /**
- * Base class which applies Limiters to vectors living on a
+ * Base class which calculates the gradients for a given equation system and fields living on a
  * grid.
  */
 template <typename REAL>
-class WxNodalDGLimiter : public ApSubSolver<REAL>
+class ApNodalDGcalculateGradients : public ApSubSolver<REAL>
 {
   public:
 
 /**
  * Construct a new grid-bc object
  */
-    WxNodalDGLimiter(const std::string& name)
+    ApNodalDGcalculateGradients(const std::string& name)
       : ApSubSolver<REAL>(name) {
     }
 
-    virtual ~WxNodalDGLimiter() {
+    virtual ~ApNodalDGcalculateGradients() {
     }
 
 /**
@@ -54,7 +54,7 @@ class WxNodalDGLimiter : public ApSubSolver<REAL>
  * Return limited value.
  *
  */
-    void applyToVector(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited);
+    void calculateGradients(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited);
 
   protected:
 
@@ -66,10 +66,10 @@ class WxNodalDGLimiter : public ApSubSolver<REAL>
  * @param qk [in] conserved variables to which limiter is to be applied
  * @param q_limited [out] comverved variables after the limiter has been applied
  */
-    virtual void applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited) = 0;
+    virtual void CalcGrad(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited) = 0;
 
   private:
 
 };
 
-#endif // WXNODALDGLIMITER_H
+#endif // APNODALDGCALCULATEGRADIENTS_H

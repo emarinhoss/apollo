@@ -6,7 +6,7 @@ Created on Mon Set 15 14:58:45 2015
 """
 
 #from scipy.interpolate import griddata
-import wxunsdgdata
+import wxunsdgdata2
 from numpy import *
 from tvtk.api import tvtk
 from optparse import OptionParser
@@ -25,7 +25,7 @@ parser.add_option('-f', '--frame', action = 'store',
                   default = 0)
 parser.add_option('-o', '--Order', action = 'store',
                   dest = 'spatialOrder',
-                  help = 'Spatial order of the polynomial interpolation function.',
+                  help = 'Polynomial interpolation function order.',
                   default = 1)
 parser.add_option('-s', '--start', action = 'store',
                   dest = 'startFrame',
@@ -50,7 +50,7 @@ def generateVTUfile(n):
 	spOrd = int(options.spatialOrder)
 	filename = options.inputFile
 
-	dh = wxunsdgdata.WxVisData(filename,n)
+	dh = wxunsdgdata2.WxVisData(filename,n)
 	dd = dh.readDG(spOrd)
 
 	re = dd.variables[:,0]

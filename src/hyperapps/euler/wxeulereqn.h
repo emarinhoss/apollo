@@ -30,6 +30,13 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
     }
 
 /**
+ * Number of gradients in system
+ */
+    unsigned mgrads() const {
+      return 8;
+    }
+
+/**
  * Number of waves in Riemann solver
  */
     unsigned mwave() const {

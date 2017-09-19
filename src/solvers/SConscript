@@ -13,6 +13,7 @@ sources = [
         'wxstepper.cc',
         'wxgridbc.cc',
         'wxnodaldglimiter.cc',
+        'apnodaldgcalculategradients.cc'
            ]
 
 ##

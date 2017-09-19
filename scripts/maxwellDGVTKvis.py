@@ -6,7 +6,7 @@ Created on Mon Set 15 14:58:45 2015
 """
 
 #from scipy.interpolate import griddata
-import wxunsdgdata
+import wxunsdgdata2
 from numpy import *
 from tvtk.api import tvtk
 from optparse import OptionParser
@@ -52,7 +52,7 @@ def generateVTUfile(n):
 	spOrd = int(options.spatialOrder)
 	filename = options.inputFile
 
-	dh = wxunsdgdata.WxVisData(filename,n)
+	dh = wxunsdgdata2.WxVisData(filename,n)
 	dd = dh.readDG(spOrd)
 
 	Ex = dd.variables[:,0]

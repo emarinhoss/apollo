@@ -29,6 +29,13 @@ public:
     }
 
 /**
+ * Number of gradients in system
+ */
+    unsigned mgrads() const {
+      return 2;
+    }
+
+/**
  * Number of waves in Riemann solver
  */
     unsigned mwave() const {

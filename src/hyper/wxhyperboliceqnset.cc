@@ -48,7 +48,7 @@ WxHyperbolicEqnSet<REAL>::setup(const WxCryptSet& wxc)
   WxLogStream infoStrm
     = WxLogger::get("apollo-root.console")->getInfoStream();
 
-  _mwave = _meqn = 0;
+  _mwave = _meqn = _mgrads = 0;
 
   // equation systems to solve
   std::vector<WxAny> eqns = wxc.template get<std::vector<WxAny> >("Equations");
@@ -71,6 +71,7 @@ WxHyperbolicEqnSet<REAL>::setup(const WxCryptSet& wxc)
     // increment total number of waves and equations
     _mwave += e->mwave();
     _meqn += e->meqn();
+    _mgrads += e->mgrads();
 
     infoStrm << "Equation " <<  eqnName << " is of kind " + kind << std::endl;
   }
