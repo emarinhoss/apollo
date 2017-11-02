@@ -164,6 +164,7 @@ class wxNodalDGgeometry2D
     int **_EtoV; // element to verticies connectivity matrix
     int **_ETETF; // stores the element and face connections (Element K's face number F is connected to
                   // elmement K2's face number F2
+    int _Ktotal; // total number of element in the entire domain
     int _Klocal, _kLocalInt; // number of elements in this processor
     int _Vlocal; // number of nodes in this processor
     REAL **_xcoord; // node x-coordinates

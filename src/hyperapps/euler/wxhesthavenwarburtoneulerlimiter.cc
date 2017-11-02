@@ -61,15 +61,23 @@ template <typename REAL>
 void
 WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubature2d<REAL> *cub, Vec qk, Vec q_limited)
 {
+    Vec local_out, local_in;
+    // create local vector
+    DMGetLocalVector(_dm, &local_in);
+    DMGetLocalVector(_dm, &local_out);
+
     int kNodes = geom->NpElem();         // Number of nodes per elements
     int NpF = geom->NpFaces();           // Number of nodes per face
     int meqn   = 5;                     // Number of unknowns per node
 
     // used to access data on the vectors
-    PetscScalar *u, *qIn;
-    PetscScalar *v, *qOut;
+    const PetscScalar *u;
+    PetscScalar *v, *qIn, *qOut;
 
-    VecGetArray(qk, &u);
+    // get local values of the global vector in into locX
+    DMGlobalToLocalBegin(_dm, qk, INSERT_VALUES, local_in);
+    DMGlobalToLocalEnd(_dm, qk, INSERT_VALUES, local_in);
+    VecGetArrayRead(local_in, &u);
 
     // get average vectors and matrices
     REAL AVE[kNodes], dropAVE[kNodes*kNodes];
@@ -147,7 +155,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
         REAL qCons[meqn], qPrim[meqn], qBC[meqn];
 
         // for patch element 0
-        DMPlexPointLocalRef(_dm, eNum, u, &qIn);
+        DMPlexPointLocalRead(_dm, eNum, u, &qIn);
         computeConservedAndPrimitiveAVEVariables(kNodes,qIn,AVE,qCons,qPrim);
 
         for(unsigned kk=0; kk<meqn; kk++){
@@ -210,7 +218,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
             }
             else
             {
-                DMPlexPointLocalRef(_dm, connect[2*elem], u, &qIn);
+                DMPlexPointLocalRead(_dm, connect[2*elem], u, &qIn);
                 computeConservedAndPrimitiveAVEVariables(kNodes,qIn,AVE,qCons,qPrim);
 
                 for(unsigned kk=0; kk<meqn; kk++){
@@ -304,7 +312,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
                     + A0[3]*dVdyE3[meqn*eNum+comp]) / (A0[1]+A0[2]+A0[3]);
         }
     }
-    VecRestoreArray(qk, &u);
+    VecRestoreArrayRead(local_in, &u);
 
     // Cell center gradients of adjacent cells
     REAL dVdxC[3], dVdyC[3];
@@ -312,7 +320,7 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
     // limited gradient nodes of each element
     REAL qdv[meqn*kNodes];
 
-    VecGetArray(q_limited, &v);
+    VecGetArray(local_out, &v);
 
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
@@ -459,7 +467,20 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
         }
     }
 
-    VecRestoreArray(q_limited, &v);
+    VecRestoreArrayRead(local_in, &u);
+    VecRestoreArray(local_out, &v);
+
+//    isInfinityOrNAN(local_in,"Limiter in NAN/INF");
+//    isInfinityOrNAN(local_out,"Limiter in NAN/INF");
+
+    DMLocalToGlobalBegin(_dm, local_out, INSERT_VALUES, q_limited);
+    DMLocalToGlobalEnd(_dm, local_out, INSERT_VALUES, q_limited);
+
+    DMRestoreLocalVector(_dm, &local_in);
+    DMRestoreLocalVector(_dm, &local_out);
+
+    VecDestroy(&local_out);
+    VecDestroy(&local_in);
 }
 
 template <typename REAL>

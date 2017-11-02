@@ -25,10 +25,9 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     _kLocalInt = eEndInterior - eStart;
     _Vlocal = vEnd - vStart;
 
-    int Totelems;
-    MPI_Reduce(&_kLocalInt, &Totelems, 1, MPI_INT, MPI_SUM, 0, PetscObjectComm((PetscObject)_dm));
+    MPI_Reduce(&_kLocalInt, &_Ktotal, 1, MPI_INT, MPI_SUM, 0, PetscObjectComm((PetscObject)_dm));
 
-    infStrm << "** The grid has " << Totelems << " elements. **\n"
+    infStrm << "** The grid has " << _Ktotal << " elements. **\n"
             << std::endl;
 
 
@@ -308,14 +307,17 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     //
     int f1[_NfE*_kLocalInt], f2[_NfE*_kLocalInt];
     _totNFace = 0;
+
+    // loop over all faces of the interior elements
     for(unsigned K1=0; K1<_NfE*_kLocalInt; K1++)
     {
         MatGetRow(FtoF,K1,&ncols,&cols,&vals);
         for(unsigned K2=0; K2<ncols; K2++)
+            // columns number where the values is two, correspond to the element number on the outside of the current element
             if(vals[K2]==2.)
             {
-                f1[_totNFace] = K1;
-                f2[_totNFace++] = cols[K2];
+                f1[_totNFace] = K1; // Face number 'totNFace' is connected to element K1 (inside)
+                f2[_totNFace++] = cols[K2]; // Face number 'totNFace' is connected to element K1 (outside)
             }
         MatRestoreRow(FtoF,K1,&ncols,&cols,&vals);
     }
@@ -338,12 +340,12 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
         }
 
     PetscInt value;
-    PetscInt vStart, vEnd;
-    DMPlexGetHeightStratum(_dm, 1, &vStart, &vEnd);
-    // Get the cells that support this face
+    PetscInt fStart, fEnd;
+    DMPlexGetHeightStratum(_dm, 1, &fStart, &fEnd);
+    // Get the elements that support this face
     const PetscInt *cells;
 
-    for(unsigned face=vStart; face<vEnd; face++)
+    for(unsigned face=fStart; face<fEnd; face++)
     {
         DMPlexGetLabelValue(dm, "Face Sets", face, &value);
         if(value!=-1){
