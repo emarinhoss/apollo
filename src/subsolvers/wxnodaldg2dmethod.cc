@@ -526,7 +526,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // add the surface integral contributions from all processors
     REAL inValue, outValue;
-    REAL AB = _AgregateAreaIntegral[15];
+//    REAL AB = _AgregateAreaIntegral[15];
     for(unsigned numeq=0; numeq<_meqn; numeq++)
     {
         inValue = TotalAreaInt[numeq];

@@ -105,7 +105,7 @@ class ApConstantResistivity : public WxHyperbolicSrc<REAL>
       }
       if (Pe<_elcMinPres)
         Pe = _elcMinPres;
-      REAL Te = Pe/(_k*ne);
+//      REAL Te = Pe/(_k*ne);
 
       REAL rhoi  = q[5];
       if (rhoi<_ionMinDens && _ionMinDens==0.0)

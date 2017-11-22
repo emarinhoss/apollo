@@ -25,7 +25,7 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     _kLocalInt = eEndInterior - eStart;
     _Vlocal = vEnd - vStart;
 
-    MPI_Reduce(&_kLocalInt, &_Ktotal, 1, MPI_INT, MPI_SUM, 0, PetscObjectComm((PetscObject)_dm));
+    MPI_Allreduce(&_kLocalInt, &_Ktotal, 1, MPI_INT, MPI_SUM, PetscObjectComm((PetscObject)_dm));
 
     infStrm << "** The grid has " << _Ktotal << " elements. **\n"
             << std::endl;
@@ -83,7 +83,7 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
 
     /* find element to element connections */
     _EtoV   = alloc_2d_c<int>(_kLocalInt,3);
-    _ETETF  = alloc_2d_c<int>(_kLocalInt,2*_NfE);
+    _ETETF  = alloc_2d_c<int>(_Ktotal,2*_NfE);
     FacePair2d(_dm);
     debStrm << "** done -- Creating face-to-face connections. **" << std::endl;
 
@@ -140,7 +140,7 @@ wxNodalDGgeometry2D<REAL>::~wxNodalDGgeometry2D()
     free_2d_c(_xcoord, _kLocalInt, _NpE);
     free_2d_c(_ycoord, _kLocalInt, _NpE);
     free_2d_c(_EtoV, _kLocalInt, 3);
-    free_2d_c(_ETETF, _kLocalInt, 2*_NfE);
+    free_2d_c(_ETETF, _Ktotal, 2*_NfE);
     MatDestroy(&_IVand);
 }
 
@@ -333,7 +333,7 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     }
 
     // Make all values -1. Only the faces not at physical boundaries are changed.
-    for(unsigned k1=0; k1<_kLocalInt; k1++)
+    for(unsigned k1=0; k1<_Ktotal; k1++)
         for(unsigned f1=0; f1<2*_NfE; f1++)
         {
             _ETETF[k1][f1] = -1;

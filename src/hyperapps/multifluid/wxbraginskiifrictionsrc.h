@@ -124,7 +124,7 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
       REAL u = ue-ui;
       REAL v = ve-vi;
       REAL w = we-wi;
-      REAL vi_mag = sqrt(ui*ui+vi*vi+wi*wi);
+//      REAL vi_mag = sqrt(ui*ui+vi*vi+wi*wi);
 
       REAL bx = q[10];
       REAL by = q[11];

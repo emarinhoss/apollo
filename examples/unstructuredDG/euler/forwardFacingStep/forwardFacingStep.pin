@@ -73,7 +73,7 @@ Pr = 5.
 		
 		gas_gamma = GAMMA
 		# either Lax-Friedrichs = LF or HLL
-		Numerical_Flux = LF
+		Numerical_Flux = HLL
 	</euler>
 	
    </hyperbolic>

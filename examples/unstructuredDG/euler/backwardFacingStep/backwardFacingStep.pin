@@ -21,10 +21,10 @@ Pr = 5.
    Kind = comboSolver
 
    Time = [0.0, 1.5] # start, end times
-   Output_files = 100 # no. of output files to write
+   Output_files = 10 # no. of output files to write
    Dt = 0.01 # initial dt to try
    Dimensions = 2
-   Gridname = 'grid.msh'
+   Gridname = 'grid2.msh'
    NumFields = 1
    
    # Check the partition

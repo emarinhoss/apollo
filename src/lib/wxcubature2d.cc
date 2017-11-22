@@ -234,8 +234,10 @@ WxCubature2d<REAL>::petscMatTOArray(Mat A, REAL *array)
     for(unsigned kk=0; kk<mrows; kk++)
     {
         MatGetRow(A,kk,&ncols,&cols,&vals);
-        for(int kx=0; kx<ncols; kx++)
+        for(int kx=0; kx<ncols; kx++){
+            REAL AA = vals[kx];
             array[sk++] = vals[kx];
+        }
     }
 }
 
