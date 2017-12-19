@@ -18,12 +18,12 @@ Help(""" Build help for WarpM
 Type: 'scons product_name' to build the desired product, where the products are:
   build-opt - the optimized version,
   build-debug - the debug version,
-  
+
   Additional options can be sepcified:
 """)
 
 
-# construct build variables: 
+# construct build variables:
 # defaults are read from known_host_configs.py
 vars = Variables('this_host_config.py')
 # add various variables used to build WarpM

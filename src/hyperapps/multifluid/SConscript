@@ -19,6 +19,14 @@ sources = [
            'aptwofluidsimplifiedrmfbc.cc',
            'aptualiabadilimiter.cc',
            'aptwofluidomfbc.cc',
+           'AtomX.cpp',
+           'CR_BKE.cpp',
+           'CRParams.cpp',
+           'KRates.cpp',
+           'KRatesGrp.cpp',
+           'MathX.cpp',
+           'myIO.cpp',
+           'hcubature.c'
             ]
 
 ##

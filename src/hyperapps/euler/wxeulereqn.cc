@@ -873,7 +873,7 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
-DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     switch (_fluxType) {
     case 0:
@@ -1088,7 +1088,7 @@ RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
-applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     REAL *xc, *qaux;
     REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
@@ -1113,13 +1113,13 @@ applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL m
     for(unsigned comp=0; comp<meqn(); comp++)
         nflux[comp] = 0.5*(normals[0]*(fM[comp]+fP[comp]) + normals[1]*(gM[comp]+gP[comp]) + lambda*(qM[comp]-qP[comp]));
 
-    maxSpeed = lambda;
+    *maxSpeed = lambda;
 }
 
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
-applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     REAL *xc, *qaux;
     REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
@@ -1197,14 +1197,14 @@ applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     REAL c0P = sqrt(pP[1]*pP[1]+pP[2]*pP[2]+pP[3]*pP[3]) + sqrt(_gas_gamma*pP[4]/pP[0]);
     REAL lambda = dmax(c0M,c0P);
 
-    maxSpeed = lambda;
+    *maxSpeed = lambda;
 
 }
 
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
-applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     REAL *xc, *qaux;
     REAL fM[5], fP[5]; // x/y Fluxes
@@ -1274,13 +1274,13 @@ applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     REAL c0P = sqrt(pP[1]*pP[1]+pP[2]*pP[2]+pP[3]*pP[3]) + sqrt(_gas_gamma*pP[4]/pP[0]);
     REAL lambda = dmax(c0M,c0P);
 
-    maxSpeed = lambda;
+    *maxSpeed = lambda;
 }
 
 template<typename REAL>
 void
 WxEulerEqn<REAL>::
-applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     REAL *xc, *qaux;
     REAL fM[5], fP[5]; // x/y Fluxes

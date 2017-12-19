@@ -449,7 +449,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                 _qM[comp] = QM[kk*_meqn+comp];
                 _qP[comp] = QP[kk*_meqn+comp];}
 
-            REAL lambda=0.0; // Fastest propagating wave speed
+            REAL lambda; // Fastest propagating wave speed
 
             // face normals for this edge
             nx[0] = normals[3*curEdge+0];
@@ -457,7 +457,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
             // Evaluate the numerical flux and get the speed of the
             // fastest propagating wave
-            _eqnSet.DGnumericalFlux(nx,_qM,_qP,_numericalFLux,lambda);
+            _eqnSet.DGnumericalFlux(nx,_qM,_qP,_numericalFLux,&lambda);
             lambda = sqrt(lambda*lambda);
 
             // find maximum propagation speed in the entire domain;

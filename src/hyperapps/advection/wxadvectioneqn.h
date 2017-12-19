@@ -67,7 +67,7 @@ public:
  * @param f [out] Numerical Flux
  * @param maxSpeed [out] speed of fastest propagating wave
  */
-    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
 
 /** Flux Jacobian **/
     void fluxJacobian(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL **f);

@@ -163,7 +163,7 @@ class WxHyperbolicEqn : public WxObject
  * @param f [out] Numerical Flux
  * @param maxSpeed [out] speed of fastest propagating wave
  */
-    virtual void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    virtual void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
 
 /**
  * DG limiter trigger variable

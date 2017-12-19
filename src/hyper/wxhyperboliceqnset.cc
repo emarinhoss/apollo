@@ -183,7 +183,7 @@ WxHyperbolicEqnSet<REAL>::flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f
 
 template<typename REAL>
 void
-WxHyperbolicEqnSet<REAL>::DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+WxHyperbolicEqnSet<REAL>::DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
   unsigned mloc = 0;
   unsigned meqn;

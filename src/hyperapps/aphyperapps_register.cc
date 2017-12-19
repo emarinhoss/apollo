@@ -150,6 +150,10 @@ WxCreator< ApConstantResistivity<double>, WxHyperbolicSrc<double> > __ConsRes_d(
 WxCreator< ApAnisotropicResistivitySrc<float>, WxHyperbolicSrc<float> > __anisoRes_f("anisotropicResistivity");
 WxCreator< ApAnisotropicResistivitySrc<double>, WxHyperbolicSrc<double> > __anisoRes_d("anisotropicResistivity");
 
+#include "multifluid/apcollisionalradiativemodelingsrc.h"
+WxCreator< ApCollisionalRadiativeModelingSrc<float>, WxHyperbolicSrc<float> > __colRadMod_f("CRmodel");
+WxCreator< ApCollisionalRadiativeModelingSrc<double>, WxHyperbolicSrc<double> > __colRadMod_d("CRmodel");
+
 // ------------------ Boundary Conditions --------------------------//
 #include "multifluid/wxtwofluidrmfbc.h"
 WxCreator< WxTwoFluidRMFBC<float>, ApSubSolver<float> > __tfrmfBC_f("twoFluidRMFBC");

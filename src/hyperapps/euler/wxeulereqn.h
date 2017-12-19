@@ -68,7 +68,7 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
  * @param f [out] Numerical Flux
  * @param maxSpeed [out] speed of fastest propagating wave
  */
-    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
 
 /**
  * Flux Jacobian function
@@ -159,10 +159,10 @@ class WxEulerEqn : public WxHyperbolicEqn<REAL>
 
 /** Different types of Numerical fluxes
  */
-    void applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
-    void applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
-    void applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
-    void applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    void applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
+    void applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
+    void applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
+    void applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
 
 };
 

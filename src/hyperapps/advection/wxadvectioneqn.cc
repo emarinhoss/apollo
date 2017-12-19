@@ -186,7 +186,7 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
 template<typename REAL>
 void
 WxAdvectionEqn<REAL>::
-DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     REAL *xc, *qaux;
     REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
@@ -204,7 +204,7 @@ DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     for(unsigned comp=0; comp<meqn(); comp++)
         nflux[comp] = 0.5*(normals[0]*(fM[comp]+fP[comp]) + normals[1]*(gM[comp]+gP[comp]) + lambda*(qM[comp]-qP[comp]));
 
-    maxSpeed = lambda;
+    *maxSpeed = lambda;
 }
 
 template<typename REAL>

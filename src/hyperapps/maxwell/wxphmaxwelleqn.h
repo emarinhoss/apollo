@@ -68,7 +68,7 @@ class WxPHMaxwellEqn : public WxHyperbolicEqn<REAL>
  * @param f [out] Numerical Flux
  * @param maxSpeed [out] speed of fastest propagating wave
  */
-    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed);
+    void DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed);
 
 /**
  * Riemann solver for system

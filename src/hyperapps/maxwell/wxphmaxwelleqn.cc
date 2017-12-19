@@ -500,7 +500,7 @@ flux(unsigned d, REAL *x, REAL *q, REAL *qaux, REAL *f)
 template<typename REAL>
 void
 WxPHMaxwellEqn<REAL>::
-DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
+DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
     REAL *xc, *qaux;
     REAL fM[8], fP[8], gM[8], gP[8]; // x/y Fluxes
@@ -518,7 +518,7 @@ DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL maxSpeed)
     for(unsigned comp=0; comp<meqn(); comp++)
         nflux[comp] = 0.5*(normals[0]*(fM[comp]+fP[comp]) + normals[1]*(gM[comp]+gP[comp]) + lambda*(qM[comp]-qP[comp]));
 
-    maxSpeed = lambda;
+    *maxSpeed = lambda;
 }
 
 template<typename REAL>

@@ -8,7 +8,7 @@ Import('warpMConstructionEnv')
 #Add specified library paths to search paths for libs and headers
 if warpMConstructionEnv['petsc_base'] == '':
 	warpMConstructionEnv['petsc_base']  = warpMConstructionEnv['$HOME/software'] + '/petsc-full'
-	
+
 if warpMConstructionEnv['petsc_base'] != '':
 	#add base directory to path
 	warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['petsc_base']+'/lib'))
@@ -40,9 +40,17 @@ if not conf.CheckLib('exodus'):
         print "You need exodus library to compile this program!"
         Exit(1)
 
+if not conf.CheckLib('gsl'):
+        print "You need exodus library to compile this program!"
+        Exit(1)
+
+if not conf.CheckLib('gslcblas'):
+        print "You need exodus library to compile this program!"
+        Exit(1)
+
 #if not conf.CheckLib('MOAB'):
 #        print "You need MOAB library to compile this program!"
-#        Exit(1)        
+#        Exit(1)
 
 #if not conf.CheckLib('exoIIv2for'):
 #        print "You need exodus library to compile this program!"
