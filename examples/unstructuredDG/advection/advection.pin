@@ -22,7 +22,7 @@ P_ORDER = 1
 
    Time = [0.0, 0.5] # start, end times
    Output_files = 10 # write output file every time-step
-   Dt = 0.01 # initial dt to try
+   Dt = 10.0 # initial dt to try
    Dimensions = 2
    #Gridname = 'test.msh'
    #Gridname = 'square_fine.msh'

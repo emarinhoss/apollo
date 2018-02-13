@@ -21,7 +21,7 @@ public:
 	int Natoms;
 	int temp_bins;
 	int dens_bins;
-	double temp_min;
+    double temp_min;
 	double temp_max;
 	double dens_min;
 	double dens_max;
