@@ -1,0 +1,266 @@
+# -*- python -*-
+import math
+PI = math.pi
+
+MP = 1.67e-27 # [kg] ion mass
+#MI = MP # hydrogen
+MI = 39.948*MP # Argon
+#MI = 131.293*MP # Xenon
+mass_ratio = 1836
+ME = MP/mass_ratio
+Q = 1.6e-19 # [C] charge
+GAMMA = 1.66666666667
+BOLTZ = 1.3807e-23 # J/K  Boltzmann constant
+
+
+MEQN = 15
+P_ORDER = 3
+
+# Plasma
+Te = 10.          # eV, electron temperature
+Ti = 0.1          # eV, ion/neutral temperature
+TeK = Te*Q/BOLTZ # K, temperature in Kelvin
+TiK = Ti*Q/BOLTZ # K, temperature in Kelvin
+
+n_e = 1.e16    # m^-3, electron number density
+n_n = 1.e18    # m^-3, neutral number density
+
+Pe = n_e*BOLTZ*TeK
+Pi = n_e*BOLTZ*TiK
+Pn = n_n*BOLTZ*TiK
+
+# compute minimum density and pressure
+MIN_PRES = 0.01*Pe
+MIN_DENS = MIN_PRES/BOLTZ/Te
+ELC_MIN_PRES = MIN_PRES
+ION_MIN_PRES = MIN_PRES
+ELC_MIN_DENS = ME*MIN_DENS
+ION_MIN_DENS = MI*MIN_DENS
+
+TEND = 1.e-9 # seconds
+OUT  = 10
+
+<warpx>
+  ##
+  # Basic parameters
+  ##
+
+  Simulation = frc2d
+  # one of debug, info, warning, error, critical, disabled
+  Verbosity = info
+
+  <frc2d>
+    Type = WxSolver
+    Kind = comboSolver
+
+    Time = [0.0, TEND] # start, end times
+    Output_files = OUT # no. of output files to write
+    Dt = 0.01 # initial dt to try
+    Dimensions = 2
+    Gridname = 'small_square_4bc.msh'
+    NumFields = 1
+
+    # Check the partition
+    <hyperbolic>
+      Type = ApSubSolver
+      Kind = nodalDG2d
+
+      Equations = [eulerElc, eulerIon, eulerNeutral]
+      boundaryConditions = [coldWalls, coldWalls, coldWalls, hotWall]
+      Sources = [collisionalRadiative] #
+      #Limiter = [twoFluidLimiter]
+
+      polynomialOrder = P_ORDER
+      cfl = 1.0/((2.*(P_ORDER+1)-1))
+
+      DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)/2]
+
+      <InitialCondition>
+        Type = WxFunction
+        Kind = exprFunc
+
+        gm1= GAMMA-1.
+        me = ME     # electron mass
+        mi = MI     # ion mass
+        mn = MI     # neutral mass
+
+        ne = n_e
+        nn = n_n
+
+        p0  = Pe
+        p1  = Pi
+        p2  = Pn
+
+        progn = ["rhoe = ne*me", \
+                 "rhoi = ne*mi", \
+                 "rhon = nn*mn", \
+                 "ee = p0/gm1", \
+                 "ei = p1/gm1", \
+                 "en = pn/gm1"]
+
+        exprList = ["rhoe", \
+                    "0.0", \
+                    "0.0", \
+                    "0.0", \
+                    "ee", \
+                    "rhoi", \
+                    "0.0", \
+                    "0.0", \
+                    "0.0", \
+                    "ei", \
+                    "rhon", \
+                    "0.0", \
+                    "0.0", \
+                    "0.0", \
+                    "en"]
+
+      </InitialCondition>
+
+      ##
+      # Electron equations
+      ##
+      <eulerElc>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        #minPressure = MIN_PRES
+        #minDensity = ELC_MIN_DENS
+      </eulerElc>
+
+      ##
+      # Ion equations
+      ##
+
+      <eulerIon>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        #minPressure = MIN_PRES
+        #minDensity = ION_MIN_DENS
+
+      </eulerIon>
+
+      ##
+      # Neutral equations
+      ##
+
+      <eulerNeutral>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        #minPressure = MIN_PRES
+        #minDensity = ION_MIN_DENS
+
+      </eulerNeutral>
+
+      ##
+      # Sources
+      ##
+
+      <collisionalRadiative>
+        Type = WxHyperbolicSrc
+        Kind = CRmodel
+
+        CR_location = "CR_Run"
+        charge = Q
+        ion_mass = MI
+        neutral_mass = MI
+        electron_mass = ME
+
+        gas_gamma = GAMMA
+
+        InpRange = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+        OutRange = [5,10]
+
+        atom_sym	= Ar
+      	Natoms 		= 2
+      	temp_bins = 90
+      	temp_min 	= 0.03
+      	temp_max 	= 1000.
+      	dens_bins = 51
+      	dens_min 	= 1.e9
+      	dens_max 	= 1.e27
+
+        #   GLOBAL PARAMETRIZATION
+      	rad_bool 	= 1
+      	ird_bool	= 0
+      	intNe_bool	= 0
+      	fxdNe_bool	= 0
+      	intTh_bool	= 0
+      	intTe_bool	= 0
+
+        #   TEMPORAL PARAMETRIZATION
+      	multxdt		= 1.01
+
+        #   INITIAL CONDITIONS
+      	temp_rad	= 300.
+
+        #   SPECTRA OUTPUT
+        print_spectra	= false
+        wave_min	= 20e-9
+        wave_max	= 600e-9
+        wave_resol	= 1.e-12
+
+      </collisionalRadiative>
+
+   </hyperbolic>
+
+   <coldWalls>
+    Type = ApSubSolver
+    Kind = threeFluidConstantBC
+
+    electron_pressure = Pe
+    ion_pressure = Pi
+    neutral_pressure = Pn
+
+    electron_numDens = n_e
+    ion_numDens = n_e
+    neutral_numDens = n_n
+
+    electron_mass = ME
+    ion_mass = MI
+    neutral_mass = MI
+
+    gas_gamma = GAMMA
+
+   </coldWalls>
+
+   <hotWall>
+    Type = ApSubSolver
+    Kind = threeFluidConstantBC
+
+    electron_pressure = Pe
+    ion_pressure = Pi
+    neutral_pressure = Pn
+
+    electron_numDens = n_e
+    ion_numDens = n_e
+    neutral_numDens = n_n
+
+    electron_mass = ME
+    ion_mass = MI
+    neutral_mass = MI
+
+    gas_gamma = GAMMA
+
+   </hotWall>
+
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </frc2d>
+
+</warpx>

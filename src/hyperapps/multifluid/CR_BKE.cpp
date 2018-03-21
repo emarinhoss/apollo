@@ -1986,6 +1986,95 @@ void CR_BKE::Integrate()
 //	printf("\n");}
 }
 
+
+void CR_BKE::newIntegrate(double *qSrc)
+{
+    KRatesGrp& crk = *pRk;
+
+    int steps = 0;
+    inst_fullN();
+    if (crk.GrpScheme == "QSS") setGnds_QSS();
+    else						extractN_Grp(Nc);
+    calcERates(NcFull);
+    SolutionOutput();
+
+    printf("Integrating:\nStep %i at time = %3.3e\n",steps,tcurr);
+    bool maxed = false;
+    while (tcurr < tend)
+    {
+        if (crk.GrpScheme == "QSS")
+        {
+            source_QSS(Nc);
+//			for (int i=0;i<NCRdim;i++)	printf("%i is %2.1e\n",i,Nc[i]);
+//			for (int i=0;i<NCRdim;i++)	printf("%i is %2.1e\n",i,Scr[i]);
+//			for (int i=0;i<NCRdim;i++)	{{for (int j=0;j<NCRdim;j++)  printf("%i,%i is %2.1e\t",i,j,Jac[i][j]);} printf("\n");}
+//			exit(1);
+            //calcERates(NcFull);
+            solveBKE(Nc,Nc,dt);
+            setGnds_QSS();
+            extractN_QSS(NcFull);
+            recalcNeTe(Nc);
+        }
+        else
+        {
+            source(Nc);
+            //calcERates(NcFull);
+            solveBKE(Nc,Nc,dt);
+            extractN_Grp(Nc);
+            recalcNeTe(Nc);
+            if (crk.GrpScheme == "Boltzmann" || crk.GrpScheme == "Custom_Boltzmann")
+                boltz_temp(Nc);
+        }
+
+//		int ier = 0;
+//		while (ier == 0)
+//		{
+//			// Must set NcFull for QSS adaptive timestepping
+//			resolveStep();
+//			candidateStep();	// must be after resolve to track energy rate transfers
+//
+//			exit(1);
+//
+//			double error = ErrorEstimate();
+//			if (error >= 1. && !maxed)
+//				dt *= sqrt(0.9/error);
+//			else
+//			{
+//				for (int n=0;n<NCRdim;n++)
+//					Nc[n] = Ncand[n];
+//
+//				ier = 1;
+//			}
+//			printf("\tError: %3.3e, dt: %3.3e\n",error,dt);
+//		}
+
+        steps++;
+        tcurr += dt;
+//        printf("Step %i at time = %3.3e with dt = %3.3e ",steps,tcurr,dt);
+
+        calcERates(NcFull);
+        SolutionOutput();
+        dt *= multxdt;
+//		if (dt > 1.e-6)
+//		{
+//			maxed = true;
+//			dt = 1.e-6;
+//		}
+
+        if (tcurr + dt > tend) dt = tend - tcurr;
+
+        monitorCollNe(dt);
+
+//        printf("\n");
+    }
+
+    for(unsigned k = 0; k<NCRdim; k++)
+        qSrc[k] = dNc[k];
+
+//	for(int n=0;n<crk.KRates::Nstate;n++) {printf("NcFull %i: %e; ", n, NcFull[n]);
+//	printf("\n");}
+}
+
 double CR_BKE::ErrorEstimate()
 {
 	double L2norm = 0.;

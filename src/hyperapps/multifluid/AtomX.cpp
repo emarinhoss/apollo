@@ -154,6 +154,7 @@ void AtomX::AtomParams(string atomstr)
 
 	string atname	= atomstr + "/" + atomstr;
 	string fsname	= "./Atomic_Data/"+ atname + filenum + "fstruct_r.dat";
+    printf("Reading data from %s\n",fsname.c_str());
 	string eiename 	= "./Atomic_Data/"+ atname + filenum + "eielev.dat";
 	string eiiname 	= "./Atomic_Data/"+ atname + filenum + "eionlev.dat";
 	string piname 	= "./Atomic_Data/"+ atname + filenum + "pionlev.dat";

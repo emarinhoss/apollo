@@ -1,0 +1,43 @@
+define CRPARS
+#   KINETICS SETUP
+	atom_sym	= Ar		# Atomic symbol
+	Natoms 		= 2		# number of atoms
+	temp_bins 	= 90		# number of rate values, each transition will have this many rate values
+	temp_min 	= 0.03		# min temp (room temp)
+	temp_max 	= 1000.		# max temperature
+	dens_bins 	= 51		# rates for sensity transitions
+	dens_min 	= 1.e9		# min density
+	dens_max 	= 1.e27		# max density
+#   GLOBAL PARAMETRIZATION 
+	rad_bool 	= true		# is the system radiating out (losses)
+	ird_bool	= false		# iradiating the system (Plankian or BB radiation)
+	intNe_bool	= false		# Add another equation for electron number density
+	fxdNe_bool	= false		# fix the e- number density
+	intTh_bool	= false		# integrate the temperature/energy for heavy species
+	intTe_bool	= false		# " electrons
+	grouping_type 	= QSS		# FULL or QSS, FULL is every state gets an equation
+	output_dir 	= ./Results/
+#   TEMPORAL PARAMETRIZATION
+	t_begin 	= 0.		# start time
+	t_end 		= 1.e-1		# end time
+	t_dt		= 1.e-13	# time-step
+	multxdt		= 1.01		# increase dt by this factor
+#   INITIAL CONDITIONS
+	temp_elec 	= 10. 		# target e- temp
+	temp_heavy 	= 0.035		# heavy species temp (room temp)
+	temp_rad	= 300.		# Plankian radiatio  temp in eV
+	pressure 	= 4.22e-5	# pressure
+	dens_elec 	= 1.e16		# electon density (seed electrons)
+#   OUTPUT CONDITIONS
+	print_log 	= true		# print the to screen
+	printdt 	= 1.e-8		# print every dt
+	logdtprt	= 0.05		# increment multiplier
+#   SPECTRA OUTPUT
+	print_spectra	= false		#
+	wave_min	= 20e-9
+	wave_max	= 600e-9
+	wave_resol	= 1.e-12
+#   ADAPTIVE TIMESTEPPING PARAMETERS
+	rel_tol		= 1.e-3
+	abs_tol		= 1.e9
+end CRPARS

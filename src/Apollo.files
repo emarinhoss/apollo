@@ -294,3 +294,5 @@ hyperapps/multifluid/Constants.h
 hyperapps/multifluid/constant.h
 hyperapps/multifluid/cArray.h
 hyperapps/multifluid/AtomX.h
+hyperapps/multifluid/apthreefluidconstantbc.h
+hyperapps/multifluid/apthreefluidconstantbc.cc

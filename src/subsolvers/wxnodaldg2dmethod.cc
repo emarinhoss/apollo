@@ -292,7 +292,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
      */
     // Coordinates
     REAL xcoord[NpE], ycoord[NpE];
-    REAL xc[4]; xc[0]=t; // coordinates
+    REAL xc[5]; xc[0]=t; xc[4] = dt; // coordinates
     REAL nx[2]; // normals
     int connect[2*NfE]; // connectivity information element-to-element-to-edge
 

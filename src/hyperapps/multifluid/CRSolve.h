@@ -135,6 +135,7 @@ public:
     void invert_SS(double);
 
     void Integrate();
+    void newIntegrate(double*);
     void resolveStep();
     void candidateStep();
     void setTolerances(double,double);

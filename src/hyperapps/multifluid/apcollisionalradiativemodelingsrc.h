@@ -38,12 +38,122 @@ class ApCollisionalRadiativeModelingSrc : public WxHyperbolicSrc<REAL>
         // call base-class setup function
         WxHyperbolicSrc<REAL>::setup(wxc);
 
+        // read charge and mass of particles
+        _q = wxc.template get<REAL>("charge");
+        _mi1 = wxc.template get<REAL>("ion_mass");
+        _mi2 = wxc.template get<REAL>("neutral_mass");
+        _me = wxc.template get<REAL>("electron_mass");
+
+        _gas_gamma = wxc.template get<REAL>("gas_gamma");
+
         // CR folder to be used
         std::string fname = wxc.template get<std::string>("CR_location");
-        _dirName = fname[0];
 
         jSys = new myiolib::jFileSys(fname);
-        pars.init(jSys);
+
+        // Kinetic Rates
+        pars.Natoms 	= 2;
+        if (wxc.has("Natoms"))
+          pars.Natoms = wxc.template get<int>("Natoms");
+
+        pars.temp_bins 	= 90;
+        if (wxc.has("temp_bins"))
+          pars.temp_bins = wxc.template get<int>("temp_bins");
+
+        pars.dens_bins 	= 51;
+        if (wxc.has("dens_bins"))
+          pars.temp_bins = wxc.template get<int>("dens_bins");
+
+        pars.temp_min 	= 0.03;
+        if (wxc.has("temp_min"))
+          pars.temp_min = wxc.template get<REAL>("temp_min");
+
+        pars.temp_max 	= 1000.;
+        if (wxc.has("temp_max"))
+          pars.temp_max = wxc.template get<REAL>("temp_max");
+
+        pars.dens_min 	= 1.e9;
+        if (wxc.has("dens_min"))
+          pars.dens_min = wxc.template get<REAL>("dens_min");
+
+        pars.dens_max 	= 1.e27;
+        if (wxc.has("dens_max"))
+          pars.dens_min = wxc.template get<REAL>("dens_max");
+
+        // CR Solver Configuration
+        pars.irrad_bool 	= false;
+//        if (wxc.has("irrad_bool"))
+//          pars.irrad_bool = wxc.template get<bool>("irrad_bool");
+
+        pars.rad_bool       = false;
+//        if (wxc.has("rad_bool"))
+//          pars.rad_bool = wxc.template get<bool>("rad_bool");
+
+        pars.fxdNe_bool 	= false;
+//        if (wxc.has("fxdNe_bool"))
+//          pars.fxdNe_bool = wxc.template get<bool>("fxdNe_bool");
+
+        pars.intNe_bool 	= false;
+//        if (wxc.has("intNe_bool"))
+//          pars.intNe_bool = wxc.template get<bool>("intNe_bool");
+
+        pars.intTh_bool 	= false;
+//        if (wxc.has("intTh_bool"))
+//          pars.intTh_bool = wxc.template get<bool>("intTh_bool");
+
+        pars.intTe_bool 	= false;
+//        if (wxc.has("intTe_bool"))
+//          pars.intTe_bool = wxc.template get<bool>("intTe_bool");
+
+        // Temporal Parametrization
+        pars.multxdt 	= 1.;
+        if (wxc.has("multxdt"))
+          pars.multxdt = wxc.template get<REAL>("multxdt");
+
+        // Initial Conditions
+        pars.temp_rad 	= 300.;
+        if (wxc.has("temp_rad"))
+          pars.temp_rad = wxc.template get<REAL>("temp_rad");
+
+        // Output Conditions
+        pars.print_log 	= false;
+        pars.printdt 	= 1.;
+        pars.logdtprt 	= 1.;
+
+        // Spectra Calculation and Parameters
+        pars.print_spectra = false;
+//        if (wxc.has("print_spectra"))
+//          pars.print_spectra = wxc.template get<bool>("print_spectra");
+
+        pars.wave_min 	= 20.e-9;
+        if (wxc.has("wave_min"))
+          pars.wave_min = wxc.template get<REAL>("wave_min");
+
+        pars.wave_max 	= 600.e-9;
+        if (wxc.has("wave_max"))
+          pars.wave_max = wxc.template get<REAL>("wave_max");
+
+        pars.wave_resol = 1.e-12;
+        if (wxc.has("wave_resol"))
+          pars.wave_resol = wxc.template get<REAL>("wave_resol");
+
+        // Tolerances
+        pars.rel_tol 	= 1.e-3;
+        if (wxc.has("rel_tol"))
+          pars.rel_tol = wxc.template get<REAL>("rel_tol");
+
+        pars.abs_tol 	= 1.e9;
+        if (wxc.has("abs_tol"))
+          pars.abs_tol = wxc.template get<REAL>("abs_tol");
+
+        pars.atom_cutoffs = NULL;
+
+        pars.p2s 		= 0;
+
+        pars.grouping_type = "QSS";
+        pars.atom_sym = "Ar";
+        pars.output_dir = "./CR_Run";
+
         jSys->display();
 
         // Define participating atomic models
@@ -161,7 +271,10 @@ class ApCollisionalRadiativeModelingSrc : public WxHyperbolicSrc<REAL>
    */
     bool src(unsigned n, REAL *tx, REAL *q, REAL *qaux, REAL *s)
     {
-      // assumes that q is [rho_e, e_e, rho_i1, e_i1, rho_i2, e_i2]
+        pars.t_begin = tx[0];
+        pars.t_end = tx[0]+tx[4];
+
+        // assumes that q is [rho_e, e_e, rho_i1, e_i1, rho_i2, e_i2]
 
         REAL rhoe  = q[0]; pars.dens_elec = rhoe;
         REAL ne = rhoe/_me;
@@ -178,7 +291,7 @@ class ApCollisionalRadiativeModelingSrc : public WxHyperbolicSrc<REAL>
         REAL v1 = q[7]/rho1;
         REAL w1 = q[8]/rho1;
         REAL E1 = q[9];
-        REAL P1 = (_gas_gamma-1)*(E1-0.5*rho1*(u1*u1+v1*v1+w1*w1));
+        REAL P1 = (_gas_gamma-1)*(E1-0.5*rho1*(u1*u1+v1*v1+w1*w1)); pars.pressure 	= P1;
         REAL T1 = P1/(MKS_kb*n1); pars.temp_heavy = T1;
 
         REAL rho2  = q[10];
@@ -204,11 +317,12 @@ class ApCollisionalRadiativeModelingSrc : public WxHyperbolicSrc<REAL>
 
 
         // ------ Begin Simulation ------
-        _kso->SolveSS(Na);
+        double *src;
+        _kso->newIntegrate(src);
         // ------ End Simulation ------
 
-//      s[0] = drho_et;
-//      s[1] = de_et;
+        s[0] = (src[0]-n1)/tx[4];
+        s[1] = (src[1]-n2)/tx[4];
 //      s[2] = drho_it;
 //      s[3] = de_it;
 //      s[4] = drho_it;

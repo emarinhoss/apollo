@@ -26,7 +26,8 @@ sources = [
            'KRatesGrp.cpp',
            'MathX.cpp',
            'myIO.cpp',
-           'hcubature.c'
+           'hcubature.c',
+           'apthreefluidconstantbc.cc'
             ]
 
 ##
