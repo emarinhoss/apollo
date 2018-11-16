@@ -59,12 +59,12 @@ class WxDGArray:
             r = array([-1.,-0.447213595499958,0.447213595499958,1,-1,-0.333333333333333,0.447213595499958,-1.,-0.447213595499958,-1.])
             s = array([-1.,-1.,-1.,-1.,-0.447213595499958,-0.333333333333333,-0.447213595499958,0.447213595499958,0.447213595499958,1.])
             enum = 9
-            connect = array([[0,5,4],[0,1,5],[1,2,5],[2,6,5],[2,3,6],[4,5,7],[5,8,7],[5,6,8],[7,8,9]])
+            connect = array([[1,5,4],[0,1,4],[1,2,5],[2,6,5],[2,3,6],[4,5,7],[5,8,7],[5,6,8],[7,8,9]])
         
         #r, s = elemtNodalPoints(self.order)
         coords = zeros(3*data.GetNumberOfCells()*enum*3)
-        varbls = zeros(3*data.GetNumberOfCells()*enum*self.NumComp)
-        pts = zeros((self.nodesPerElem,2))
+        varbls = zeros(int(3*data.GetNumberOfCells()*enum*self.NumComp))
+        pts = zeros((int(self.nodesPerElem),2))
         
         for k in range(data.GetNumberOfCells()):
             cid=data.GetCell(k)
@@ -82,12 +82,12 @@ class WxDGArray:
                     coords[9*k*enum+9*kk+3*mm+0] = pts[connect[kk,mm],0]
                     coords[9*k*enum+9*kk+3*mm+1] = pts[connect[kk,mm],1]
                     coords[9*k*enum+9*kk+3*mm+2] = 0.0
-                    for cmps in range(self.NumComp):
-                        value = vtk_to_numpy(data.GetCellData().GetArray(self.NumComp*connect[kk,mm]+cmps+1))
-                        varbls[3*k*enum*self.NumComp+3*self.NumComp*kk+self.NumComp*mm+cmps] = value[k]
+                    for cmps in range(int(self.NumComp)):
+                        value = vtk_to_numpy(data.GetCellData().GetArray(int(self.NumComp*connect[kk,mm]+cmps+1)))
+                        varbls[int(3*k*enum*self.NumComp+3*self.NumComp*kk+self.NumComp*mm+cmps)] = value[k]
             
         self.gridPoints = reshape(coords,(-1,3))
-        self.variables = reshape(varbls,(-1,self.NumComp))
+        self.variables = reshape(varbls,(-1,int(self.NumComp)))
         
         self.res = self.variables
 

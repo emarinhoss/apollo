@@ -1,6 +1,7 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Set 15 14:58:45 2015
+Created on Tue Jun 12 11:37:55 2018
 
 @author: sousae
 """
@@ -8,10 +9,11 @@ Created on Mon Set 15 14:58:45 2015
 #from scipy.interpolate import griddata
 import wxunsdgdata2
 from numpy import *
-from tvtk.api import tvtk
 from optparse import OptionParser
 from joblib import Parallel, delayed
+from time import time
 import multiprocessing
+import pyvtk
 
 # set command line options
 parser = OptionParser()
@@ -37,14 +39,6 @@ parser.add_option('-n', '--numProcs', action = 'store',
 
 (options, args) = parser.parse_args()
 
-
-def save_xml(ug, file_name):
-    """Shows how you can save the unstructured grid dataset to a VTK
-    XML file."""
-    w = tvtk.XMLUnstructuredGridWriter(input=ug, file_name=file_name)
-    w.write()
-
-
 frame = int(options.frame)
 stt = int(options.startFrame)
 
@@ -65,48 +59,31 @@ def generateVTUfile(n):
 	
 	phi = dd.variables[:,6]
 	psi = dd.variables[:,7]
+    
+    # element Type
+	tris = range(3*dd.TotNumElements)
 	
-	# number of nodes per element
-	nodesP = (spOrd+1)*(spOrd+2)/2
-	# element Type
-	elem_type = tvtk.Triangle().cell_type
-	tris = zeros((dd.TotNumElements,3),'int')
-	sk = 0
+	tris = reshape(tris,(-1,3))
 	
-	for K in range(dd.TotNumElements):
-		for pots in range(3):
-			tris[K,pots] = sk
-			sk += 1
-
-	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
-	ug.set_cells(elem_type, tris)
+	grid = pyvtk.UnstructuredGrid(dd.gridPoints, triangle=tris)
 	
-	ug.point_data.scalars = Ex
-	ug.point_data.scalars.name = 'Ex'
-	ug.point_data.add_array(Ey)
-	ug.point_data.get_array(1).name = 'Ey'
-	ug.point_data.add_array(Ez)
-	ug.point_data.get_array(2).name = 'Ez'
+	ptsData = pyvtk.PointData(pyvtk.Scalars(Ex, name="Ex"),
+                           pyvtk.Scalars(Ey, name="Ey"),
+                           pyvtk.Scalars(Ez, name="Ez"),
+                           pyvtk.Scalars(Bx, name="Bx"),
+                           pyvtk.Scalars(By, name="By"),
+                           pyvtk.Scalars(Bz, name="Bz"),
+                           pyvtk.Scalars(phi, name="phi"),
+                           pyvtk.Scalars(psi, name="psi"))
 	
-	ug.point_data.add_array(Bx)
-	ug.point_data.get_array(3).name = 'Bx'
-	ug.point_data.add_array(By)
-	ug.point_data.get_array(4).name = 'By'
-	ug.point_data.add_array(Bz)
-	ug.point_data.get_array(5).name = 'Bz'
-	
-	ug.point_data.add_array(phi)
-	ug.point_data.get_array(6).name = 'phi'
-	ug.point_data.add_array(psi)
-	ug.point_data.get_array(7).name = 'psi'
+	vtk = pyvtk.VtkData(grid, ptsData, 'Maxwell equations')
 	
 
-	outfile = filename + '_Maxwell_' + str('%03d' % n)  + '.vtu'
-	save_xml(ug, outfile)
+	outfile = filename + '_Maxwell_' + str('%03d' % n)
+	vtk.tofile(outfile,'binary')
 	print("Frame "+str("%d" % n)+" COMPLETE.")
 
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)
 print("Generating plots using "+str("%d" % num_cores)+" processors.")
 Parallel(n_jobs=num_cores)(delayed(generateVTUfile)(n) for n in inputs)
-#generateVTUfile(0)

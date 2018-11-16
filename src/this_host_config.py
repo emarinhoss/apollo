@@ -14,7 +14,7 @@ import sys
 
 # Generic Ubuntu Install following the Wiki page
 mpi_base = "/usr"
-petsc_base = "/home/sousae/software/petsc-3.6.2"
+petsc_base = "/home/sousae/software/petsc-apollo"
 #petsc_base = "/home/sousae/software/petsc-full"
 #boost_base = "/usr"
 #blas_base = "./lib"
