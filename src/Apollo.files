@@ -418,3 +418,7 @@ xapollo/xapollo.cc
 this_host_config.py
 SConstruct
 SConscript
+hyperapps/euler/apeulerentropyeqn.h
+hyperapps/euler/apeulerentropyeqn.cc
+hyperapps/euler/apeulerinflow_entropybc.h
+hyperapps/euler/apeulerinflow_entropybc.cc

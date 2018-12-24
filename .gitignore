@@ -6,6 +6,7 @@
 *.pyc
 *_temp1
 *_temp2
+*.vtk
 src/.sconsign.dblite
 src/.sconf_temp/
 src/build-debug/

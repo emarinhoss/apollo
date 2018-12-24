@@ -28,7 +28,7 @@ if __name__ == '__main__':
         inpFile = options.inputFile
     else:
         if len(args) == 0:
-            print "Must provide name of input file."
+            print("Must provide name of input file.")
             exit(1)
         else:
             inpFile = args[0]
@@ -54,10 +54,10 @@ if __name__ == '__main__':
 
     # open input file and copy it into tempFileA
     d = open(inpFile, "r").read()
-    # find the initial <warpx> tag
-    loc = string.find(d, "<warpx>")
+    # find the initial <apollo> tag
+    loc = string.find(d, "<apollo>")
     if loc < -1:
-        raise "Unable to find opening warpx tag in input file %s" % inpFile
+        raise "Unable to find opening apollo tag in input file %s" % inpFile
     prefix = d[0:loc]
 
     # add tags to feed to macroexpansion function
@@ -69,13 +69,13 @@ if __name__ == '__main__':
     
     for c in program[:-1]:
         if c=='p':
-            print "Running preprocessor"
+            print("Running preprocessor")
             wxinputparser.preprocessFile(tempFileA, tempFileB)
         elif c=='m':
-            print "Running macroexpansion"
+            print("Running macroexpansion")
             wxmacroexpander.expandFile(tempFileA, tempFileB)
         else:
-            print "Unknown command %s. Skipping ..." % c
+            print("Unknown command %s. Skipping ..." % c)
 
         # switch files
         tf = tempFileA
@@ -85,10 +85,10 @@ if __name__ == '__main__':
     # final command
     c = program[-1]
     if c=='p':
-        print "Running preprocessor"
+        print("Running preprocessor")
         wxinputparser.preprocessFile(tempFileA, outFile)
     elif c=='m':
-        print "Running macroexpansion"
+        print("Running macroexpansion")
         wxmacroexpander.expandFile(tempFileA, outFile)
     else:
-        print "Unknown command %s. Skipping ..." % c
+        print("Unknown command %s. Skipping ..." % c)

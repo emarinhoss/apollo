@@ -18,6 +18,8 @@ sources = [
         'wxeulerinflowbc.cc',
         'wxeulerwallbc.cc',
         'wxeulerzerogradientbc.cc',
+        'apeulerentropyeqn.cc',
+        'apeulerinflow_entropybc.cc',
            ]
 
 ##

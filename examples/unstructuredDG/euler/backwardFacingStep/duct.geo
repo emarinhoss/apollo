@@ -1,0 +1,19 @@
+Point(1) = {0, 6, 0, 0.2};
+Point(2) = {1, 6, 0, 0.1};
+Point(3) = {1, 0, 0, 0.2};
+Point(4) = {13, 0, 0, 0.5};
+Point(5) = {13, 11, 0, 0.5};
+Point(6) = {0, 11, 0, 0.3};
+
+Line(1) = {1, 2};
+Line(2) = {2, 3};
+Line(3) = {3, 4};
+Line(4) = {4, 5};
+Line(5) = {5, 6};
+Line(6) = {6, 1};
+Line Loop(7) = {6, 1, 2, 3, 4, 5};
+Plane Surface(8) = {7};
+Physical Line(1) = {6};
+Physical Line(2) = {1, 2, 3, 5};
+Physical Line(3) = {4};
+Physical Surface(9) = {8};

@@ -1,0 +1,130 @@
+# -*- python -*- 
+import math
+
+GAMMA = 1.4
+P_ORDER = 1
+PI = math.pi
+Mach = 0.5
+Pr = 5.
+
+<apollo>
+
+ ##
+ # Basic parameters
+ ##
+ Simulation = bfstep
+ # one of debug, info, warning, error, critical, disabled
+ Verbosity = info
+
+ <bfstep>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, 0.5] # start, end times
+   Output_files = 10 # no. of output files to write
+   Dt = 0.01 # initial dt to try
+   Dimensions = 2
+   Gridname = 'duct.msh'
+   NumFields = 1
+   
+   # Check the partition
+   <hyperbolic>
+	Type = ApSubSolver
+	Kind = nodalDG2d
+	
+	polynomialOrder = P_ORDER
+	cfl = 1.0/((2.*(P_ORDER+1)-1))
+	
+	Equations = [euler]
+	boundaryConditions = [inflow,newWall,noGrad]
+	
+	## setup data structure, [fieldNumber,FieldName]
+	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
+	
+	<InitialCondition>
+		Type = WxFunction
+		Kind = exprFunc
+		
+		XC = 1.0
+		YC = 0.5
+		gm = GAMMA
+		M = Mach
+		pres = Pr
+
+       exprList = [ "rho", \
+					"rhou", \
+					"rhov", \
+					"rhow", \
+					"entropy"]
+
+       progn = ["rho = gm", \
+       			"a=sqrt(gm*pres/rho)",\
+       			"rhou= gm*M*a",\
+       			"rhov= 0.0",\
+       			"rhow= 0.0",\
+				"entropy = pres/(rho^gm)"]
+		
+	</InitialCondition>
+	
+	<euler>
+		Type = WxHyperbolicEqn
+		Kind = eulerEntropyEqn
+		
+		gas_gamma = GAMMA
+		# either Lax-Friedrichs = LF or HLL
+		Numerical_Flux = HLL
+	</euler>
+	
+   </hyperbolic>
+
+   <inflow>
+	  Type = ApSubSolver
+	  Kind = eulerInflowEntropyBC
+
+	  Mach_number = Mach
+	  Flow_angle = 0.
+	  Pressure = Pr
+	  gas_gamma = GAMMA
+	  density = GAMMA
+	</inflow>
+
+	<bottomWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</bottomWall>
+	
+	<newWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</newWall>
+
+	<noGrad>
+	  Type = ApSubSolver
+	  Kind = eulerZeroGradientBC
+
+	</noGrad>
+
+	<topWall>
+	  Type = ApSubSolver
+	  Kind = eulerWallBC
+
+	</topWall>
+	
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+   
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </bfstep>
+
+</apollo>

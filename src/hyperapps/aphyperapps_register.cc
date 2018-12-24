@@ -23,6 +23,10 @@ WxCreator< WxGridFixedBC<double>, ApSubSolver<double> > __fixedVBC_d("gridFixedB
 WxCreator< WxEulerEqn<float>, WxHyperbolicEqn<float> > __eulerEqn_f("eulerEqn");
 WxCreator< WxEulerEqn<double>, WxHyperbolicEqn<double> > __eulerEqn_d("eulerEqn");
 
+#include "euler/apeulerentropyeqn.h"
+WxCreator< WxEulerEntropyEqn<float>, WxHyperbolicEqn<float> > __eulerEntEqn_f("eulerEntropyEqn");
+WxCreator< WxEulerEntropyEqn<double>, WxHyperbolicEqn<double> > __eulerEntEqn_d("eulerEntropyEqn");
+
 // ------------------ Boundary Conditions --------------------------//
 #include "euler/wxisentropicvortexbc.h"
 WxCreator< WxIsentropicVortexBC<float>, ApSubSolver<float> > __isentropicVBC_f("isentropicVortexBC");
@@ -43,6 +47,10 @@ WxCreator< WxEulerWallBC<double>, ApSubSolver<double> > __eWallBC_d("eulerWallBC
 #include "euler/wxeulerzerogradientbc.h"
 WxCreator< WxEulerZeroGradientBC<float>, ApSubSolver<float> > __eZGBC_f("eulerZeroGradientBC");
 WxCreator< WxEulerZeroGradientBC<double>, ApSubSolver<double> > __eZGBC_d("eulerZeroGradientBC");
+
+#include "euler/apeulerinflow_entropybc.h"
+WxCreator< WxEulerInflowEntropyBC<float>, ApSubSolver<float> > __eIEBC_f("eulerInflowEntropyBC");
+WxCreator< WxEulerInflowEntropyBC<double>, ApSubSolver<double> > __eIEBC_d("eulerInflowEntropyBC");
 
 // ------------------ Limiters --------------------------//
 #include "euler/wxhesthavenwarburtoneulerlimiter.h"
