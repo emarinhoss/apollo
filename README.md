@@ -82,6 +82,39 @@ Load MPI module:
 module load mpi/openmpi-x86_64
 ```
 
+#### macOS
+
+Using [Homebrew](https://brew.sh/) package manager:
+
+```bash
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install dependencies
+brew install gcc cmake git wget
+brew install open-mpi
+brew install hdf5-mpi
+brew install boost
+brew install gsl
+brew install openblas lapack
+```
+
+**Note for macOS users:**
+- Homebrew installs libraries in `/usr/local` (Intel) or `/opt/homebrew` (Apple Silicon)
+- You may need to specify compiler paths when building Apollo:
+  ```bash
+  export CC=/usr/local/bin/gcc-13
+  export CXX=/usr/local/bin/g++-13
+  ```
+- For Apple Silicon Macs, add Homebrew to your PATH:
+  ```bash
+  export PATH=/opt/homebrew/bin:$PATH
+  ```
+
+For PETSc on macOS, you can either:
+- Install via Homebrew: `brew install petsc` (easiest option)
+- Build from source using Option 3 below (for custom configuration)
+
 ### Option 2: Build Dependencies from Source (Automated)
 
 The repository includes a makefile to automatically download and build dependencies:
