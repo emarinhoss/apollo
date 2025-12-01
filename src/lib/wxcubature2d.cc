@@ -6,6 +6,13 @@
 #include "wxcubaturedata2d.h"
 #include "wxNodalDGMatrices.h"
 
+// Include BLAS/LAPACK for optimized matrix operations
+#ifdef USE_BLAS
+extern "C" {
+    #include <cblas.h>
+}
+#endif
+
 template <typename REAL>
 WxCubature2d<REAL>::WxCubature2d(DM dm, unsigned meqn, unsigned polOrd, Mat invV)
     : _meqn(meqn), _polyOrd(polOrd), _dm(dm), inverseV(invV)
@@ -432,6 +439,26 @@ template <typename REAL>
 void
 WxCubature2d<REAL>::MatrixVectorMult(int rows, int cols, int meqn, REAL *A, REAL *x, REAL *y)
 {
+    // Use optimized BLAS for matrix-vector multiplication when available
+    // This computes: Y = A * X where X and Y have multiple columns (meqn)
+    // Equivalent to: for each column i: y[:,i] = A * x[:,i]
+
+#ifdef USE_BLAS
+    // BLAS dgemm: C = alpha*A*B + beta*C
+    // We use it as: Y(rows x meqn) = A(rows x cols) * X(cols x meqn)
+    if(sizeof(REAL) == sizeof(double)) {
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                    rows, meqn, cols,
+                    1.0, (double*)A, cols, (double*)x, meqn,
+                    0.0, (double*)y, meqn);
+    } else if(sizeof(REAL) == sizeof(float)) {
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                    rows, meqn, cols,
+                    1.0f, (float*)A, cols, (float*)x, meqn,
+                    0.0f, (float*)y, meqn);
+    }
+#else
+    // Fallback to original implementation if BLAS not available
     for(int kk=0; kk<rows*meqn; kk++)
         y[kk] = 0.0;
 
@@ -439,6 +466,7 @@ WxCubature2d<REAL>::MatrixVectorMult(int rows, int cols, int meqn, REAL *A, REAL
         for(unsigned ky=0; ky<cols; ky++)
             for(unsigned kz=0; kz<meqn; kz++)
                 y[kx*meqn+kz] += A[kx*cols+ky]*x[ky*meqn+kz];
+#endif
 }
 
 template <typename REAL>

@@ -66,7 +66,7 @@ if not warpMConstructionEnv.GetOption('clean'):
 	SConscript('buildconf/config_mpi.py',     exports='warpMConstructionEnv')
 	SConscript('buildconf/config_petsc.py',   exports='warpMConstructionEnv')
 #        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
-#        SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
+	SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
 
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
@@ -90,6 +90,27 @@ debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, export
 
 # OPTIMIZED target, due to the march flag, this product will only run on the architecture of the build machine. To do otherwise, will need to set specific march, not native.
 march = 'native'
-optimizedEnv = warpMConstructionEnv.Clone(CCFLAGS = '-O3 -funroll-loops -Wall')
+
+# Phase 1 Performance Optimizations:
+# - OpenMP for thread-level parallelism within MPI ranks
+# - Aggressive compiler optimizations for maximum performance
+# - Fast math and architecture-specific optimizations
+optimizationFlags = [
+    '-O3',                    # Highest optimization level
+    '-march=native',          # Optimize for build machine's architecture (AVX, AVX2, etc.)
+    '-mtune=native',          # Tune for build machine's specific CPU
+    '-funroll-loops',         # Loop unrolling
+    '-ffast-math',            # Aggressive floating-point optimizations
+    '-fopenmp',               # Enable OpenMP threading
+    '-ftree-vectorize',       # Auto-vectorization with SIMD
+    '-fno-math-errno',        # Don't set errno for math functions (faster)
+    '-Wall',                  # All warnings
+    '-DUSE_BLAS',             # Enable optimized BLAS routines
+]
+
+optimizedEnv = warpMConstructionEnv.Clone(
+    CCFLAGS = ' '.join(optimizationFlags),
+    LINKFLAGS = '-fopenmp'  # Link OpenMP library
+)
 env = optimizedEnv
 optimizedEnv.SConscript('SConscript', variant_dir='build-opt', duplicate=0, exports='env')

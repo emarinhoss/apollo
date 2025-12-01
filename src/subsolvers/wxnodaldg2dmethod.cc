@@ -7,6 +7,10 @@
 
 # include <wxmpimsg.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 // std includes
 #include <vector>
 #include <wxmath.h>
@@ -287,38 +291,37 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     int Ncubature= _cub->numCubaturePoints(); // Number of cubature points
     int Ngauss = _cub->numGaussianPoints(); // Number of Gaussian points per edge/face
 
-    /**
-     * Allocate memory for all vectors
-     */
-    // Coordinates
-    REAL xcoord[NpE], ycoord[NpE];
-    REAL xc[5]; xc[0]=t; xc[4] = dt; // coordinates
-    REAL nx[2]; // normals
-    int connect[2*NfE]; // connectivity information element-to-element-to-edge
-
-    // Volume integral
-    REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
-    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn],
-            ISrc_vol[Ncubature*_meqn], Iarea_vol[Ncubature*_meqn];
-    REAL IXcoords[Ncubature], IYcoords[Ncubature];
-
-    // Surface integral
-    REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
-    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn],
-            Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
-    REAL qgtemp[NfE*Ngauss*_meqn];
-
-    // to evaluate the fluxes at each cubature point
-    REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn], AreaIntegrals[_meqn];
-
-    //
+    // Total area integrals (accumulated from all elements)
     REAL TotalAreaInt[_meqn];
     for(unsigned eqs=0; eqs<_meqn; eqs++)
         TotalAreaInt[eqs] = 0.0;
 
-    PetscScalar *qVal;
+    // OpenMP parallelization of element loop
+    // Each element computation is independent, making this embarrassingly parallel
+    #pragma omp parallel for reduction(max:maxSpeed) schedule(static)
     for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
+        // Thread-local temporary arrays (all arrays are now private to each thread)
+        REAL xcoord[NpE], ycoord[NpE];
+        REAL xc[5]; xc[0]=t; xc[4] = dt;
+        REAL nx[2];
+        int connect[2*NfE];
+
+        REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
+        REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn],
+                ISrc_vol[Ncubature*_meqn], Iarea_vol[Ncubature*_meqn];
+        REAL IXcoords[Ncubature], IYcoords[Ncubature];
+
+        REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
+        REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn],
+                Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
+        REAL qgtemp[NfE*Ngauss*_meqn];
+
+        REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn], AreaIntegrals[_meqn];
+        REAL geoFacts[5], normals[3*NfE];
+
+        PetscScalar *qVal, *rhs;
+
         // get coordinates of all nodes
         for(unsigned nodes=0; nodes<NpE; nodes++)
         {
@@ -505,8 +508,11 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         // compute \int q\cdot dA, add contribution from all elements
 //        REAL elementArea = _geom->elementArea(kelem);
-        for(unsigned ar=0; ar<_meqn; ar++)
-            TotalAreaInt[ar] += AreaIntegrals[ar];
+        #pragma omp critical
+        {
+            for(unsigned ar=0; ar<_meqn; ar++)
+                TotalAreaInt[ar] += AreaIntegrals[ar];
+        }
     }
 
     VecRestoreArrayRead(local_in, &u);
