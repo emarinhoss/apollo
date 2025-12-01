@@ -1,63 +1,133 @@
 # Apollo
 
-This repository contains a discontinuous Galerkin (DG) finite element method implementation for solving hyperbolic partial differential equations (PDEs) such as the Advection, Euler, and Maxwell equations. The code is designed to be flexible and extensible, and can be used to solve a wide range of problems in plasma physics, including nuclear fusion research and space propulsion.
+A high-performance Discontinuous Galerkin (DG) finite element solver for hyperbolic partial differential equations (PDEs) on unstructured grids. Apollo is designed for plasma physics simulations, nuclear fusion research, and computational fluid dynamics applications.
 
-**Parallelization**
+## Overview
 
-The code is parallelized using PETSc (Portable, Extensible Toolkit for Scientific Computation). PETSc is a suite of data structures and routines for the scalable (parallel) solution of scientific applications modeled by partial differential equations. It employs the Message Passing Interface (MPI) standard for all message-passing communication.
+Apollo implements a flexible and extensible DG framework capable of solving multiple physics systems including electromagnetic wave propagation, compressible fluid dynamics, and multi-species plasma transport. The solver leverages PETSc for massively parallel computations and supports high-order spatial discretizations on complex geometries.
 
-**Usage**
+## Features
 
-To run the code in parallel, simply type the following command:
+- **Multiple Physics Modules:**
+  - Maxwell equations (electromagnetics, RF wave propagation)
+  - Euler equations (compressible gas dynamics)
+  - Multifluid models (plasma physics with multiple species)
+  - Advection equations
 
+- **Advanced Numerics:**
+  - High-order Discontinuous Galerkin method
+  - Unstructured mesh support (2D/3D)
+  - Entropy-based formulations for stability
+  - Shock capturing and limiters
+
+- **Scalable Parallelization:**
+  - MPI-based domain decomposition via PETSc
+  - Efficient sparse matrix operations
+  - Scalable to large-scale HPC systems
+
+- **Application Areas:**
+  - Nuclear fusion devices (FRC, RMF heating systems)
+  - Space propulsion and plasma thrusters
+  - Computational electromagnetics
+  - Hypersonic flow simulations
+
+## Requirements
+
+- C++ compiler (with C++11 support)
+- MPI library (OpenMPI, MPICH, or equivalent)
+- PETSc library (version 3.6.0 or later recommended)
+- CMake (for building)
+
+## Installation
+
+### Using the Makefile
+
+The repository includes a makefile to install dependencies:
+
+```bash
+make all
 ```
-mpirun -np <number_of_processes> ./dg <input_file>
-```
 
-This will run the code on <number_of_processes> processors.
+This will download and build the required libraries (MPI, HDF5, Boost) in `$HOME/apollo/software`.
 
-**Example**
+### Building Apollo
 
-To run the example problem `plasma_transport.dat` in parallel on 4 processors, type the following command:
+Once dependencies are installed:
 
-```
-mpirun -np 4 ./dg examples/plasma_transport/input.dat
-```
-
-This will create an output file called `output.dat` in the `examples/plasma_transport/` directory.
-
-**Requirements**
-
-* C++ compiler
-* MPI library
-* PETSc library
-
-**Installation**
-
-To install the code, simply clone the repository and run the following commands:
-
-```
+```bash
 mkdir build
 cd build
 cmake .. -DPETSC_WITH_MPI=ON
 make
 ```
 
-This will create an executable file called `dg`.
+This will create an executable file called `dg` in the build directory.
 
-**Documentation**
+## Usage
 
-In-progress...
+### Basic Execution
 
-## What is PETSc?
+Run simulations using MPI:
 
-PETSc (Portable, Extensible Toolkit for Scientific Computation) is a suite of data structures and routines for the scalable (parallel) solution of scientific applications modeled by partial differential equations. It employs the Message Passing Interface (MPI) standard for all message-passing communication. PETSc is the world's most widely used parallel numerical software library for partial differential equations and sparse matrix computations.
+```bash
+mpirun -np <number_of_processes> ./dg <input_file>
+```
 
-## Why use PETSc?
+### Example Simulations
 
-PETSc has a number of advantages over other parallelization libraries, including:
+The `examples/unstructuredDG/` directory contains test cases for each physics module:
 
-* It is highly portable and can be used on a wide range of platforms, including distributed memory machines, shared memory machines, and hybrid MPI-GPU systems.
-* It provides a wide range of parallel algorithms and data structures for solving a variety of scientific problems.
-* It is highly scalable and can be used to solve large-scale problems with millions or even billions of unknowns.
-* It is well-documented and supported by a large community of users and developers.
+**Maxwell (Electromagnetics):**
+```bash
+mpirun -np 4 ./dg examples/unstructuredDG/maxwell/circularPulse/input.dat
+```
+
+**Euler (Gas Dynamics):**
+```bash
+mpirun -np 4 ./dg examples/unstructuredDG/euler/isentropicVortex/input.dat
+```
+
+**Multifluid (Plasma):**
+```bash
+mpirun -np 4 ./dg examples/unstructuredDG/multifluid/rmf_frc/input.dat
+```
+
+**Advection:**
+```bash
+mpirun -np 4 ./dg examples/unstructuredDG/advection/input.dat
+```
+
+## Example Problems
+
+The repository includes various benchmark and application problems:
+
+- **Maxwell:** Circular pulse, transverse magnetic modes, RMF antenna modeling for FRC
+- **Euler:** Isentropic vortex, forward/backward facing steps, scramjet inlet, explosion tests
+- **Multifluid:** Collisional-radiative models, RMF-driven FRC plasmas
+
+Visualization scripts (Python) are provided in the `scripts/` directory for post-processing results.
+
+## About PETSc
+
+Apollo uses PETSc (Portable, Extensible Toolkit for Scientific Computation) for parallel numerical computations. PETSc provides:
+
+- Highly portable parallel framework (distributed memory, shared memory, hybrid MPI-GPU)
+- Comprehensive suite of parallel linear/nonlinear solvers
+- Scalability to millions/billions of unknowns
+- Industry-standard MPI-based communication
+- Extensive documentation and active development community
+
+## Documentation
+
+Documentation is currently in development. For now, refer to:
+- Example input files in `examples/unstructuredDG/`
+- Visualization scripts in `scripts/`
+- Source code headers in `src/`
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Author
+
+Created by Eder Sousa
