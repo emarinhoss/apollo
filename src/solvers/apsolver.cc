@@ -481,5 +481,5 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec global_in,Vec global_out,v
 }
 
 // instantiations
-template class ApSolver<float>;
+//template class ApSolver<float>;
 template class ApSolver<double>;

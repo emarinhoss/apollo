@@ -457,5 +457,5 @@ wxNodalDGgeometry2D<REAL>::multiplyBYinverseMassMatrix(REAL* input, REAL* output
 }
 
 // instantiations
-template class wxNodalDGgeometry2D<float>;
+//template class wxNodalDGgeometry2D<float>;
 template class wxNodalDGgeometry2D<double>;

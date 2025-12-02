@@ -1453,5 +1453,5 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
 }
 
 // instantiations
-template class WxEulerEqn<float>;
+//template class WxEulerEqn<float>;
 template class WxEulerEqn<double>;

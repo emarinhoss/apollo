@@ -26,5 +26,5 @@ WxStepper<REAL>::setCurrentTime(REAL tcurr)
 }
 
 // instantiations
-template class WxStepper<float>;
+//template class WxStepper<float>;
 template class WxStepper<double>;

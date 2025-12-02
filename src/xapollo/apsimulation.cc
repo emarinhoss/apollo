@@ -301,5 +301,5 @@ ApSimulation<REAL>::stripName(const std::string& nm)
 }
 
 // instantiations
-template class ApSimulation<float>;
+//template class ApSimulation<float>;
 template class ApSimulation<double>;

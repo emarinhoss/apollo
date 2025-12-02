@@ -103,7 +103,7 @@ template class WxMpiMsgTmpl<int>;
 template class WxMpiMsgTmpl<unsigned int>;
 template class WxMpiMsgTmpl<long>;
 template class WxMpiMsgTmpl<unsigned long>;
-template class WxMpiMsgTmpl<float>;
+//template class WxMpiMsgTmpl<float>;
 template class WxMpiMsgTmpl<double>;
 template class WxMpiMsgTmpl<long double>;
 template class WxMpiMsgTmpl<long long int>;

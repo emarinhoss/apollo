@@ -20,5 +20,5 @@ WxGridFixedBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Area
 }
 
 // instantiations
-template class WxGridFixedBC<float>;
+//template class WxGridFixedBC<float>;
 template class WxGridFixedBC<double>;

@@ -502,5 +502,5 @@ WxCubature2d<REAL>::CalculateAreaIntegrals(REAL* xcoords, REAL* ycoords, REAL *S
 }
 
 // instantiations
-template class WxCubature2d<float>;
+//template class WxCubature2d<float>;
 template class WxCubature2d<double>;

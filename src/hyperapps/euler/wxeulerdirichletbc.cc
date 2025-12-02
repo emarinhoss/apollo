@@ -29,5 +29,5 @@ WxEulerDirichletBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL 
 }
 
 // instantiations
-template class WxEulerDirichletBC<float>;
+//template class WxEulerDirichletBC<float>;
 template class WxEulerDirichletBC<double>;

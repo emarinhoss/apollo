@@ -455,5 +455,5 @@ WxTuAliabadiLimiter<REAL>::isInfinityOrNAN(Vec f, std::string location)
 }
 
 // instantiations
-template class WxTuAliabadiLimiter<float>;
+//template class WxTuAliabadiLimiter<float>;
 template class WxTuAliabadiLimiter<double>;

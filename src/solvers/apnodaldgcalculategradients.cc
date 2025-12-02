@@ -25,5 +25,5 @@ ApNodalDGcalculateGradients<REAL>::calculateGradients(wxNodalDGgeometry2D<REAL> 
 }
 
 // instantiations
-template class ApNodalDGcalculateGradients<float>;
+//template class ApNodalDGcalculateGradients<float>;
 template class ApNodalDGcalculateGradients<double>;

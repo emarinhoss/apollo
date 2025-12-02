@@ -84,5 +84,5 @@ APTwoFluidOMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
 }
 
 // instantiations
-template class APTwoFluidOMFBC<float>;
+//template class APTwoFluidOMFBC<float>;
 template class APTwoFluidOMFBC<double>;

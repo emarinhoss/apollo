@@ -86,5 +86,5 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
 }
 
 // instantiations
-template class APTwoFluidSimplifiedRMFBC<float>;
+//template class APTwoFluidSimplifiedRMFBC<float>;
 template class APTwoFluidSimplifiedRMFBC<double>;

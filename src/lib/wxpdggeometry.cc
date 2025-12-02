@@ -490,5 +490,5 @@ WxpDGGeometry<REAL>::calculateFilter(REAL *filter, REAL *filterMatrix)
 }
 
 // instantiations
-template class WxpDGGeometry<float>;
+//template class WxpDGGeometry<float>;
 template class WxpDGGeometry<double>;

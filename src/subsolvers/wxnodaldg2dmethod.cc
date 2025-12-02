@@ -598,5 +598,5 @@ WxNodalDG2dMethod<REAL>::calculateGradients(Vec Qin, Vec Qgrads)
 }
 
 // instantiations
-template class WxNodalDG2dMethod<float>;
+//template class WxNodalDG2dMethod<float>;
 template class WxNodalDG2dMethod<double>;

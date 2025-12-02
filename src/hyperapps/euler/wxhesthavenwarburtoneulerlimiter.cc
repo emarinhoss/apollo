@@ -544,5 +544,5 @@ WxHestavenWarburtonEulerLimiter<REAL>::primitiveVariables(REAL *qCons, REAL *qPr
 }
 
 // instantiations
-template class WxHestavenWarburtonEulerLimiter<float>;
+//template class WxHestavenWarburtonEulerLimiter<float>;
 template class WxHestavenWarburtonEulerLimiter<double>;

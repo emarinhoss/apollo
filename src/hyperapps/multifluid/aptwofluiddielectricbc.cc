@@ -66,5 +66,5 @@ WxTwoFluidDielectricBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, R
 }
 
 // instantiations
-template class WxTwoFluidDielectricBC<float>;
+//template class WxTwoFluidDielectricBC<float>;
 template class WxTwoFluidDielectricBC<double>;

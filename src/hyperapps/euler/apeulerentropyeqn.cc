@@ -552,5 +552,5 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
 }
 
 // instantiations
-template class WxEulerEntropyEqn<float>;
+//template class WxEulerEntropyEqn<float>;
 template class WxEulerEntropyEqn<double>;

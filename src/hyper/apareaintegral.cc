@@ -82,5 +82,5 @@ ApAreaIntegral<REAL>::compAreaIntegral(REAL *tx, REAL *qfull, REAL *qauxfull, RE
 }
 
 // instantiations
-template class ApAreaIntegral<float>;
+//template class ApAreaIntegral<float>;
 template class ApAreaIntegral<double>;

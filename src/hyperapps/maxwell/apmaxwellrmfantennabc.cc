@@ -87,5 +87,5 @@ WxMaxwellRMFAntennaBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, RE
 }
 
 // instantiations
-template class WxMaxwellRMFAntennaBC<float>;
+//template class WxMaxwellRMFAntennaBC<float>;
 template class WxMaxwellRMFAntennaBC<double>;

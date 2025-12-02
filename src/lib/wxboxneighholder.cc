@@ -24,6 +24,6 @@ getNeigh(unsigned n, const WxSplitBox<TYPE>& box, TYPE lp[], TYPE up[])
 // instantiations
 // instantiations
 template class WxBoxNeighHolder<int>;
-template class WxBoxNeighHolder<float>;
+//template class WxBoxNeighHolder<float>;
 template class WxBoxNeighHolder<double>;
 

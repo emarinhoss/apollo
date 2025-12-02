@@ -443,5 +443,5 @@ WxpDG2Dscheme<REAL>::isInfinityOrNAN(Vec f, std::string location)
 }
 
 // instantiations
-template class WxpDG2Dscheme<float>;
+//template class WxpDG2Dscheme<float>;
 template class WxpDG2Dscheme<double>;

@@ -173,5 +173,5 @@ ApHWCalculateGradients<REAL>::isInfinityOrNAN(Vec f, std::string location)
 }
 
 // instantiations
-template class ApHWCalculateGradients<float>;
+//template class ApHWCalculateGradients<float>;
 template class ApHWCalculateGradients<double>;

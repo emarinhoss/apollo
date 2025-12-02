@@ -294,5 +294,5 @@ ApFVM2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 }
 
 // instantiations
-template class ApFVM2Dscheme<float>;
+//template class ApFVM2Dscheme<float>;
 template class ApFVM2Dscheme<double>;

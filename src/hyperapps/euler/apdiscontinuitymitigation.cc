@@ -216,5 +216,5 @@ ApDiscontinuityMitigation<REAL>::applyBc(int bcNum, REAL *xc, REAL *nx, REAL *q,
 }
 
 // instantiations
-template class ApDiscontinuityMitigation<float>;
+//template class ApDiscontinuityMitigation<float>;
 template class ApDiscontinuityMitigation<double>;

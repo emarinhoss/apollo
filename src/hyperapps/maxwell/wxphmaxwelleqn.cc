@@ -754,5 +754,5 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
 }
 
 // instantiations
-template class WxPHMaxwellEqn<float>;
+//template class WxPHMaxwellEqn<float>;
 template class WxPHMaxwellEqn<double>;

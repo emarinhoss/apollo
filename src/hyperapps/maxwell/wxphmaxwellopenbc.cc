@@ -20,5 +20,5 @@ WxPHMaxwellOpenBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *
 }
 
 // instantiations
-template class WxPHMaxwellOpenBC<float>;
+//template class WxPHMaxwellOpenBC<float>;
 template class WxPHMaxwellOpenBC<double>;

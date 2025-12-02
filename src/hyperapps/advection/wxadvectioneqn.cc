@@ -249,5 +249,5 @@ RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *
 }
 
 // instantiations
-template class WxAdvectionEqn<float>;
+//template class WxAdvectionEqn<float>;
 template class WxAdvectionEqn<double>;

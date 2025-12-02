@@ -84,5 +84,5 @@ WxTwoFluidRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
 }
 
 // instantiations
-template class WxTwoFluidRMFBC<float>;
+//template class WxTwoFluidRMFBC<float>;
 template class WxTwoFluidRMFBC<double>;

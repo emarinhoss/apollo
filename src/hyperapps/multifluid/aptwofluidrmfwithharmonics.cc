@@ -95,5 +95,5 @@ WxTwoFluidRMFWithHarmonicsBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *q
 }
 
 // instantiations
-template class WxTwoFluidRMFWithHarmonicsBC<float>;
+//template class WxTwoFluidRMFWithHarmonicsBC<float>;
 template class WxTwoFluidRMFWithHarmonicsBC<double>;
