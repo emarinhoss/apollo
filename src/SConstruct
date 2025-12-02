@@ -127,13 +127,33 @@ optimizationFlags = [
 
 # Add OpenMP flags based on compiler
 openmp_linkflags = ''
+libomp_include_path = []
+libomp_lib_path = []
+
 if is_clang:
     # Clang on macOS requires special OpenMP flags and libomp
     # User must install libomp: brew install libomp
-    optimizationFlags.extend([
-        '-Xpreprocessor', '-fopenmp',  # Clang-specific OpenMP compile flags
-    ])
-    openmp_linkflags = '-lomp'  # Link against libomp
+
+    # Detect Homebrew prefix (Apple Silicon vs Intel)
+    homebrew_prefix = '/opt/homebrew'  # Apple Silicon default
+    if not os.path.isdir(homebrew_prefix):
+        homebrew_prefix = '/usr/local'  # Intel Mac default
+
+    # Add libomp paths
+    libomp_include = os.path.join(homebrew_prefix, 'opt', 'libomp', 'include')
+    libomp_lib = os.path.join(homebrew_prefix, 'opt', 'libomp', 'lib')
+
+    if os.path.isdir(libomp_include) and os.path.isdir(libomp_lib):
+        print(f"Found libomp at {homebrew_prefix}/opt/libomp")
+        libomp_include_path = [libomp_include]
+        libomp_lib_path = [libomp_lib]
+        optimizationFlags.extend([
+            '-Xpreprocessor', '-fopenmp',  # Clang-specific OpenMP compile flags
+        ])
+        openmp_linkflags = '-lomp'  # Link against libomp
+    else:
+        print("WARNING: libomp not found. Install with: brew install libomp")
+        print("Building without OpenMP support.")
 else:
     # GCC uses -fopenmp for both compiling and linking
     optimizationFlags.append('-fopenmp')
@@ -143,5 +163,11 @@ optimizedEnv = warpMConstructionEnv.Clone(
     CCFLAGS = ' '.join(optimizationFlags),
     LINKFLAGS = openmp_linkflags
 )
+
+# Add libomp paths to environment if using Clang
+if libomp_include_path:
+    optimizedEnv.AppendUnique(CPPPATH=libomp_include_path)
+if libomp_lib_path:
+    optimizedEnv.AppendUnique(LIBPATH=libomp_lib_path)
 env = optimizedEnv
 optimizedEnv.SConscript('SConscript', variant_dir='build-opt', duplicate=0, exports='env')
