@@ -100,6 +100,7 @@ brew install boost
 brew install gsl
 brew install openblas  # Optimized BLAS for better performance
 brew install lapack
+brew install seacas    # For Exodus II mesh I/O (optional but recommended)
 ```
 
 **Note for macOS users:**
@@ -117,6 +118,11 @@ brew install lapack
 For PETSc on macOS, you can either:
 - Install via Homebrew: `brew install petsc` (easiest option)
 - Build from source using Option 3 below (for custom configuration)
+
+**Exodus II library:**
+- The `seacas` package provides the Exodus II mesh I/O library
+- If `seacas` is not available via Homebrew, you can build PETSc with built-in Exodus support (see Option 3 with `--download-exodusii=1`)
+- Apollo can build without Exodus but mesh I/O capabilities will be limited
 
 ### Option 2: Build Dependencies from Source (Automated)
 

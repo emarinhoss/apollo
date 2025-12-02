@@ -41,10 +41,25 @@ if not conf.CheckLib('petsc'):
         print("You need petsc library to compile this program!")
         Exit(1)
 
-if not conf.CheckLib('exodus'):
-        print("You need exodus library to compile this program!")
-        Exit(1)
+# Try to find exodus library (may be bundled with PETSc or separate)
+exodus_found = False
+if conf.CheckLib('exodus'):
+    print("Found exodus library")
+    exodus_found = True
+elif conf.CheckLib('exoIIv2c'):
+    print("Found exoIIv2c library (exodus variant)")
+    exodus_found = True
+elif conf.CheckLib('exodusII'):
+    print("Found exodusII library")
+    exodus_found = True
 
+if not exodus_found:
+    print("WARNING: exodus library not found. Mesh I/O may be limited.")
+    print("To install exodus on macOS: brew install seacas")
+    print("Or rebuild PETSc with: --download-exodusii=1")
+    # Don't exit - allow compilation without exodus if mesh I/O not needed
+
+# GSL is required
 if not conf.CheckLib('gsl'):
         print("You need gsl library to compile this program!")
         Exit(1)
