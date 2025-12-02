@@ -20,8 +20,8 @@ WxMpiMsg::WxMpiMsg()
     ( new WxMpiMsgTmpl<long>(_comm) );
   this->addMsg<unsigned long>
     ( new WxMpiMsgTmpl<unsigned long>(_comm) );
-  this->addMsg<float>
-    ( new WxMpiMsgTmpl<float>(_comm) );
+  //this->addMsg<float>
+  //  ( new WxMpiMsgTmpl<float>(_comm) );
   this->addMsg<double>
     ( new WxMpiMsgTmpl<double>(_comm) );
   this->addMsg<long double>
@@ -49,8 +49,8 @@ WxMpiMsg::WxMpiMsg(WxMpiMsg *parent, MPI_Comm comm)
     ( new WxMpiMsgTmpl<long>(_comm) );
   this->addMsg<unsigned long>
     ( new WxMpiMsgTmpl<unsigned long>(_comm) );
-  this->addMsg<float>
-    ( new WxMpiMsgTmpl<float>(_comm) );
+  //this->addMsg<float>
+  //  ( new WxMpiMsgTmpl<float>(_comm) );
   this->addMsg<double>
     ( new WxMpiMsgTmpl<double>(_comm) );
   this->addMsg<long double>
