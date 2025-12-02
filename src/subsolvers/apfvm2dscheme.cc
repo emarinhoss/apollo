@@ -4,6 +4,7 @@
 #include <wxcreator.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 # include <wxmpimsg.h>
 
