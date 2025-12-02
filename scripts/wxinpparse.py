@@ -55,7 +55,7 @@ if __name__ == '__main__':
     d = open(inpFile, "r").read()
     # find the initial <apollo> tag
     loc = d.find("<apollo>")
-    if loc < -1:
+    if loc < 0:
         raise Exception("Unable to find opening apollo tag in input file %s" % inpFile)
     prefix = d[0:loc]
 
