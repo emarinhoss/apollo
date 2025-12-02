@@ -1,7 +1,6 @@
 import os
 import cmd
 import readline
-import string
 
 class WxInteractivePlot(cmd.Cmd):
 
@@ -19,23 +18,22 @@ class WxInteractivePlot(cmd.Cmd):
     ## Command definitions ##
     def do_hist(self, args):
         """Print a list of commands that have been entered"""
-        print self._hist
-
+        print(self._hist)
     def do_exit(self, args):
         """Exits from the console"""
         return -1
 
     def do_list(self, args):
         """Show list of variables which can be set"""
-        print self.vars.keys()
+        print(self.vars.keys())
 
     def do_show(self, args):
         """Show value of option"""
-        print self.vars[args]
+        print(self.vars[args])
 
     def do_set(self, args):
         """Set value of variable"""
-        lhs, rhs = string.split(args, '=')
+        lhs, rhs = args.split('=')
         lhs = lhs.strip()
         rhs = rhs.strip()
         self.vars[lhs] = rhs
@@ -72,7 +70,7 @@ class WxInteractivePlot(cmd.Cmd):
            Despite the claims in the Cmd documentaion, Cmd.postloop() is not a stub.
         """
         cmd.Cmd.postloop(self)   ## Clean up command completion
-        print "Exiting..."
+        print("Exiting...")
 
     def precmd(self, line):
         """ This method is called after the line has been input but before
@@ -92,14 +90,14 @@ class WxInteractivePlot(cmd.Cmd):
         """Do nothing on empty input line"""
         pass
 
-    def default(self, line):       
+    def default(self, line):
         """Called on an input line when the command prefix is not recognized.
            In that case we execute the line as Python code.
         """
         try:
-            exec(line) in self._locals, self._globals
-        except Exception, e:
-            print e.__class__, ":", e
+            exec(line, self._locals, self._globals)
+        except Exception as e:
+            print(e.__class__, ":", e)
 
 if __name__ == '__main__':
         console = Console()

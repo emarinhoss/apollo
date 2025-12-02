@@ -99,7 +99,7 @@ if __name__ == '__main__':
         inpFile = options.inputFile
     else:
         if len(args) == 0:
-            print "Must provide name of input file."
+            print("Must provide name of input file.")
             exit(1)
         else:
             inpFile = args[0]
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     # now determine the names of the variables written by this block
     outNmsWS = datawriterstep.values['SubSolvers']
     numWriters = len(outNmsWS)
-#    print numWriters
+#    print(numWriters)
 #    print outNmsWS[0]
 
 
@@ -133,23 +133,20 @@ if __name__ == '__main__':
 	outNms = writer.values['writeNames']
 #	print outNms[0]
 	grid = top.childrenMap[writer.values['OnGrid']]
-#	print grid.values
-
-
+#	print(grid.values)
     # get writer block
     gridwriterstep = top.childrenMap[options.gridwriterstep]
     # now determine the names of the variables written by this block
     outNmsGS = gridwriterstep.values['SubSolvers']
     numGrids = len(outNmsGS)
-#    print numGrids
-#    print outNmsGS
-
+#    print(numGrids)
+#    print(outNmsGS)
     for i in range(numGrids):
 	# get writer block
 	gridwriter = top.childrenMap[outNmsGS[i]]
 	# now determine the names of the variables written by this block
 	outGNms = gridwriter.values['writeNames']
-#	print "outGNms = "+str(outGNms)
+#	print("outGNms = ")+str(outGNms)
 
 
     # check what kind it is

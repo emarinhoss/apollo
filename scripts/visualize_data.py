@@ -79,9 +79,9 @@ def generateVTUfile(n):
 	ug.point_data.scalars.name = 'Q_var'
 	outfile = filename + '_Comp_' + str(component) + '_' + str('%03d' % n)  + '.vtu'
 	save_xml(ug, outfile)
-	print "Frame "+str("%d" % n)+" COMPLETE."
+	print("Frame ")+str("%d" % n)+" COMPLETE."
 
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)
-print "Generating plots using "+str("%d" % num_cores)+" processors."
+print("Generating plots using ")+str("%d" % num_cores)+" processors."
 Parallel(n_jobs=num_cores)(delayed(generateVTUfile)(n) for n in inputs)

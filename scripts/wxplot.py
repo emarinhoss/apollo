@@ -183,9 +183,9 @@ if options.showTransfromVariables:
 # print information about variable if requested
 if options.variableInfo:
     q = d.read(options.variableInfo)
-    print 'Variable "%s" lives on grid "%s" with ' % (options.variableInfo, q.onGrid)
-    print q.grid
-    print 'No of components is ', q.numComponents
+    print('Variable "%s" lives on grid "%s" with ') % (options.variableInfo, q.onGrid)
+    print(q.grid)
+    print('No of components is '), q.numComponents
     d.close()
     exit()
 
@@ -202,10 +202,9 @@ try:
     elif q.grid.ndims == 2:
         make2Dplot(q, options)
     elif q.grid.ndims == 3:
-        raise "3D plots not currently supported"
-except NameError, strerror:
-    print strerror
-
+        raise Exception("3D plots not currently supported")
+except NameError as strerror:
+    print(strerror)
 if options.interactive:
     ip = wxinteractiveplot.WxInteractivePlot(options)
     ip.cmdloop()

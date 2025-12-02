@@ -133,7 +133,7 @@ class WxData:
 
         # construct file names
         fn = self.base + "_" + self.block + "_" + str(frame) + ".txt"
-        print "Reading frame data from file %s..." % fn        
+        print("Reading frame data from file %s...") % fn        
         data = open(fn, 'r').read().split()
         condata = numpy.array( map(lambda s: float(s), data),
                                  numpy.float)

@@ -456,7 +456,7 @@ class WxData:
 
         # ensure file exist
         if not os.path.exists(fn):
-            raise "WxData::__init__ : Dump %d of run %s not exist" % (frm, base)
+            raise Exception("WxData::__init__ : Dump %d of run %s not exist") % (frm, base)
 
         self.fh = tables.openFile(fn, "r")
         # read in simulation time
@@ -497,7 +497,7 @@ class WxData:
         try:
             grp = grp._v_groups[cs]
         except:
-            raise "WxData::variables : Group %s does not exist" % cs
+            raise Exception("WxData::variables : Group %s does not exist") % cs
 
         # read all groups which are variables
         vrbls = []
@@ -526,7 +526,7 @@ class WxData:
         try:
             grp = grp._v_groups[cs]
         except:
-            raise "WxData::grids : Group %s does not exist" % cs
+            raise Exception("WxData::grids : Group %s does not exist") % cs
 
         ds = []
         for c in grp._v_children:
@@ -554,7 +554,7 @@ class WxData:
         try:
             grp = grp._v_groups[cs]
         except:
-            raise "WxData::grids : Group %s does not exist" % cs
+            raise Exception("WxData::grids : Group %s does not exist") % cs
 
         for c in grp._v_children:
             if c == gridName:
@@ -562,7 +562,7 @@ class WxData:
                 if child._v_attrs.__getattribute__('vsType') == 'mesh':
                     break
                 else:
-                    raise "Object %s exists but is not a grid" % gridName
+                    raise Exception("Object %s exists but is not a grid") % gridName
                     
         lowerBounds = child._v_attrs.lowerBounds
         upperBounds = child._v_attrs.upperBounds

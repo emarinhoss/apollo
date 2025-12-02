@@ -100,9 +100,9 @@ def generateVTUfile(n):
 
 	outfile = filename + '_Euler_' + str('%03d' % n)  + '.vtu'
 	save_xml(ug, outfile)
-	print "Frame "+str("%d" % n)+" COMPLETE."
+	print("Frame ")+str("%d" % n)+" COMPLETE."
 
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)
-print "Generating plots using "+str("%d" % num_cores)+" processors."
+print("Generating plots using ")+str("%d" % num_cores)+" processors."
 Parallel(n_jobs=num_cores)(delayed(generateVTUfile)(n) for n in inputs)

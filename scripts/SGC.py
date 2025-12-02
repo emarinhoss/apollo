@@ -338,7 +338,7 @@ def readFile(filename, ghostCells):
                         domain_name = lines[i][26:].splitlines()[0]
                         style = "Line"
                     else:
-                        print "This grid converter does not work with the Element primitive in the input file"
+                        print("This grid converter does not work with the Element primitive in the input file")
                         return [],[],[],0
 
                     # Now we append this new Domain to our list of Domains
@@ -390,7 +390,7 @@ def readFile(filename, ghostCells):
         for j in range(len(nodeset)):
             nodeIndex = getIndexFromID(nodes,nodeset[j])
             elements[i].nodes[j] = nodeIndex
-        #print "Rebuilding Element " + str(i) + ": " + str(elements[i].nodes)
+        #print("Rebuilding Element ") + str(i) + ": " + str(elements[i].nodes)
     print spacing + "Element Nodes Reindexed"
     
     for node in range(len(nodes)):
@@ -433,11 +433,11 @@ def buildHexahedronFaces(nodes,currentnode):
 
 def setIndices(nodeID,cellID,cellposition,nodes,firstnodeflag,nr,idv,idvo,style,deltacells,oldnodeID):
 	
-#	print 'entering setIndices, where idv ='+str(idv)
+#	print('entering setIndices, where idv =')+str(idv)
 
     	nodeindices =[0]*len(idv)
 	if (firstnodeflag==True):
-	    	print 'initialized nodeindices = ' + str(nodeindices)
+	    	print('initialized nodeindices = ') + str(nodeindices)
 	else:
 		oldnodeindices = nodes[oldnodeID].indices
 		facelist = findFaceList(nodes,nodeID,cellID)
@@ -446,7 +446,7 @@ def setIndices(nodeID,cellID,cellposition,nodes,firstnodeflag,nr,idv,idvo,style,
 
 	nodes[nodeID].addIndices(nodeindices)
 
-	print 'nodeID = ' + str(nodeID) + ', where nodeindices after assignment = '+str(nodes[nodeID].indices)
+	print('nodeID = ') + str(nodeID) + ', where nodeindices after assignment = '+str(nodes[nodeID].indices)
 
 	nnr = nr - 1
 
@@ -457,7 +457,7 @@ def findCornerNode(nodes,nr,style):
 	for node in nodes:
 	    numofneighbors=len(node.neighbors)
 	    if (numofneighbors<3):
-		    print numofneighbors
+		    print(numofneighbors)
 	    if (numofneighbors==1):
 		cornerfound = True	    
 		cellID = node.neighbors[0]
@@ -481,9 +481,9 @@ def findCornerNode(nodes,nr,style):
 		break
 
 	if (cornerfound==True):
-	     print "corner nodeID is " + str(cornernodeID) + " found in cell " +str(cellID)
+	     print("corner nodeID is ") + str(cornernodeID) + " found in cell " +str(cellID)
 	else:
-	     print "corner node was not found."
+	     print("corner node was not found.")
 	return nextnodeID, cellID, nnv, idv, nfv, nr, cornernodeID 
 
 def defineFaceandCellPosition(nodes,nodeID,cellID):
@@ -661,7 +661,7 @@ def faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellp
 		if (match1 or match2):
 			cellID = nodes[nodeID].neighbors[cell]
 			cellposition = cell
-#			print 'Cell found! cellID = '+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
+#			print('Cell found! cellID = ')+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
 			break
 
 	   if (style=='Hexahedron'):
@@ -672,7 +672,7 @@ def faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellp
 			if (match1 or match2 or match3 or match4):
 			  cellID = nodes[nodeID].neighbors[cell]
 			  cellposition = cell
-#			  print 'Cell found! cellID = '+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
+#			  print('Cell found! cellID = ')+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
 			  break
 
 	return cellID, cellposition
@@ -707,10 +707,10 @@ def findCell(nodeID,oldcellID,nfv,nodes,idv,style,deltacell,nodevisited):
 			cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,cellID,defaultcellposition)
 
 			if (cellID!=-1):
-#			  print 'after faceTest, the cellID = '+str(cellID)
+#			  print('after faceTest, the cellID = ')+str(cellID)
 			  break  
         if (cellID==-1):
-		print "FindCell was unsuccessful."
+		print("FindCell was unsuccessful.")
 
         return  cellposition, cellID
 
@@ -766,7 +766,7 @@ def twodIdvUpdate(idv,idvo,deltacells,oddslice):
 
         nochangeinsharedcells = (deltacells==0)
 
-#        print "exit_transition, entrance_transition, sliceshift, movinginx, movinginy = (" + str(exit_transition) + ", " + str(entrance_transition)  + ", " + str(sliceshift) + ", "+str(movinginx) +","+str(movinginy)+")"
+#        print("exit_transition, entrance_transition, sliceshift, movinginx, movinginy = (") + str(exit_transition) + ", " + str(entrance_transition)  + ", " + str(sliceshift) + ", "+str(movinginx) +","+str(movinginy)+")"
 
 	if (exit_transition):
             if (sliceshift):
@@ -853,14 +853,14 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
         nidv=twodIdvUpdate(idv,idvo,deltacells,oddslice)
 	nidvo = idv
     else:
-        print "error in 3dIDVupdate!"
+        print("error in 3dIDVupdate!")
 
     nnID = getNextNode(nnv,nidv)
     nodevisited = nodeVisited(nodes,nnID)
     if (nodevisited):
-        print "********************"
-        print "nodevisited in idvUpdate = "+str(nodevisited)
-        print "********************"
+        print("********************")
+        print("nodevisited in idvUpdate = ")+str(nodevisited)
+        print("********************")
 	if (oddslice==True):
 	  newoddslice=False
 	else:
@@ -872,13 +872,13 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
         nnID = getNextNode(nnv,nidv)
         nodevisited = nodeVisited(nodes,nnID)
         if (nodevisited):
-            print "********************"
-            print "idvUpdate Finished = "+str(nodevisited)
-            print "********************"
+            print("********************")
+            print("idvUpdate Finished = ")+str(nodevisited)
+            print("********************")
             return nidv, newoddslice, nidvo             
 
 
-#    print "nidv(0,1,2) =("+str(nidv[0])+","+str(nidv[1])+","+str(nidv[2])+"),\t nidvo(0,1,2) =("+str(nidvo[0])+","+str(nidvo[1])+","+str(nidvo[2])+")"
+#    print("nidv(0,1,2) =(")+str(nidv[0])+","+str(nidv[1])+","+str(nidv[2])+"),\t nidvo(0,1,2) =("+str(nidvo[0])+","+str(nidvo[1])+","+str(nidvo[2])+")"
     return nidv, newoddslice, nidvo 
 
 def idvUpdate(idv,idvo,nn,style,deltacells,visited,oddslice,nnv,nodes):
@@ -897,12 +897,12 @@ def getNextNode(nnv,idv):
 	nn = -1
 	for pos in range(len(idv)):
 	  if (idv[pos]!=0):
-#	    print 'nnv='+str(nnv)
+#	    print('nnv=')+str(nnv)
 	    nn = nnv[pos]
 	    nnfound = True
 	    break
         if (nnfound==False):
-	  print 'next node not found in nnv in getNextNode'
+	  print('next node not found in nnv in getNextNode')
        
   	return nn
 
@@ -936,7 +936,7 @@ def writeASCIIFile(outfilename,indexednodes,nodes, style):
                 zposition = indexednodes[indexednodeID].position[2]
                 positionstring = str(xposition)+','+str(yposition)+','+str(zposition)
                 nodestring = indexnodeIDstring + ','+indexstring+','+positionstring+'\n'
- #               print nodestring
+ #               print(nodestring)
                 f.write(nodestring)
  
 
@@ -1145,7 +1145,7 @@ def constructNodes(style, nodes, elements, domains):
     faces = []
 
     for domain in range(len(domains)):
-	print 'domain identify =' +str(domains[domain].getID())
+	print('domain identify =') +str(domains[domain].getID())
 	print str(domains[domain].startIndices)
     for element in elements:
 	for nodeid in element.nodes:
@@ -1174,7 +1174,7 @@ def constructNodes(style, nodes, elements, domains):
     for node in range(len(nodes)-1):
 	celldelta, sharedcells = cellDelta(oldnocells,nodes,nnID)
 
-#        print "celldelta = " +str(celldelta)
+#        print("celldelta = ") +str(celldelta)
 
 	nodevisited                = nodeVisited(nodes,nnID)
         celllist                   = nodes[nnID].neighbors
@@ -1193,7 +1193,7 @@ def constructNodes(style, nodes, elements, domains):
         oldcelldelta               = celldelta
         oldnocells                 = sharedcells 
 
-    print "nodes indexed"
+    print("nodes indexed")
 
     maxidx = sizethegrid(nodes,style)
 
@@ -1201,9 +1201,9 @@ def constructNodes(style, nodes, elements, domains):
     jmax = maxidx[1]+1
     kmax = maxidx[2]+1
 
-    print 'after sort imax =' + str(imax)
-    print 'after sort jmax =' + str(jmax)
-    print 'after sort kmax =' + str(kmax)
+    print('after sort imax =') + str(imax)
+    print('after sort jmax =') + str(jmax)
+    print('after sort kmax =') + str(kmax)
     
     indexednodes = []
 
@@ -1241,7 +1241,7 @@ def main(argv):
     formatting = ""   
     # We need to parse in the readfile
     if len(argv) < 3 or len(argv) > 3:
-        print """"I need an input terms. Please set:
+        print("")""I need an input terms. Please set:
     python gridconverterhdf5.py inputfilename.whatever [ngc-x,ngc+x,ngc-y...]
 
 Where ngc = number of ghost cells
@@ -1255,19 +1255,19 @@ Where ngc = number of ghost cells
 
     time0 = time()
 
-    print "Loading Input File..."
+    print("Loading Input File...")
     
     nodes, elements, domains, style = readFile(filename + formatting, ngc)
 
     time1 = time()
     
-    print "Loaded in " + str(time1 - time0) + " seconds"
+    print("Loaded in ") + str(time1 - time0) + " seconds"
 
     if(style == ""):
-        print "Error Found. Exiting Script..."
+        print("Error Found. Exiting Script...")
         return
 
-    print "Constructing Node Indices..."
+    print("Constructing Node Indices...")
 
     nodearray = constructNodes(style, nodes, elements, domains)
 
@@ -1275,9 +1275,9 @@ Where ngc = number of ghost cells
 
     time2 = time()
 
-    print "Nodes Constructed in " + str(time2-time1) + " seconds"
+    print("Nodes Constructed in ") + str(time2-time1) + " seconds"
 
-    print "Saving File..."
+    print("Saving File...")
     
     outfilename = filename + "_converted.inp"
     
@@ -1285,10 +1285,10 @@ Where ngc = number of ghost cells
 
     time3 = time()
 
-    print "File Saved in " + str(time3 - time2) + " seconds"
+    print("File Saved in ") + str(time3 - time2) + " seconds"
     
-    print "Grid Rebuild Complete in " + str(time3-time0) + " seconds."
-    print "Written to " + outfilename
+    print("Grid Rebuild Complete in ") + str(time3-time0) + " seconds."
+    print("Written to ") + outfilename
         
 if __name__ == "__main__":
 	main(sys.argv)

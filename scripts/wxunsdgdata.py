@@ -110,7 +110,7 @@ class WxVisData:
 
         # ensure file exist
         if not os.path.exists(fn):
-            raise "WxData::__init__ : Dump %d of run %s not exist" % (frm, base)
+            raise Exception("WxData::__init__ : Dump %d of run %s not exist") % (frm, base)
             
         self.fname = fn
         # read in simulation time

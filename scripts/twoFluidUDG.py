@@ -127,12 +127,12 @@ def generateVTUfile(n):
 	save_xml(ug, outfile)
 	endT = time()
 	totTime = endT - startT
-	print "Frame "+str("%d" % n)+" COMPLETED in "+str("%3.2f" % totTime)+" secs."
+	print("Frame ")+str("%d" % n)+" COMPLETED in "+str("%3.2f" % totTime)+" secs."
 
 frame = int(options.frame)
 stt = int(options.startFrame)
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)
-print "Generating plots using "+str("%d" % num_cores)+" processors."
+print("Generating plots using ")+str("%d" % num_cores)+" processors."
 Parallel(n_jobs=num_cores)(delayed(generateVTUfile)(n) for n in inputs)
 #generateVTUfile(0)
