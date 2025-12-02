@@ -336,7 +336,6 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             q_vol[kk] = qVal[kk];
 
         // calculate edge normals and element Jacobian
-        REAL geoFacts[5], normals[3*NfE];
         _geom->GeometricFactors2d(kelem,geoFacts); // [drdx, dsdx, drdy, dsdy, J]
         _geom->Normals2d(kelem,normals); // [nx_edge1,ny_edge1,length_edge1, nx_edge2, ny_edge2 ...]
 
