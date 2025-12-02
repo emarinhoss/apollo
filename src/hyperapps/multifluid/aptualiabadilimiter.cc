@@ -1,5 +1,6 @@
 ﻿#include "aptualiabadilimiter.h"
 #include <wxmath.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 // Limit the Euler solution using slope limiting adapted from
 // A SLOPE LIMITING PROCEDURE IN DISCONTINUOUS GALERKIN FINITE ELEMENT METHOD FOR

@@ -1,5 +1,6 @@
 #include "aphwcalculategradients.h"
 #include <wxmath.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 // Calculate the gradients using at the nodes for each element.
 // This calculation is done in accordance with Chapter 7 of the

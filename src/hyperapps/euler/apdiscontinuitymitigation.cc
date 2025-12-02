@@ -1,5 +1,6 @@
 #include "apdiscontinuitymitigation.h"
 #include <wxmath.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 template <typename REAL>
 void
