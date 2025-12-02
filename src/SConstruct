@@ -95,7 +95,7 @@ print("running with -j", GetOption('num_jobs'))
 
 # DEBUG target
 # build with debug symbols and range checking turned on.
-debugEnv     = warpMConstructionEnv.Clone(CCFLAGS = '-std=c++11 -g -Wall' + ' -D_DO_RANGE_CHECK_' )
+debugEnv     = warpMConstructionEnv.Clone(CCFLAGS = '-std=c++14 -g -Wall' + ' -D_DO_RANGE_CHECK_' )
 env = debugEnv
 debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
 
@@ -125,7 +125,7 @@ except:
 
 # Base optimization flags (compiler-agnostic)
 optimizationFlags = [
-    '-std=c++11',             # C++11 standard (required for Boost 1.87+)
+    '-std=c++14',             # C++14 standard (required for Boost 1.87+ and Eigen 3.4+)
     '-O3',                    # Highest optimization level
     '-march=native',          # Optimize for build machine's architecture (AVX, AVX2, etc.)
     '-mtune=native',          # Tune for build machine's specific CPU
