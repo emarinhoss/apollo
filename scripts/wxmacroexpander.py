@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 import sys
 import os
-import string
 import time
 from optparse import OptionParser
 
-start_time = time.clock()
+start_time = time.perf_counter()
 
 class PymException(Exception): pass
 class PymEndOfFile(PymException): pass
@@ -38,28 +37,28 @@ HTTP_FOOTER = """
 
 def pym_determine_pym_hash(line):
     # check if the line is special line or just a python comment line
-    if string.find(line, "end python") > 0:
+    if line.find("end python") > 0:
         return True
-    if string.find(line, "begin python") > 0:
+    if line.find("begin python") > 0:
         return True
-    if string.find(line, "include") == 1:
+    if line.find("include") == 1:
         return True
-    if string.find(line, "include_direct") == 1:
+    if line.find("include_direct") == 1:
         return True
-    if string.find(line, "if") == 1:
+    if line.find("if") == 1:
         return True
-    if string.find(line, "elif") == 1:
+    if line.find("elif") == 1:
         return True
-    if string.find(line, "else") == 1:
+    if line.find("else") == 1:
         return True
-    if string.find(line, "endif") == 1:
+    if line.find("endif") == 1:
         return True
 
     # just a python comment
     return False
 
 def pym_error(message, loc):
-    print "ERROR:", message, "in '%s'.", loc[0]
+    print("ERROR:", message, "in '%s'.", loc[0])
     sys.exit(-1)
 
 def pym_expand(text, env, loc, out):
@@ -71,12 +70,12 @@ def pym_expand(text, env, loc, out):
         out.append(text)
     else:
         pos = 0
-        start = string.find(text, begin, pos)
+        start = text.find(begin, pos)
         while (start >= 0):
-            stop = string.find(text, end, start+begin_len)
+            stop = text.find(end, start+begin_len)
             if stop < 0: pym_error("unterminated python macro", loc)
             out.append(text[pos:start])
-            exp = string.strip(text[start+begin_len:stop])
+            exp = text[start+begin_len:stop].strip()
             prefix = prefix_map.get(exp[0])
             try:
                 if prefix:
@@ -93,14 +92,14 @@ def pym_expand(text, env, loc, out):
             except ImportError: raise           # ..
             except AttributeError: raise        # ditto
             except TypeError: raise     # ditto
-            except Exception, error:
+            except Exception as error:
                 error.filename = loc[0]
                 error.lineno = error.lineno + loc[1] + \
-                               len(string.split(text[0:start],'\n'))
+                               len(text[0:start].split('\n'))
                 raise
             pym_expand(str(value), env, loc, out)
             pos = stop+end_len
-            start = string.find(text, begin, pos)
+            start = text.find(begin, pos)
         out.append(text[pos:])
 
 def pym_read_file(filename, out):
@@ -119,7 +118,7 @@ def pym_expand_file(filename, env, out):
     pos = 0
     cond = 1
     condstack = []
-    lines = string.split(text, '\n')
+    lines = text.split('\n')
     if len(lines[0]) > 2 and lines[0][:2] == "#!":
         lines = lines[1:]
         lnum = 2
@@ -134,11 +133,11 @@ def pym_expand_file(filename, env, out):
                             pym_expand(text[tx_start:pos], env, loc, out)
                     except PymEndOfFile:
                         break
-                if string.find(line,"end python") > 0:
+                if line.find("end python") > 0:
                     if py_pos < 0: pym_error("superfluous end python", loc)
                     if cond:
                         try:
-                            exec text[py_pos:pos] in env, env
+                            exec(text[py_pos:pos], env, env)
                         except PymExit: raise
                         except PymEndOfFile:
                             py_pos = -1
@@ -148,22 +147,22 @@ def pym_expand_file(filename, env, out):
                         except ImportError: raise   # ditto
                         except AttributeError: raise    # ditto
                         except TypeError: raise     # ditto
-                        except Exception, error:
+                        except Exception as error:
                             error.filename = loc[0]
                             error.lineno = error.lineno + loc[1]
                             raise
                     py_pos = -1
                     tx_pos = end
-                elif string.find(line, "begin python") > 0:
+                elif line.find("begin python") > 0:
                     py_pos = end
                     loc = (filename, lnum)
-                elif string.find(line, "include") == 1:
+                elif line.find("include") == 1:
                     namestart = 8
-                    if string.find(line, "include_direct") == 1:
+                    if line.find("include_direct") == 1:
                         namestart = 15
                     if cond:
                         dir = os.path.dirname(filename)
-                        include = eval(string.strip(line[namestart:]), env, env)
+                        include = eval(line[namestart:].strip(), env, env)
                         includefilename = os.path.join(dir,include)
                         if not os.path.isfile(includefilename):
                             for dir in PYM_PATH:
@@ -175,20 +174,20 @@ def pym_expand_file(filename, env, out):
                             pym_read_file(includefilename, out)
                     tx_pos = end
                     loc = (filename, lnum)
-                elif string.find(line, "if") == 1:
+                elif line.find("if") == 1:
                     condstack.append(cond)
-                    cond = eval(string.strip(line[3:]), env, env)
+                    cond = eval(line[3:].strip(), env, env)
                     tx_pos = end
                     loc = (filename, lnum)
-                elif string.find(line, "elif") == 1:
-                    cond = eval(string.strip(line[5:]), env, env)
+                elif line.find("elif") == 1:
+                    cond = eval(line[5:].strip(), env, env)
                     tx_pos = end
                     loc = (filename, lnum)
-                elif string.find(line, "else") == 1:
+                elif line.find("else") == 1:
                     cond = not cond
                     tx_pos = end
                     loc = (filename, lnum)
-                elif string.find(line, "endif") == 1:
+                elif line.find("endif") == 1:
                     cond = condstack.pop()
                     tx_pos = end
                     loc = (filename, lnum)
