@@ -95,7 +95,10 @@ print("running with -j", GetOption('num_jobs'))
 
 # DEBUG target
 # build with debug symbols and range checking turned on.
-debugEnv     = warpMConstructionEnv.Clone(CCFLAGS = '-std=c++14 -g -Wall' + ' -D_DO_RANGE_CHECK_' )
+debugEnv     = warpMConstructionEnv.Clone(
+    CCFLAGS = '-g -Wall -D_DO_RANGE_CHECK_',
+    CXXFLAGS = '-std=c++14'  # C++ specific flags
+)
 env = debugEnv
 debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
 
@@ -123,9 +126,8 @@ try:
 except:
     print("Could not detect compiler type, assuming GCC-compatible")
 
-# Base optimization flags (compiler-agnostic)
+# Base optimization flags (common to both C and C++)
 optimizationFlags = [
-    '-std=c++14',             # C++14 standard (required for Boost 1.87+ and Eigen 3.4+)
     '-O3',                    # Highest optimization level
     '-march=native',          # Optimize for build machine's architecture (AVX, AVX2, etc.)
     '-mtune=native',          # Tune for build machine's specific CPU
@@ -135,6 +137,11 @@ optimizationFlags = [
     '-fno-math-errno',        # Don't set errno for math functions (faster)
     '-Wall',                  # All warnings
     '-DUSE_BLAS',             # Enable optimized BLAS routines
+]
+
+# C++ specific flags
+cxxFlags = [
+    '-std=c++14',             # C++14 standard (required for Boost 1.87+ and Eigen 3.4+)
 ]
 
 # Add OpenMP flags based on compiler
@@ -172,7 +179,8 @@ else:
     openmp_linkflags = '-fopenmp'
 
 optimizedEnv = warpMConstructionEnv.Clone(
-    CCFLAGS = ' '.join(optimizationFlags),
+    CCFLAGS = ' '.join(optimizationFlags),      # Common flags for C and C++
+    CXXFLAGS = ' '.join(cxxFlags),              # C++ specific flags
     LINKFLAGS = openmp_linkflags
 )
 
