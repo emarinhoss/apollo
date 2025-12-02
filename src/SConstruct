@@ -68,6 +68,17 @@ if not warpMConstructionEnv.GetOption('clean'):
 #        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
 	SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
 
+	# Add Eigen3 include path on macOS
+	if sys.platform == 'darwin':
+		homebrew_prefix = '/opt/homebrew'  # Apple Silicon
+		if not os.path.isdir(homebrew_prefix):
+			homebrew_prefix = '/usr/local'  # Intel Mac
+
+		eigen_include = os.path.join(homebrew_prefix, 'include', 'eigen3')
+		if os.path.isdir(eigen_include):
+			warpMConstructionEnv.AppendUnique(CPPPATH=[eigen_include])
+			print(f"Added Eigen3 include path: {eigen_include}")
+
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
 
