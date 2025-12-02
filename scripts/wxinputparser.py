@@ -4,7 +4,6 @@ each input file and performs the substitution in the rest of the input
 file.
 """
 
-import compiler
 import os.path
 import re
 import xml.dom.minidom
@@ -38,14 +37,14 @@ class WxInpParse(object):
     # for line continuation
     lineContRe = re.compile(r"\\\s*")
     # for parsing key = value lines
-    nameValueRe = re.compile('\s*(?P<key>[a-zA-Z_][a-zA-Z0-9\-_]*)\s*=\s*(?P<value>.*)')
+    nameValueRe = re.compile(r'\s*(?P<key>[a-zA-Z_][a-zA-Z0-9\-_]*)\s*=\s*(?P<value>.*)')
     # for parsing strings
-    strRe = re.compile('(?P<str>".*")');
+    strRe = re.compile(r'(?P<str>".*")');
 
     def __init__(self, inpFile=None):
         if inpFile:
             if not os.path.exists(inpFile):
-                raise "File %s does not exist!" % inpFile
+                raise Exception("File %s does not exist!" % inpFile)
             self.inpFile = inpFile
             self.inp = open(inpFile, 'r')
         self.pyDict = {} # dictionary of names to python compiled objects
@@ -70,12 +69,12 @@ class WxInpParse(object):
         
         try:
             topNode = xml.dom.minidom.parseString(ndata).childNodes[0]
-        except xml.parsers.expat.ExpatError, e:
-            # print error 
+        except xml.parsers.expat.ExpatError as e:
+            # print error
             lineno = e.lineno
             lines = ndata.split('\n')
             closeTag = lines[lineno-1]
-            print "** Error: Closing tag %s does not match any in the input file" % (closeTag.strip())
+            print("** Error: Closing tag %s does not match any in the input file" % (closeTag.strip()))
             exit(1)
                 
         code = '' # python code string in topNode
@@ -88,8 +87,8 @@ class WxInpParse(object):
                 elemNodes.append(child)
 
         # compile and evaluate the code
-        co = compiler.compile(code, self.inpFile + '.err', 'exec')
-        eval(co)
+        co = compile(code, self.inpFile + '.err', 'exec')
+        exec(co)
         # add all symbols in co to self
         for name in co.co_names:
             try:
@@ -128,9 +127,9 @@ class WxInpParse(object):
 
             # add unprocessed pair to dataset
             wxds.unprocessedValues.append( (key, valueStr) )
-            
+
             # now parse value into tokens, performing needed substitution
-            co = compiler.compile(valueStr, self.inpFile + '.err', 'exec')
+            co = compile(valueStr, self.inpFile + '.err', 'exec')
             # create dictionary of names for default replacement
             di = {}
             for name in co.co_names:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import os
-import string
 import wxinputparser
 import wxmacroexpander
 
@@ -55,9 +54,9 @@ if __name__ == '__main__':
     # open input file and copy it into tempFileA
     d = open(inpFile, "r").read()
     # find the initial <apollo> tag
-    loc = string.find(d, "<apollo>")
+    loc = d.find("<apollo>")
     if loc < -1:
-        raise "Unable to find opening apollo tag in input file %s" % inpFile
+        raise Exception("Unable to find opening apollo tag in input file %s" % inpFile)
     prefix = d[0:loc]
 
     # add tags to feed to macroexpansion function
