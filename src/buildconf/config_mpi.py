@@ -17,9 +17,9 @@ if warpMConstructionEnv['mpi_base'] != '':
 #testing
 import os
 output = os.popen('which mpicxx').read()
-print "Which mpicxx output", output
-print "mpi_base set as ", warpMConstructionEnv['mpi_base']
-##print "path is ", warpMConstructionEnv['ENV']['PATH']
+print("Which mpicxx output", output)
+print("mpi_base set as", warpMConstructionEnv['mpi_base'])
+##print("path is", warpMConstructionEnv['ENV']['PATH'])
 
 #configure libraries using some autoconf like functionality of scons
 conf = Configure(warpMConstructionEnv)
@@ -32,7 +32,7 @@ try:
 	assert(conf.CheckCHeader( 'mpi.h'))
 	assert(conf.CheckCXXHeader( 'mpi.h'))
 except:
-	print 'MPI header mpi.h not found'
+	print('MPI header mpi.h not found')
 	raise
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions

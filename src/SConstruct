@@ -76,10 +76,10 @@ import buildconf.getNumCores as getNumCores
 try:
 	numberOfBuildCores = min(getNumCores.determineNumberOfCPUs(), 12) #12 reasonalble ceiling due to compiler memory footprint
 except:
-	print "getNumCores raised an exception.  Using default 2 cores"
+	print("getNumCores raised an exception.  Using default 2 cores")
 	numberOfBuildCores = 2
 SetOption('num_jobs', numberOfBuildCores)
-print "running with -j", GetOption('num_jobs')
+print("running with -j", GetOption('num_jobs'))
 
 
 # DEBUG target

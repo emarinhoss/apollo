@@ -27,11 +27,11 @@ if warpMConstructionEnv['boost_base'] != '':
 
 #configure libraries using some autoconf like functionality of scons
 conf = Configure(warpMConstructionEnv)
-print "BOOST_base set as ", warpMConstructionEnv['boost_base']
+print("BOOST_base set as", warpMConstructionEnv['boost_base'])
 
-## check petsc headers and libraries
+## check boost headers and libraries
 if not conf.CheckCXXHeader('boost/numeric/ublas/matrix.hpp'):
-        print "Header 'matrix.hpp' was not found compile this program"
+        print("Header 'matrix.hpp' was not found compile this program")
         Exit(1)
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions

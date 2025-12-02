@@ -22,47 +22,47 @@ if warpMConstructionEnv['petsc_base'] != '':
 
 #configure libraries using some autoconf like functionality of scons
 conf = Configure(warpMConstructionEnv)
-print "PETSc_base set as ", warpMConstructionEnv['petsc_base']
+print("PETSc_base set as", warpMConstructionEnv['petsc_base'])
 
 ## check petsc headers and libraries
 if not conf.CheckCXXHeader('petscdmplex.h'):
-        print "Header 'petscdmplex.h' was not found compile this program!"
-	Exit(1)
+        print("Header 'petscdmplex.h' was not found compile this program!")
+        Exit(1)
 
 if not conf.CheckCXXHeader('petsc.h'):
-        print "Header 'petsc.h' was not found!"
+        print("Header 'petsc.h' was not found!")
         Exit(1)
 
 #if not conf.CheckLib('MOAB'):
-#        print "You need MOAB library to compile this program!"
-#	Exit(1)
+#        print("You need MOAB library to compile this program!")
+#        Exit(1)
 
 if not conf.CheckLib('petsc'):
-        print "You need petsc library to compile this program!"
+        print("You need petsc library to compile this program!")
         Exit(1)
 
 if not conf.CheckLib('exodus'):
-        print "You need exodus library to compile this program!"
+        print("You need exodus library to compile this program!")
         Exit(1)
 
 if not conf.CheckLib('gsl'):
-        print "You need gsl library to compile this program!"
+        print("You need gsl library to compile this program!")
         Exit(1)
 
 if not conf.CheckLib('gslcblas'):
-        print "You need gslcblas library to compile this program!"
+        print("You need gslcblas library to compile this program!")
         Exit(1)
 
 #if not conf.CheckLib('MOAB'):
-#        print "You need MOAB library to compile this program!"
+#        print("You need MOAB library to compile this program!")
 #        Exit(1)
 
 #if not conf.CheckLib('exoIIv2for'):
-#        print "You need exodus library to compile this program!"
+#        print("You need exodus library to compile this program!")
 #        Exit(1)
 
 #if not conf.CheckLib('iMesh'):
-#        print "You need exodus library to compile this program!"
+#        print("You need exodus library to compile this program!")
 #        Exit(1)
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions

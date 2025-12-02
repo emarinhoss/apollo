@@ -25,36 +25,36 @@ elif warpMConstructionEnv['blas_base'] != '':
 # Configure libraries using some autoconf like functionality of scons
 conf = Configure(warpMConstructionEnv)
 if warpMConstructionEnv['blas_base']:
-    print "Blas_base set as ", warpMConstructionEnv['blas_base']
+    print("Blas_base set as", warpMConstructionEnv['blas_base'])
 else:
-    print "Using system default paths for BLAS"
+    print("Using system default paths for BLAS")
 
 # Try to find BLAS library (try multiple common names)
 blas_found = False
 
 # Try OpenBLAS first (most common optimized BLAS)
 if conf.CheckLib('openblas'):
-    print "Found OpenBLAS library"
+    print("Found OpenBLAS library")
     blas_found = True
 # Try standard BLAS + CBLAS
 elif conf.CheckLib('cblas') or conf.CheckLib('blas'):
-    print "Found standard BLAS library"
+    print("Found standard BLAS library")
     if conf.CheckLib('cblas'):
-        print "Found CBLAS library"
+        print("Found CBLAS library")
     blas_found = True
 # Try combined BlasLapack (PETSc-provided)
 elif conf.CheckLib('BlasLapack'):
-    print "Found BlasLapack library"
+    print("Found BlasLapack library")
     blas_found = True
 
 if not blas_found:
-    print "WARNING: No BLAS library found. Code will use slower fallback implementation."
-    print "For best performance, install OpenBLAS: sudo apt-get install libopenblas-dev"
+    print("WARNING: No BLAS library found. Code will use slower fallback implementation.")
+    print("For best performance, install OpenBLAS: sudo apt-get install libopenblas-dev")
     # Don't exit - allow compilation without BLAS, will use fallback
 
 # Check for gfortran (needed by some BLAS implementations)
 if not conf.CheckLib('gfortran'):
-    print "Note: gfortran not found, may be needed for some BLAS implementations"
+    print("Note: gfortran not found, may be needed for some BLAS implementations")
     # Don't exit - not always needed
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions
