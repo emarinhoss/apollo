@@ -100,6 +100,7 @@ brew install boost
 brew install gsl
 brew install openblas  # Optimized BLAS for better performance
 brew install lapack
+brew install libomp    # OpenMP support for Clang (required for parallel performance)
 brew install seacas    # For Exodus II mesh I/O (optional but recommended)
 ```
 

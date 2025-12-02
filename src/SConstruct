@@ -95,22 +95,53 @@ march = 'native'
 # - OpenMP for thread-level parallelism within MPI ranks
 # - Aggressive compiler optimizations for maximum performance
 # - Fast math and architecture-specific optimizations
+
+# Detect compiler to use appropriate OpenMP flags
+import subprocess
+compiler_test = warpMConstructionEnv['CXX']
+is_clang = False
+try:
+    # Check if compiler is Clang
+    result = subprocess.run([compiler_test, '--version'],
+                          capture_output=True, text=True, timeout=5)
+    if 'clang' in result.stdout.lower() or 'clang' in result.stderr.lower():
+        is_clang = True
+        print("Detected Clang compiler - using Clang-specific OpenMP flags")
+    else:
+        print("Detected GCC or GCC-compatible compiler")
+except:
+    print("Could not detect compiler type, assuming GCC-compatible")
+
+# Base optimization flags (compiler-agnostic)
 optimizationFlags = [
     '-O3',                    # Highest optimization level
     '-march=native',          # Optimize for build machine's architecture (AVX, AVX2, etc.)
     '-mtune=native',          # Tune for build machine's specific CPU
     '-funroll-loops',         # Loop unrolling
     '-ffast-math',            # Aggressive floating-point optimizations
-    '-fopenmp',               # Enable OpenMP threading
     '-ftree-vectorize',       # Auto-vectorization with SIMD
     '-fno-math-errno',        # Don't set errno for math functions (faster)
     '-Wall',                  # All warnings
     '-DUSE_BLAS',             # Enable optimized BLAS routines
 ]
 
+# Add OpenMP flags based on compiler
+openmp_linkflags = ''
+if is_clang:
+    # Clang on macOS requires special OpenMP flags and libomp
+    # User must install libomp: brew install libomp
+    optimizationFlags.extend([
+        '-Xpreprocessor', '-fopenmp',  # Clang-specific OpenMP compile flags
+    ])
+    openmp_linkflags = '-lomp'  # Link against libomp
+else:
+    # GCC uses -fopenmp for both compiling and linking
+    optimizationFlags.append('-fopenmp')
+    openmp_linkflags = '-fopenmp'
+
 optimizedEnv = warpMConstructionEnv.Clone(
     CCFLAGS = ' '.join(optimizationFlags),
-    LINKFLAGS = '-fopenmp'  # Link OpenMP library
+    LINKFLAGS = openmp_linkflags
 )
 env = optimizedEnv
 optimizedEnv.SConscript('SConscript', variant_dir='build-opt', duplicate=0, exports='env')
