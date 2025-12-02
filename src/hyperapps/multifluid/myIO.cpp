@@ -7,6 +7,8 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <unistd.h>  // For getcwd() and getpwuid()
+#include <limits.h>  // For PATH_MAX
 
 #include "myIO.h"
 
@@ -68,9 +70,14 @@ void jFileSys::init()
     char* hd = pw->pw_dir;
     home_dir = *(new string(hd));
     
-    char* wd = get_current_dir_name();
-    curr_dir = *(new string(wd));
-    free(wd);
+    char wd[PATH_MAX];
+    if (getcwd(wd, sizeof(wd)) != NULL) {
+        curr_dir = *(new string(wd));
+    } else {
+        perror("getcwd");
+        fprintf(stderr, "Failed to get current directory\n");
+        curr_dir = *(new string(""));
+    }
 
 //    DIR *dp;
 //    struct dirent *dirp;
