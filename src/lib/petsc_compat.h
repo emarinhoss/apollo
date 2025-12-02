@@ -11,6 +11,7 @@
 #include <petsc.h>
 
 /* Silence deprecation warnings for old API */
+#define PETSC_SILENCE_DEPRECATION_WARNINGS_3_8_0
 #define PETSC_SILENCE_DEPRECATION_WARNINGS_3_9_0
 #define PETSC_SILENCE_DEPRECATION_WARNINGS_3_19_0
 
@@ -40,6 +41,27 @@ static inline PetscErrorCode DMPlexGetHybridBounds(DM dm, PetscInt *cMax, PetscI
   if (vMax) *vMax = -1; /* Not tracking vertex hybrid bounds */
 
   PetscFunctionReturn(0);
+}
+#endif
+
+/* DMPlexSetAdjacencyUseCone and DMPlexSetAdjacencyUseClosure were removed in PETSc 3.18 */
+#if PETSC_VERSION_GE(3, 18, 0)
+static inline PetscErrorCode DMPlexSetAdjacencyUseCone(DM dm, PetscBool useCone)
+{
+  /* In newer PETSc, adjacency is controlled differently.
+   * These functions are no-ops for compatibility. */
+  (void)dm;
+  (void)useCone;
+  return 0;
+}
+
+static inline PetscErrorCode DMPlexSetAdjacencyUseClosure(DM dm, PetscBool useClosure)
+{
+  /* In newer PETSc, adjacency is controlled differently.
+   * These functions are no-ops for compatibility. */
+  (void)dm;
+  (void)useClosure;
+  return 0;
 }
 #endif
 

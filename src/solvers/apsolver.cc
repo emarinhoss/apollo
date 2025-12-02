@@ -3,6 +3,7 @@
 #include <wxlogger.h>
 #include <wxlogstream.h>
 #include <wxtimer.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 // solver includes
 #include "apsolver.h"
