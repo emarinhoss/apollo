@@ -93,24 +93,8 @@ SetOption('num_jobs', numberOfBuildCores)
 print("running with -j", GetOption('num_jobs'))
 
 
-# DEBUG target
-# build with debug symbols and range checking turned on.
-debugEnv     = warpMConstructionEnv.Clone(
-    CCFLAGS = '-g -Wall -D_DO_RANGE_CHECK_',
-    CXXFLAGS = '-std=c++14'  # C++ specific flags
-)
-env = debugEnv
-debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
-
-# OPTIMIZED target, due to the march flag, this product will only run on the architecture of the build machine. To do otherwise, will need to set specific march, not native.
-march = 'native'
-
-# Phase 1 Performance Optimizations:
-# - OpenMP for thread-level parallelism within MPI ranks
-# - Aggressive compiler optimizations for maximum performance
-# - Fast math and architecture-specific optimizations
-
 # Detect compiler to use appropriate OpenMP flags
+# This needs to happen before creating debug/optimized environments
 import subprocess
 compiler_test = warpMConstructionEnv['CXX']
 is_clang = False
@@ -125,6 +109,53 @@ try:
         print("Detected GCC or GCC-compatible compiler")
 except:
     print("Could not detect compiler type, assuming GCC-compatible")
+
+# Detect libomp paths (needed for both debug and optimized builds to find omp.h)
+libomp_include_path = []
+libomp_lib_path = []
+
+if is_clang:
+    # Clang on macOS requires libomp
+    homebrew_prefix = '/opt/homebrew'  # Apple Silicon default
+    if not os.path.isdir(homebrew_prefix):
+        homebrew_prefix = '/usr/local'  # Intel Mac default
+
+    # Add libomp paths
+    libomp_include = os.path.join(homebrew_prefix, 'opt', 'libomp', 'include')
+    libomp_lib = os.path.join(homebrew_prefix, 'opt', 'libomp', 'lib')
+
+    if os.path.isdir(libomp_include) and os.path.isdir(libomp_lib):
+        print(f"Found libomp at {homebrew_prefix}/opt/libomp")
+        libomp_include_path = [libomp_include]
+        libomp_lib_path = [libomp_lib]
+    else:
+        print("WARNING: libomp not found. Install with: brew install libomp")
+        print("Some source files require omp.h header.")
+
+
+# DEBUG target
+# build with debug symbols and range checking turned on.
+debugEnv     = warpMConstructionEnv.Clone(
+    CCFLAGS = '-g -Wall -D_DO_RANGE_CHECK_',
+    CXXFLAGS = '-std=c++14'  # C++ specific flags
+)
+
+# Add libomp paths to debug environment so omp.h can be found
+if libomp_include_path:
+    debugEnv.AppendUnique(CPPPATH=libomp_include_path)
+if libomp_lib_path:
+    debugEnv.AppendUnique(LIBPATH=libomp_lib_path)
+
+env = debugEnv
+debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
+
+# OPTIMIZED target, due to the march flag, this product will only run on the architecture of the build machine. To do otherwise, will need to set specific march, not native.
+march = 'native'
+
+# Phase 1 Performance Optimizations:
+# - OpenMP for thread-level parallelism within MPI ranks
+# - Aggressive compiler optimizations for maximum performance
+# - Fast math and architecture-specific optimizations
 
 # Base optimization flags (common to both C and C++)
 optimizationFlags = [
@@ -144,35 +175,16 @@ cxxFlags = [
     '-std=c++14',             # C++14 standard (required for Boost 1.87+ and Eigen 3.4+)
 ]
 
-# Add OpenMP flags based on compiler
+# Add OpenMP compilation flags based on compiler (for optimized build only)
 openmp_linkflags = ''
-libomp_include_path = []
-libomp_lib_path = []
 
 if is_clang:
-    # Clang on macOS requires special OpenMP flags and libomp
-    # User must install libomp: brew install libomp
-
-    # Detect Homebrew prefix (Apple Silicon vs Intel)
-    homebrew_prefix = '/opt/homebrew'  # Apple Silicon default
-    if not os.path.isdir(homebrew_prefix):
-        homebrew_prefix = '/usr/local'  # Intel Mac default
-
-    # Add libomp paths
-    libomp_include = os.path.join(homebrew_prefix, 'opt', 'libomp', 'include')
-    libomp_lib = os.path.join(homebrew_prefix, 'opt', 'libomp', 'lib')
-
-    if os.path.isdir(libomp_include) and os.path.isdir(libomp_lib):
-        print(f"Found libomp at {homebrew_prefix}/opt/libomp")
-        libomp_include_path = [libomp_include]
-        libomp_lib_path = [libomp_lib]
+    # Clang on macOS requires special OpenMP flags
+    if libomp_include_path:  # Only add OpenMP if libomp was found
         optimizationFlags.extend([
             '-Xpreprocessor', '-fopenmp',  # Clang-specific OpenMP compile flags
         ])
         openmp_linkflags = '-lomp'  # Link against libomp
-    else:
-        print("WARNING: libomp not found. Install with: brew install libomp")
-        print("Building without OpenMP support.")
 else:
     # GCC uses -fopenmp for both compiling and linking
     optimizationFlags.append('-fopenmp')
