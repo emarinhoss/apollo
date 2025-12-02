@@ -3,21 +3,31 @@
 ##
 
 Import('warpMConstructionEnv')
+import os
+import platform
 
-#Add specified library paths to search paths for libs and headers
+# Add specified library paths to search paths for libs and headers
+# Use system-detected paths instead of hardcoded absolute paths
 if warpMConstructionEnv['blas_base'] == '':
-        # Try common system locations
-        warpMConstructionEnv['blas_base'] = '/usr/lib'
+    # Let SCons use default system library search paths
+    # Don't set to absolute path - let the linker find it
+    pass
+elif warpMConstructionEnv['blas_base'] != '':
+    # User specified a custom BLAS location
+    warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['blas_base']))
 
-if warpMConstructionEnv['blas_base'] != '':
-	#add base directory to path
-        warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['blas_base']))
-        # Also add x86_64-linux-gnu subdirectory common on Ubuntu/Debian
-        warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['blas_base'] + '/x86_64-linux-gnu'))
+    # Add architecture-specific subdirectory if it exists (Ubuntu/Debian convention)
+    arch_subdir = platform.machine() + '-linux-gnu'
+    arch_path = os.path.join(warpMConstructionEnv['blas_base'], arch_subdir)
+    if os.path.isdir(arch_path):
+        warpMConstructionEnv.AppendUnique(LIBPATH=(arch_path))
 
-#configure libraries using some autoconf like functionality of scons
+# Configure libraries using some autoconf like functionality of scons
 conf = Configure(warpMConstructionEnv)
-print "Blas_base set as ", warpMConstructionEnv['blas_base']
+if warpMConstructionEnv['blas_base']:
+    print "Blas_base set as ", warpMConstructionEnv['blas_base']
+else:
+    print "Using system default paths for BLAS"
 
 # Try to find BLAS library (try multiple common names)
 blas_found = False

@@ -3,15 +3,19 @@
 ##
 
 Import('warpMConstructionEnv')
+import os
+import platform
 
 
 #Add specified library paths to search paths for libs and headers
 if warpMConstructionEnv['petsc_base'] == '':
-	warpMConstructionEnv['petsc_base']  = warpMConstructionEnv['$HOME/software'] + '/petsc-full'
+	# Use environment variable if set, otherwise let SCons use system paths
+	if 'PETSC_DIR' in os.environ:
+		warpMConstructionEnv['petsc_base'] = os.environ['PETSC_DIR']
+	# Don't set a default - let the system find PETSc
 
 if warpMConstructionEnv['petsc_base'] != '':
 	#add base directory to path
-	warpMConstructionEnv.AppendUnique(LIBPATH=('/usr/lib/x86_64-linux-gnu'))
 	warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['petsc_base']+'/lib'))
 	warpMConstructionEnv.AppendUnique(CPPPATH=(warpMConstructionEnv['petsc_base']+'/include'))
 
