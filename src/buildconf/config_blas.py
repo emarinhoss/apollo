@@ -5,16 +5,37 @@
 Import('warpMConstructionEnv')
 import os
 import platform
+import sys
 
 # Add specified library paths to search paths for libs and headers
 # Use system-detected paths instead of hardcoded absolute paths
 if warpMConstructionEnv['blas_base'] == '':
     # Let SCons use default system library search paths
     # Don't set to absolute path - let the linker find it
-    pass
+
+    # On macOS, check for Homebrew OpenBLAS
+    if sys.platform == 'darwin':
+        homebrew_prefix = '/opt/homebrew'  # Apple Silicon
+        if not os.path.isdir(homebrew_prefix):
+            homebrew_prefix = '/usr/local'  # Intel Mac
+
+        openblas_include = os.path.join(homebrew_prefix, 'opt', 'openblas', 'include')
+        openblas_lib = os.path.join(homebrew_prefix, 'opt', 'openblas', 'lib')
+
+        if os.path.isdir(openblas_include):
+            warpMConstructionEnv.AppendUnique(CPPPATH=[openblas_include])
+            print(f"Added OpenBLAS include path: {openblas_include}")
+        if os.path.isdir(openblas_lib):
+            warpMConstructionEnv.AppendUnique(LIBPATH=[openblas_lib])
+            print(f"Added OpenBLAS library path: {openblas_lib}")
 elif warpMConstructionEnv['blas_base'] != '':
     # User specified a custom BLAS location
     warpMConstructionEnv.AppendUnique(LIBPATH=(warpMConstructionEnv['blas_base']))
+
+    # Add include directory
+    blas_include = os.path.join(warpMConstructionEnv['blas_base'], 'include')
+    if os.path.isdir(blas_include):
+        warpMConstructionEnv.AppendUnique(CPPPATH=[blas_include])
 
     # Add architecture-specific subdirectory if it exists (Ubuntu/Debian convention)
     arch_subdir = platform.machine() + '-linux-gnu'

@@ -5,6 +5,7 @@
 #include <wxlogger.h>
 #include <wxlogstream.h>
 #include "wxpnodaldgfunctions.h"
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 template <typename REAL>
 WxpDGGeometry<REAL>::WxpDGGeometry(DM dm, unsigned meqn, unsigned Spor)

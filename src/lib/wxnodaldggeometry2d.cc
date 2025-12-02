@@ -6,6 +6,7 @@
 #include <wxlogstream.h>
 #include "wxpnodaldgfunctions.h"
 #include "wxNodalDGMatrices.h"
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 template <typename REAL>
 wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Spor)
