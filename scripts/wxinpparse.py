@@ -53,10 +53,12 @@ if __name__ == '__main__':
 
     # open input file and copy it into tempFileA
     d = open(inpFile, "r").read()
-    # find the initial <apollo> tag
+    # find the initial <apollo> or <warpx> tag (warpx is legacy name)
     loc = d.find("<apollo>")
     if loc < 0:
-        raise Exception("Unable to find opening apollo tag in input file %s" % inpFile)
+        loc = d.find("<warpx>")
+    if loc < 0:
+        raise Exception("Unable to find opening apollo or warpx tag in input file %s" % inpFile)
     prefix = d[0:loc]
 
     # add tags to feed to macroexpansion function
