@@ -338,6 +338,13 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
         exit(1);
     }
 
+    // Interpolate mesh to create edges and faces
+    // (needed for ghost cells and boundary conditions)
+    DM dmInterp;
+    DMPlexInterpolate(*dm, &dmInterp);
+    DMDestroy(dm);
+    *dm = dmInterp;
+
     // Distribute mesh over processes
     DM dmDist;
     DMPlexSetAdjacencyUseCone(*dm, PETSC_TRUE);
