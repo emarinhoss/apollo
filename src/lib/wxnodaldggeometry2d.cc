@@ -265,6 +265,11 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
     for(PetscInt K=0; K<_kLocalInt; K++)
     {
+        // Skip non-triangular cells
+        PetscInt coneSize;
+        DMPlexGetConeSize(unint, K, &coneSize);
+        if (coneSize != 3) continue;
+
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
         for(unsigned vert=0; vert<3; vert++){
@@ -286,12 +291,20 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     int vn[3][2] = {{0,1},{1,2},{2,0}};
     int sk = 0;
     for(unsigned elem=0; elem<_kLocalInt; elem++)
+    {
+        // Skip non-triangular cells (check if EtoV was filled)
+        // Non-triangular cells were skipped above, so EtoV[elem] is uninitialized
+        PetscInt coneSize;
+        DMPlexGetConeSize(dm, elem, &coneSize);
+        if (coneSize != 3) continue;
+
         for(unsigned face=0; face<_NfE; face++)
         {
             for(unsigned node=0; node<2; node++)
                 MatSetValue(FtoV, sk, _EtoV[elem][vn[face][node]]-1, 1, INSERT_VALUES);
             sk++;
         }
+    }
     MatAssemblyBegin(FtoV, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(FtoV, MAT_FINAL_ASSEMBLY);
 
