@@ -302,6 +302,11 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     #pragma omp parallel for reduction(max:maxSpeed) schedule(static)
     for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
+        // Skip non-triangular cells (boundary line elements with 2 vertices)
+        PetscInt coneSize;
+        DMPlexGetConeSize(dataManage, kelem, &coneSize);
+        if (coneSize != 3) continue;  // Only process triangular cells
+
         // Thread-local temporary arrays (all arrays are now private to each thread)
         REAL xcoord[NpE], ycoord[NpE];
         REAL xc[5]; xc[0]=t; xc[4] = dt;

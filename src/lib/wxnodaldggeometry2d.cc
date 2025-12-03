@@ -35,10 +35,10 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     }
 
     _Klocal = eEnd - eStart;
-    _kLocalInt = triangleCount;  // Use filtered count instead of eEndInterior - eStart
+    _kLocalInt = eEndInterior - eStart;  // Allocate for full range to match cell IDs
     _Vlocal = vEnd - vStart;
 
-    MPI_Allreduce(&_kLocalInt, &_Ktotal, 1, MPI_INT, MPI_SUM, PetscObjectComm((PetscObject)_dm));
+    MPI_Allreduce(&triangleCount, &_Ktotal, 1, MPI_INT, MPI_SUM, PetscObjectComm((PetscObject)_dm));  // Report triangle count
 
     infStrm << "** The grid has " << _Ktotal << " elements. **\n"
             << std::endl;
@@ -213,8 +213,7 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
     DMPlexGetHybridBounds(dm, &cEndInt, NULL, NULL, NULL);
 
     VecGetArray(coordinates, &coords);
-    unsigned arrayIdx = 0;  // Index into coordinate arrays
-    for(PetscInt K = cStart; K < cEndInt && arrayIdx < _kLocalInt; K++)
+    for(PetscInt K = cStart; K < cEndInt; K++)
     {
         // Only process triangular cells (3 vertices)
         PetscInt coneSize;
@@ -237,8 +236,8 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
             REAL r = _r[node];
             REAL s = _s[node];
 
-            _xcoord[arrayIdx][node] = 0.5*(-p1x*(r+s) + p2x*(1.+r) + p3x*(1.+ s));
-            _ycoord[arrayIdx][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
+            _xcoord[K][node] = 0.5*(-p1x*(r+s) + p2x*(1.+r) + p3x*(1.+ s));
+            _ycoord[K][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
         }
         //DMPlexVecRestoreClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         REAL len1 = sqrt(pow(p1x-p2x,2)+pow(p1y-p2y,2));
@@ -249,8 +248,6 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
 
         // Compute minimum scale using radius of inscribed circle
         _dtscale = dmin(_dtscale,Area/sper);
-
-        arrayIdx++;  // Move to next array index
     }
     VecRestoreArray(coordinates, &coords);
     DMDestroy(&unint);
