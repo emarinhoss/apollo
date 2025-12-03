@@ -324,7 +324,7 @@ ApSolver<REAL>::createMesh(MPI_Comm comm, DM *dm)
         PetscViewerSetType(viewer, PETSCVIEWERASCII);
         PetscViewerFileSetMode(viewer, FILE_MODE_READ);
         PetscViewerFileSetName(viewer, _filename);
-        DMPlexCreateGmsh(comm, viewer, PETSC_TRUE, dm);
+        DMPlexCreateGmsh(comm, viewer, PETSC_FALSE, dm);
         PetscViewerDestroy(&viewer);
     }
     else if (isExodus)
