@@ -27,7 +27,7 @@ P_ORDER = 1
    #Gridname = 'test.msh'
    #Gridname = 'square_fine.msh'
    #Gridname = 'matlabMesh.msh'
-   Gridname = 'square_filtered.msh'
+   Gridname = 'square.msh'
    NumFields = 1
    
    # Check the partition

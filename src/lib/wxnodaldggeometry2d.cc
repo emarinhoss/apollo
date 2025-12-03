@@ -22,8 +22,20 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
     DMPlexGetDepthStratum(_dm, 0, &vStart, &vEnd);
     DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
+
+    // Count only triangular cells (cells with 3 vertices)
+    // This filters out any 1D line elements that may have been imported
+    PetscInt triangleCount = 0;
+    for (PetscInt c = eStart; c < eEndInterior; c++) {
+        PetscInt coneSize;
+        DMPlexGetConeSize(_dm, c, &coneSize);
+        if (coneSize == 3) {  // Triangle has 3 vertices
+            triangleCount++;
+        }
+    }
+
     _Klocal = eEnd - eStart;
-    _kLocalInt = eEndInterior - eStart;
+    _kLocalInt = triangleCount;  // Use filtered count instead of eEndInterior - eStart
     _Vlocal = vEnd - vStart;
 
     MPI_Allreduce(&_kLocalInt, &_Ktotal, 1, MPI_INT, MPI_SUM, PetscObjectComm((PetscObject)_dm));
@@ -195,9 +207,20 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
 
     DMPlexUninterpolate(dm,&unint);
 
+    // Get bounds for cell iteration
+    PetscInt cStart, cEnd, cEndInt;
+    DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd);
+    DMPlexGetHybridBounds(dm, &cEndInt, NULL, NULL, NULL);
+
     VecGetArray(coordinates, &coords);
-    for(unsigned K=0; K<_kLocalInt; K++)
+    unsigned arrayIdx = 0;  // Index into coordinate arrays
+    for(PetscInt K = cStart; K < cEndInt && arrayIdx < _kLocalInt; K++)
     {
+        // Only process triangular cells (3 vertices)
+        PetscInt coneSize;
+        DMPlexGetConeSize(unint, K, &coneSize);
+        if (coneSize != 3) continue;  // Skip non-triangular cells
+
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
         // coords is returned as coords[x1,y1,x2,y2,x3,y3]
@@ -214,8 +237,8 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
             REAL r = _r[node];
             REAL s = _s[node];
 
-            _xcoord[K][node] = 0.5*(-p1x*(r+s) + p2x*(1.+r) + p3x*(1.+ s));
-            _ycoord[K][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
+            _xcoord[arrayIdx][node] = 0.5*(-p1x*(r+s) + p2x*(1.+r) + p3x*(1.+ s));
+            _ycoord[arrayIdx][node] = 0.5*(-p1y*(r+s) + p2y*(1.+r) + p3y*(1.+ s));
         }
         //DMPlexVecRestoreClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         REAL len1 = sqrt(pow(p1x-p2x,2)+pow(p1y-p2y,2));
@@ -226,6 +249,8 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
 
         // Compute minimum scale using radius of inscribed circle
         _dtscale = dmin(_dtscale,Area/sper);
+
+        arrayIdx++;  // Move to next array index
     }
     VecRestoreArray(coordinates, &coords);
     DMDestroy(&unint);
