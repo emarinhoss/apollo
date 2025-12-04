@@ -372,26 +372,26 @@ def readFile(filename, ghostCells):
             break
 
     # Print out what we found:
-    print spacing + "Nodes Found: " + str(len(nodes))
-    print spacing + "Domains Found: " + str(len(domains))
-    print spacing + "Elements Found: " + str(len(elements))
+    print(spacing + "Nodes Found: " + str(len(nodes)))
+    print(spacing + "Domains Found: " + str(len(domains)))
+    print(spacing + "Elements Found: " + str(len(elements)))
 
     # The last thing to do before we return this data is to
     # sort the Nodes by their ID and map the Elements to
     # the Node Indices instead of the Node IDs
 
-    print spacing + "Sorting Nodes..."
+    print(spacing + "Sorting Nodes...")
     sortID(nodes)
 
-    print spacing + "Nodes Sorted"
-    print spacing + "Reindexing Element Nodes..."
+    print(spacing + "Nodes Sorted")
+    print(spacing + "Reindexing Element Nodes...")
     for i in range(len(elements)):
         nodeset = elements[i].nodes
         for j in range(len(nodeset)):
             nodeIndex = getIndexFromID(nodes,nodeset[j])
             elements[i].nodes[j] = nodeIndex
         #print("Rebuilding Element ") + str(i) + ": " + str(elements[i].nodes)
-    print spacing + "Element Nodes Reindexed"
+    print(spacing + "Element Nodes Reindexed")
     
     for node in range(len(nodes)):
 	nodes[node].id=node
@@ -925,7 +925,7 @@ def writeASCIIFile(outfilename,indexednodes,nodes, style):
         for j in range(jmax):
             for k in range(kmax):
                 indexednodeID = kmax*jmax*i + kmax*j + k
-                print str(indexednodes[indexednodeID].id)+'\t'+str(indexednodes[indexednodeID].indices)+'\t'+str(indexednodes[indexednodeID].position)
+                print(str(indexednodes[indexednodeID].id)+'\t'+str(indexednodes[indexednodeID].indices)+'\t'+str(indexednodes[indexednodeID].position))
                 indexnodeIDstring = str(indexednodes[indexednodeID].id)
                 i_index = indexednodes[indexednodeID].indices[0]
                 j_index = indexednodes[indexednodeID].indices[1]
@@ -1127,7 +1127,7 @@ def sizethegrid(nodes,style):
                 currentkmax=index[2]
             maxidx = [currentimax,currentjmax,currentkmax]
         else:
-            print spacing + "This is an unknown primitive for a structured grid"
+            print(spacing + "This is an unknown primitive for a structured grid")
         
     return maxidx
 
@@ -1138,7 +1138,7 @@ def constructNodes(style, nodes, elements, domains):
 
     spacing = "\t"
     
-    print spacing + "Transferring element neighbor data to node list ..."
+    print(spacing + "Transferring element neighbor data to node list ...")
     
     time0 = time()
     
@@ -1146,7 +1146,7 @@ def constructNodes(style, nodes, elements, domains):
 
     for domain in range(len(domains)):
 	print('domain identify =') +str(domains[domain].getID())
-	print str(domains[domain].startIndices)
+	print(str(domains[domain].startIndices))
     for element in elements:
 	for nodeid in element.nodes:
 	    nodes[nodeid].addNeighbor(element.id,element.nodes,style)
@@ -1154,11 +1154,11 @@ def constructNodes(style, nodes, elements, domains):
 
     time1 = time()
 
-    print spacing + "Element neighbor data transfered to node list in " +str(time1-time0)+"seconds"
+    print(spacing + "Element neighbor data transfered to node list in " +str(time1-time0)+"seconds")
     
     nr = len(nodes)
 
-    print spacing + "There are " + str(nr) + " nodes to begin."
+    print(spacing + "There are " + str(nr) + " nodes to begin.")
 
     nodeID = -1
     nnID, cellID, nnv, idv, nfv,nr, cornernodeID = findCornerNode(nodes,nr,style)
@@ -1221,15 +1221,15 @@ def constructNodes(style, nodes, elements, domains):
     nodearray = indexednodes 
     """
     for indexednode in range(len(indexednodes)):
-        print str(indexednodes[indexednode].id)+'\t'+str(indexednodes[indexednode].indices)+'\t'+str(indexednodes[indexednode].position)
+        print(str(indexednodes[indexednode].id)+'\t'+str(indexednodes[indexednode].indices)+'\t'+str(indexednodes[indexednode].position))
     """
     """
     for nodeindex in range(len(nodearray)):
-        print str(nodearray[nodeindex].id)+'\t'+str(nodearray[nodeindex].indices)+'\t'+str(nodearray[nodeindex].position)
+        print(str(nodearray[nodeindex].id)+'\t'+str(nodearray[nodeindex].indices)+'\t'+str(nodearray[nodeindex].position))
     """
     time1 = time()
 
-    print spacing + "Nodes indexed in " + str(time1 - time0) + " seconds"
+    print(spacing + "Nodes indexed in " + str(time1 - time0) + " seconds")
     
     return nodearray
 

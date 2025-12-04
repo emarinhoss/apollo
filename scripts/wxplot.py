@@ -88,7 +88,7 @@ def make1Dplot(q, options):
         yl = '%s' % options.transformVariable
         pass
     else:
-        raise NameError, "Must specify component to plot or transform file for variable %s" % options.variable
+        raise NameError("Must specify component to plot or transform file for variable %s" % options.variable)
 
     plot(q.grid.X, data)
     title('Time = %g' % d.time)
@@ -126,7 +126,7 @@ def make2Dplot(q, options):
         yl = '%s' % options.transformVariable
         pass
     else:
-        raise NameError, "Must specify component to plot or transform file for variable %s" % options.variable
+        raise NameError("Must specify component to plot or transform file for variable %s" % options.variable)
     
     XX, YY = meshgrid(q.grid.X, q.grid.Y)
     if options.contour:
@@ -167,7 +167,7 @@ d = wxdata.WxData(options.inputFile, frame)
 
 # print list of variable if requested
 if options.showVariables:
-    print d.variables()
+    print(d.variables())
     d.close()
     exit()
 
@@ -176,7 +176,7 @@ if options.showTransfromVariables:
     # compile and evaluate transforms file
     sys.path.append(os.path.abspath('.'))
     mod = __import__(options.transformsFile)
-    print mod.transformregistry.keys()
+    print(mod.transformregistry.keys())
     d.close()
     exit()
 

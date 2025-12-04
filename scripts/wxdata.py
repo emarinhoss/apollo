@@ -456,7 +456,7 @@ class WxData:
 
         # ensure file exist
         if not os.path.exists(fn):
-            raise Exception("WxData::__init__ : Dump %d of run %s not exist") % (frm, base)
+            raise Exception("WxData::__init__ : Dump %d of run %s not exist" % (frm, base))
 
         self.fh = tables.openFile(fn, "r")
         # read in simulation time
