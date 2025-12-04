@@ -35,9 +35,9 @@ class WxInpParse(object):
     # for removing comments
     replaceCommentsRe = re.compile('#.*')
     # for line continuation
-    lineContRe = re.compile(rr"\\\s*")
+    lineContRe = re.compile(r"\\\s*")
     # for parsing key = value lines
-    nameValueRe = re.compile(rr'\s*(?P<key>[a-zA-Z_][a-zA-Z0-9\-_]*)\s*=\s*(?P<value>.*)')
+    nameValueRe = re.compile(r'\s*(?P<key>[a-zA-Z_][a-zA-Z0-9\-_]*)\s*=\s*(?P<value>.*)')
     # for parsing strings
     strRe = re.compile(r'(?P<str>".*")');
 
