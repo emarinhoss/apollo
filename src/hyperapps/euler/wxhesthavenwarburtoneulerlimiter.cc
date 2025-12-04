@@ -102,6 +102,11 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
     for(int eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        // Skip non-triangular cells (boundary line elements)
+        PetscInt coneSize;
+        DMPlexGetConeSize(_dm, eNum, &coneSize);
+        if (coneSize != 3) continue;
+
         // Cell centers
         REAL xc[4]={0,0,0,0}, yc[4]={0,0,0,0};
         // weights for face gradients
@@ -325,6 +330,11 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        // Skip non-triangular cells (boundary line elements)
+        PetscInt coneSize;
+        DMPlexGetConeSize(_dm, eNum, &coneSize);
+        if (coneSize != 3) continue;
+
         bool update = false;
 
         // get neighbors ids
