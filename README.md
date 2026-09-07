@@ -35,18 +35,32 @@ Apollo implements a flexible and extensible DG framework capable of solving mult
 
 ### Core Dependencies
 
-- **C++ compiler** - GCC 4.8+ or Clang with C++11 support
-- **MPI library** - OpenMPI 1.8+ or MPICH 3.0+
-- **PETSc** - Version 3.6.0 or later (with MPI support)
-- **CMake** - Version 2.8 or later
+- **C++ compiler** - GCC or Clang with C++14 support (GCC 5+, Clang 3.4+).
+  The build passes `-std=c++14`.
+- **MPI library** - OpenMPI 1.8+ or MPICH 3.0+. The build uses the `mpicc` and
+  `mpicxx` wrappers.
+- **PETSc** - 3.6 or later, built with MPI. Regularly built against 3.19.
+  Apollo still calls a few routines PETSc deprecated in 3.8 (`TSSetDuration`,
+  `TSSetInitialTimeStep`, `TSGetTimeStepNumber`), which compile with warnings.
+- **SCons** - the build system (`pip install scons`). Apollo does **not** use
+  CMake.
+- **Python 3** - required at build time (SCons) and to preprocess input decks.
 
 ### Additional Libraries
 
-- **HDF5** - For parallel I/O and data storage
-- **Exodus II** - For unstructured mesh I/O
-- **GSL** (GNU Scientific Library) - For numerical routines
-- **Boost** - C++ utility libraries
-- **BLAS/LAPACK** - For linear algebra operations
+- **HDF5** - required in practice. Apollo does not call HDF5 itself, but PETSc's
+  `petscviewerhdf5.h` includes `<hdf5.h>`, so any HDF5-enabled PETSc (which
+  includes every distribution package) makes its headers a build requirement.
+- **Boost** - required by the multifluid module (`format`, uBLAS, Graph).
+  Headers only; no Boost libraries are linked.
+- **Eigen 3** - required by the multifluid module (`<Eigen/Dense>`).
+- **GSL** (GNU Scientific Library) - required; `libgsl` and `libgslcblas` are
+  linked unconditionally.
+- **BLAS** - optional but recommended. When a BLAS with `<cblas.h>` is found,
+  the cubature matrix products go through `cblas_dgemm`; otherwise a built-in
+  loop is used. Both build variants follow the same choice.
+- **Exodus II** - optional, for Exodus mesh I/O. The build warns and continues
+  without it.
 
 ## Installation
 
@@ -56,21 +70,28 @@ Apollo implements a flexible and extensible DG framework capable of solving mult
 
 ```bash
 sudo apt-get update
-sudo apt-get install build-essential cmake git wget scons
+sudo apt-get install build-essential git wget python3-pip
 sudo apt-get install libopenmpi-dev openmpi-bin
+sudo apt-get install libpetsc-real-dev      # PETSc, no source build needed
 sudo apt-get install libhdf5-openmpi-dev
-sudo apt-get install libboost-all-dev
+sudo apt-get install libboost-dev
+sudo apt-get install libeigen3-dev
 sudo apt-get install libgsl-dev
-sudo apt-get install libopenblas-dev  # Optimized BLAS for better performance
-sudo apt-get install libblas-dev liblapack-dev
+sudo apt-get install libopenblas-dev        # optimized BLAS, provides <cblas.h>
+pip3 install scons
 ```
 
-For PETSc and Exodus II, you may need to build from source (see Option 2).
+That is the full set: on Ubuntu 24.04 these packages are enough to build and run
+Apollo with no source builds and no edits to `src/this_host_config.py`. It is
+also exactly what CI installs, so it is checked on every push.
+
+`libpetsc-real-dev` installs PETSc under `/usr/lib/petsc`, which the build finds
+either automatically or via `export PETSC_DIR=/usr/lib/petsc`.
 
 #### CentOS/RHEL/Fedora
 
 ```bash
-sudo yum install gcc gcc-c++ cmake git wget scons
+sudo yum install gcc gcc-c++ git wget python3-pip
 sudo yum install openmpi openmpi-devel
 sudo yum install hdf5-openmpi hdf5-openmpi-devel
 sudo yum install boost boost-devel
@@ -93,7 +114,7 @@ Using [Homebrew](https://brew.sh/) package manager:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Install dependencies
-brew install gcc cmake git wget scons
+brew install gcc git wget
 brew install open-mpi
 brew install hdf5-mpi
 brew install boost
@@ -126,23 +147,16 @@ For PETSc on macOS, you can either:
 - If `seacas` is not available via Homebrew, you can build PETSc with built-in Exodus support (see Option 3 with `--download-exodusii=1`)
 - Apollo can build without Exodus but mesh I/O capabilities will be limited
 
-### Option 2: Build Dependencies from Source (Automated)
+### Option 2: Build Dependencies from Source
 
-The repository includes a makefile to automatically download and build dependencies:
+Prefer Option 1 where the packages exist; only PETSc is likely to need building,
+and only if your distribution has no suitable package.
 
-```bash
-make all
-```
-
-This will:
-- Download and build OpenMPI, HDF5, and Boost
-- Install them in `$HOME/apollo/software`
-- Configure build paths automatically
-
-You can customize the installation by editing the makefile variables:
-- `INSTALLDIR` - Where to install libraries (default: `$HOME/apollo/software`)
-- `NUM_JOBS` - Parallel build jobs (default: 8)
-- `CC`, `CXX` - Compiler choice
+The `makefile` in the repository root is an unfinished dependency bootstrapper
+and does not work: `make all` names three targets that do not exist
+(`builddep_hdf5`, `builddep_boost`, `builddep_uc`), and its one real target
+expands `MPINAME`, `MPIZIP` and `MPIINSTALLDIR`, none of which are defined. Do
+not use it. It is kept only as a starting point for a future bootstrap script.
 
 ### Option 3: Install PETSc Manually
 
@@ -191,21 +205,66 @@ scons build-opt
 scons build-debug
 ```
 
-The executable will be created in `build-opt/` or `build-debug/` directory.
+This produces `src/build-opt/apollo` (or `src/build-debug/apollo`). Note the
+name: the executable is `apollo`.
 
-**Performance-Optimized Build:**
+**If a dependency is not found**, the build stops and tells you what to install
+and how to point it at an existing installation. The search order for PETSc is:
+`petsc_base` on the command line, then `src/this_host_config.py`, then
+`$PETSC_DIR` (honouring `$PETSC_ARCH`), then the compiler's default paths.
 
-The optimized build (`build-opt`) includes Phase 1 performance optimizations that can provide **10-60x speedup**:
+**Build variables.** Anything set in `src/this_host_config.py` can be overridden
+on the command line, which always wins. Run `scons -h` for the full list.
 
-- **OpenMP threading**: Parallel element loop processing across CPU cores
-- **Optimized BLAS**: Hardware-accelerated matrix operations (if OpenBLAS/CBLAS available)
-- **Compiler optimizations**: `-O3 -march=native -ffast-math -ftree-vectorize`
-- **Auto-vectorization**: SIMD instructions (AVX, AVX2, AVX-512)
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `petsc_base` | *(autodetect)* | PETSc installation prefix |
+| `mpi_base` | `/usr` | MPI installation prefix |
+| `hdf5_base` | *(autodetect)* | HDF5 installation prefix |
+| `boost_base`, `blas_base` | *(system paths)* | Boost / BLAS prefixes |
+| `arch` | `native` | value for `-march=`; use a baseline such as `x86-64-v2`, or `none`, to build a portable binary |
+| `tune` | *(follows `arch`)* | value for `-mtune=`; only CPU names, not ISA levels |
+| `fastmath` | `no` | add `-ffast-math` (see below) |
+| `openmp` | `no` | add `-fopenmp` (see below) |
 
-To maximize performance:
-1. Install OpenBLAS: `sudo apt-get install libopenblas-dev`
-2. Set thread count: `export OMP_NUM_THREADS=8` (adjust to your CPU core count)
-3. Build with: `scons build-opt`
+```bash
+# Build for a cluster whose compute nodes are older than the login node
+scons build-opt arch=x86-64-v2
+
+# Point at a PETSc that is not on the default path
+scons build-opt petsc_base=$HOME/software/petsc
+```
+
+**A note on `-ffast-math`.** It is not enabled by default, and turning it on is
+not free. `-ffast-math` implies `-ffinite-math-only`, which permits the compiler
+to assume no value is ever NaN and therefore to fold `x != x` to `false` - and
+`x != x` is the idiom Apollo uses to detect a diverged solution in the Euler
+equations and the nodal-DG element loop. With `-ffast-math` those guards are
+deleted from the binary and a run that has gone to NaN keeps going silently.
+`fastmath=yes` adds `-fno-finite-math-only` alongside it so the guards survive,
+but the remaining reassociation still changes results run to run.
+
+**A note on OpenMP.** It is off by default. Only one loop is annotated
+(`subsolvers/wxnodaldg2dmethod.cc`), and that loop calls `DMPlexGetConeSize` and
+`DMPlexPointLocalRead`/`Ref` once per element. PETSc is not thread-safe unless
+built `--with-threadsafety`, which the distribution packages are not - check for
+`PETSC_HAVE_THREADSAFETY` in your `petscconf.h`. With PETSc's logging enabled
+(the default) every such call also updates shared counters, and threaded runs
+measured slower than serial rather than faster. `openmp=yes` re-enables it if
+you have a thread-safe PETSc and want to experiment.
+
+**What the optimized build actually does:**
+
+- `-O3 -funroll-loops -ftree-vectorize -fno-math-errno`, plus `-march`/`-mtune`
+  per the `arch` and `tune` variables (`native` by default).
+- `cblas_dgemm` for the cubature matrix products when a BLAS with `<cblas.h>` is
+  present. `build-debug` makes the same choice, so the two variants agree
+  numerically.
+- No `-ffast-math` and no OpenMP unless you ask for them; see the notes above.
+
+To get the most out of it: install OpenBLAS (`sudo apt-get install
+libopenblas-dev`) and scale with MPI ranks (`mpirun -np N`), which is where
+Apollo's parallelism actually lives.
 
 **Note:** If dependencies are installed in non-standard locations, you may need to set environment variables:
 
@@ -217,37 +276,76 @@ export PETSC_DIR=$HOME/apollo/software/petsc
 
 ## Usage
 
-### Basic Execution
+### Input decks: `.pin` and `.inp`
 
-Run simulations using MPI:
+Running a simulation is two steps, because the deck you edit is not the deck the
+solver reads.
+
+The `.pin` files under `examples/` are **templates**: Python that runs at
+preprocessing time to compute derived quantities, so a deck can say
+`cfl = 1.0/3.0` or `PI = math.pi` instead of hard-coding a number.
+`scripts/wxinpparse.py` macro-expands and preprocesses a `.pin` into a plain
+`.inp`, and `.inp` is what the solver parses. `.inp` files are generated and are
+therefore listed in `.gitignore`.
 
 ```bash
-mpirun -np <number_of_processes> ./dg <input_file>
+# 1. Expand the deck (writes isentropicVortex.inp next to the .pin)
+PYTHONPATH=scripts python3 scripts/wxinpparse.py -i isentropicVortex.pin
+
+# 2. Run
+src/build-opt/apollo -i isentropicVortex.inp
 ```
 
-### Example Simulations
+Handing the solver a `.pin` directly gives you a parse error on the first Python
+line of the file.
 
-The `examples/unstructuredDG/` directory contains test cases for each physics module:
+### Basic execution
 
-**Maxwell (Electromagnetics):**
+The executable is **`apollo`**, and it takes the input file with **`-i`**.
+A bare filename argument is ignored, and Apollo then looks for its default,
+`apollo.inp`.
+
 ```bash
-mpirun -np 4 ./dg examples/unstructuredDG/maxwell/circularPulse/input.dat
+# Serial
+src/build-opt/apollo -i <input>.inp
+
+# Parallel
+mpirun -np <ranks> src/build-opt/apollo -i <input>.inp
 ```
 
-**Euler (Gas Dynamics):**
+Mesh files named by a deck are resolved relative to the **working directory**,
+not to the deck, so run from the directory holding the mesh (or copy the mesh in).
+
+Options, as reported by `apollo --help`:
+
+| Option | Meaning |
+| --- | --- |
+| `-i <file>`, `--input-file=<file>` | input file; defaults to `apollo.inp` |
+| `-o <prefix>`, `--output-prefix=<prefix>` | output prefix; defaults to the input name without its extension |
+| `-r <file>`, `--restart=<file>` | restart from `<file>` |
+| `--help` | print the option summary |
+
+Two entries in that summary do not do what they say: the short form `-h` is not
+accepted (use `--help`), and `--real-type=float` is parsed but has no effect,
+since `main()` instantiates the solver as `double` and the `float`
+instantiations are commented out.
+
+### Example simulations
+
+Each example directory holds a `.pin` deck and the `.msh` meshes it references.
+
 ```bash
-mpirun -np 4 ./dg examples/unstructuredDG/euler/isentropicVortex/input.dat
+cd examples/unstructuredDG/euler/isentropicVortex
+PYTHONPATH=../../../../scripts python3 ../../../../scripts/wxinpparse.py -i isentropicVortex.pin
+../../../../src/build-opt/apollo -i isentropicVortex.inp
 ```
 
-**Multifluid (Plasma):**
-```bash
-mpirun -np 4 ./dg examples/unstructuredDG/multifluid/rmf_frc/input.dat
-```
+The same pattern applies to `unstructuredDG/advection/advection.pin`,
+`unstructuredDG/maxwell/circularPulse/circularPulse.pin` and the multifluid
+decks under `unstructuredDG/multifluid/`.
 
-**Advection:**
-```bash
-mpirun -np 4 ./dg examples/unstructuredDG/advection/input.dat
-```
+`test/run_examples.sh` does all of this for the three quickest cases; see
+[Testing](#testing).
 
 ## Example Problems
 
@@ -261,58 +359,76 @@ Visualization scripts (Python) are provided in the `scripts/` directory for post
 
 ## Performance
 
-Apollo includes Phase 1 performance optimizations for high-performance computing:
+Apollo's parallelism is MPI domain decomposition through PETSc. That is the axis
+that scales; use `mpirun -np N`.
 
-### Implemented Optimizations
+### What the optimized build gives you
 
-**1. OpenMP Thread Parallelism (4-8x speedup)**
-- Element loop parallelized across CPU cores
-- Shared-memory parallelism within each MPI rank
-- Set threads: `export OMP_NUM_THREADS=<cores>` (e.g., 8 for an 8-core CPU)
+- **Compiler optimization** - `-O3`, loop unrolling, auto-vectorization, and
+  `-march`/`-mtune` (`native` by default, so the build machine's SIMD width is
+  used). Set `arch=` to a baseline such as `x86-64-v2` when the binary has to run
+  on nodes older than the one you built on, or it will die with SIGILL.
+- **BLAS** - `cblas_dgemm` replaces the hand-written triple loop for the cubature
+  matrix products when a BLAS with `<cblas.h>` is available. Install OpenBLAS.
 
-**2. Optimized BLAS (2-5x speedup)**
-- Custom matrix-vector operations replaced with hardware-accelerated BLAS
-- Utilizes AVX/AVX2/AVX-512 SIMD instructions
-- Requires OpenBLAS or similar library
+### What it does not give you
 
-**3. Compiler Optimizations (1.3-1.5x speedup)**
-- Architecture-specific code generation (`-march=native`)
-- Aggressive loop optimizations and vectorization
-- Fast floating-point math
+**OpenMP is off by default and should stay off** unless you have specifically
+checked otherwise. Only one loop in the codebase carries an OpenMP directive, and
+it calls PETSc (`DMPlexGetConeSize`, `DMPlexPointLocalRead`/`Ref`) once per
+element. PETSc is not thread-safe unless it was configured
+`--with-threadsafety`, which distribution packages are not; and with PETSc's
+event logging on - the default - each of those calls updates shared counters, so
+adding threads adds contention. Threaded runs of the bundled examples measured
+slower than serial. See the `openmp` build variable if you want to experiment.
 
-**Combined Expected Speedup: 10-60x** compared to unoptimized build
+**`-ffast-math` is off by default.** See the note under [Building
+Apollo](#building-apollo): it deletes Apollo's own NaN guards.
 
-### Performance Tuning
+Earlier revisions of this file advertised "10-60x" from OpenMP plus BLAS plus
+fast-math. That figure was never measured and the OpenMP part of it was
+negative; it has been removed rather than restated.
 
-**Thread Configuration:**
+### Measuring
+
 ```bash
-# For a 16-core CPU running 4 MPI ranks, use 4 threads per rank:
-export OMP_NUM_THREADS=4
-mpirun -np 4 ./build-opt/dg input.dat
+# PETSc's own profiler: where the time goes, per stage and per event
+PETSC_OPTIONS="-log_view" src/build-opt/apollo -i input.inp
+
+perf stat -e cycles,instructions,cache-misses src/build-opt/apollo -i input.inp
 ```
 
-**Hybrid MPI+OpenMP:**
-- **Strong scaling**: Use more MPI ranks for small problems
-- **Weak scaling**: Use OpenMP threads to utilize all cores per node
-- **Recommended**: 1-4 MPI ranks per node, OpenMP for remaining cores
+### Known optimization opportunities
 
-**Monitoring Performance:**
+Unimplemented, listed roughly by expected value:
+
+- Overlap halo exchange with interior element work.
+- Make the threaded element loop viable: hoist the per-element PETSc lookups out
+  of the loop so the parallel region touches no PETSc state, then re-enable
+  OpenMP.
+- Reorder elements for locality.
+- GPU offload of the element kernels.
+
+## Testing
+
 ```bash
-# Enable PETSc performance logging
-export PETSC_OPTIONS="-log_view"
-./build-opt/dg input.dat
+# Python tooling: ~1 s, needs only python3 (pyflakes adds one more check)
+python3 -m unittest discover -s test -v
 
-# Profile with perf
-perf stat -e cycles,instructions,cache-misses ./build-opt/dg input.dat
+# Solver against its own examples: ~15 s, needs a built binary
+test/run_examples.sh                       # uses src/build-opt/apollo
+test/run_examples.sh -b src/build-debug/apollo
+test/run_examples.sh -j 2                  # under mpirun
+test/run_examples.sh euler-isentropic-vortex
 ```
 
-### Future Optimization Opportunities
+`test/run_examples.sh` preprocesses each deck and runs the solver to completion,
+failing on a non-zero exit or on a NaN, negative-pressure or exception
+diagnostic in the log - the solver does not always exit non-zero on those.
 
-Phase 2 and 3 optimizations (not yet implemented) could provide additional speedup:
-- Communication/computation overlap (1.5-2x)
-- GPU acceleration (10-50x for large problems)
-- Mixed precision arithmetic (1.5-2x)
-- Cache-friendly element reordering (1.2-1.5x)
+Both suites, plus a syntax check over every SCons script and a full build of
+both variants against distribution packages, run in CI on every push
+(`.github/workflows/ci.yml`).
 
 ## About PETSc
 
@@ -324,16 +440,62 @@ Apollo uses PETSc (Portable, Extensible Toolkit for Scientific Computation) for 
 - Industry-standard MPI-based communication
 - Extensive documentation and active development community
 
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `src/SConstruct`, `src/*/SConscript` | build definition |
+| `src/buildconf/` | dependency detection (MPI, PETSc, HDF5, BLAS, Boost) |
+| `src/this_host_config.py` | host-specific build defaults; command line overrides it |
+| `src/xapollo/` | `main()` and the simulation driver |
+| `src/lib/` | array and matrix types, nodal-DG operators, quadrature tables, input-deck parser, logging, MPI wrappers |
+| `src/hyper/` | hyperbolic equation and source-term base classes |
+| `src/hyperapps/` | physics: `advection/`, `euler/`, `maxwell/`, `multifluid/` |
+| `src/solvers/`, `src/subsolvers/` | time stepping, limiters, boundary conditions, the DG element loop |
+| `src/lapack_lite/` | vendored LAPACK subset, **not currently built** |
+| `scripts/` | input preprocessing and post-processing / visualization |
+| `examples/` | `.pin` decks and `.msh` meshes per physics module |
+| `test/` | Python regression tests and the solver smoke tests |
+
+Two naming conventions coexist: `wx`-prefixed files are inherited from WarpM, the
+project Apollo descends from, and `ap`-prefixed files are Apollo's own. They are
+the same codebase; the prefix carries no meaning beyond age.
+
+## Post-processing
+
+`scripts/` holds the visualization tooling. Beyond `numpy`, individual scripts
+import `matplotlib`/`pylab`, `pyvtk`, `tvtk`/`mayavi`, `tables` (PyTables) and
+`joblib`; install what the script you need asks for. `wxdata.py` is the common
+reader, and `wxplot.py` a command-line front end to it. The `wxxdmf*.py` family
+writes XDMF wrappers for the HDF5 output so it opens in ParaView or VisIt.
+
+Be aware that several scripts are near-duplicates of each other
+(`wxdata.py`/`wxdata_3949.py`, `wxunsdgdata.py`/`wxunsdgdata2.py`,
+`SGC.py`/`SGC_MB.py`, and the `wxxdmf*` set), and it is not always obvious which
+is canonical.
+
 ## Documentation
 
-Documentation is currently in development. For now, refer to:
-- Example input files in `examples/unstructuredDG/`
-- Visualization scripts in `scripts/`
-- Source code headers in `src/`
+Documentation is a work in progress. The most reliable sources are, in order:
+- this file, for building and running;
+- `examples/unstructuredDG/`, for what a deck looks like per physics module;
+- `test/run_examples.sh`, for a working end-to-end invocation;
+- the headers in `src/`, for the class structure.
+
+There is no generated API documentation and no description of the discretization
+beyond the source.
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Citing Apollo
+
+See [CITATION.cff](CITATION.cff), or use GitHub's "Cite this repository" button.
 
 ## Author
 
