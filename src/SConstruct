@@ -43,6 +43,23 @@ vars.AddVariables(
         ('boost_base', 'Base directory for BOOST package',''),
         ('boost_includedir', 'include directory for BOOST package',''),
         ('boost_libdir', 'Library directory for BOOST package',''),
+        ('hdf5_base', 'Base directory for the HDF5 package. Needed because '
+                      "PETSc's petscviewerhdf5.h includes <hdf5.h>; leave empty "
+                      'to autodetect.', ''),
+        ('arch', "Value for -march=/-mtune= in the optimized build. 'native' tunes for "
+                 "the build machine and will SIGILL on older nodes of a heterogeneous "
+                 "cluster; set e.g. 'x86-64-v3' for a portable binary, or 'none' to omit "
+                 "the flags entirely.", 'native'),
+        BoolVariable('fastmath',
+                     "Compile the optimized build with -ffast-math. Off by default: it "
+                     "implies -ffinite-math-only, which lets the compiler assume no value "
+                     "is ever NaN and so deletes the 'x != x' solution-validity guards in "
+                     "the Euler and nodal-DG kernels. When enabled here, "
+                     "-fno-finite-math-only is added back so those guards keep working.",
+                     'no'),
+        BoolVariable('openmp',
+                     'Compile the optimized build with OpenMP. Only one loop is '
+                     'currently annotated (subsolvers/wxnodaldg2dmethod.cc).', 'yes'),
 )
 
 #uhg, PGI compiler is not even working for me right now, and I don't see how to work this into this_host_config.py
@@ -64,20 +81,37 @@ warpMConstructionEnv['CPPPATH'] = ['']
 if not warpMConstructionEnv.GetOption('clean'):
 	# setup build for external libraries
 	SConscript('buildconf/config_mpi.py',     exports='warpMConstructionEnv')
+	SConscript('buildconf/config_hdf5.py',    exports='warpMConstructionEnv')
 	SConscript('buildconf/config_petsc.py',   exports='warpMConstructionEnv')
-#        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
 	SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
 
-	# Add Eigen3 include path on macOS
+	# Eigen3 and Boost are hard requirements of the multifluid module
+	# (hyperapps/multifluid/MathX.h includes <Eigen/Dense>, myIO.h includes
+	# <boost/format.hpp>), so the build fails without them on every platform,
+	# not just macOS. Both ship as headers under a versioned subdirectory that
+	# is not on the default include path.
+	eigenCandidates = ['/usr/include/eigen3', '/usr/local/include/eigen3']
 	if sys.platform == 'darwin':
-		homebrew_prefix = '/opt/homebrew'  # Apple Silicon
-		if not os.path.isdir(homebrew_prefix):
-			homebrew_prefix = '/usr/local'  # Intel Mac
+		for prefix in ('/opt/homebrew', '/usr/local'):
+			eigenCandidates.append(os.path.join(prefix, 'include', 'eigen3'))
+	if os.environ.get('EIGEN3_INCLUDE_DIR'):
+		eigenCandidates.insert(0, os.environ['EIGEN3_INCLUDE_DIR'])
 
-		eigen_include = os.path.join(homebrew_prefix, 'include', 'eigen3')
-		if os.path.isdir(eigen_include):
+	for eigen_include in eigenCandidates:
+		if os.path.isfile(os.path.join(eigen_include, 'Eigen', 'Dense')):
 			warpMConstructionEnv.AppendUnique(CPPPATH=[eigen_include])
-			print(f"Added Eigen3 include path: {eigen_include}")
+			print("Added Eigen3 include path:", eigen_include)
+			break
+	else:
+		# <Eigen/Dense> may still resolve if Eigen was installed unversioned.
+		if not os.path.isfile('/usr/include/Eigen/Dense'):
+			print("WARNING: Eigen3 not found; hyperapps/multifluid will fail to "
+			      "compile with 'fatal error: Eigen/Dense'. Install it with "
+			      "'sudo apt-get install libeigen3-dev' (Debian/Ubuntu), "
+			      "'sudo dnf install eigen3-devel' (RHEL/Fedora) or "
+			      "'brew install eigen' (macOS), or set EIGEN3_INCLUDE_DIR.")
+
+	SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
 
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
@@ -135,8 +169,18 @@ if is_clang:
 
 # DEBUG target
 # build with debug symbols and range checking turned on.
+#
+# USE_BLAS must match the optimized build: lib/wxcubature2d.cc computes the
+# cubature matrix product through cblas_dgemm when it is defined and through a
+# hand-rolled triple loop when it is not. Leaving it out of the debug build
+# means a discrepancy reproduced under the debugger is not the discrepancy the
+# production binary produced.
+debugFlags = ['-g', '-Wall', '-D_DO_RANGE_CHECK_']
+if bool(warpMConstructionEnv.get('APOLLO_HAVE_BLAS')):
+    debugFlags.append('-DUSE_BLAS')
+
 debugEnv     = warpMConstructionEnv.Clone(
-    CCFLAGS = '-g -Wall -D_DO_RANGE_CHECK_',
+    CCFLAGS = ' '.join(debugFlags),
     CXXFLAGS = '-std=c++14'  # C++ specific flags
 )
 
@@ -149,26 +193,53 @@ if libomp_lib_path:
 env = debugEnv
 debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
 
-# OPTIMIZED target, due to the march flag, this product will only run on the architecture of the build machine. To do otherwise, will need to set specific march, not native.
-march = 'native'
-
-# Phase 1 Performance Optimizations:
-# - OpenMP for thread-level parallelism within MPI ranks
-# - Aggressive compiler optimizations for maximum performance
-# - Fast math and architecture-specific optimizations
+# OPTIMIZED target.
 
 # Base optimization flags (common to both C and C++)
 optimizationFlags = [
     '-O3',                    # Highest optimization level
-    '-march=native',          # Optimize for build machine's architecture (AVX, AVX2, etc.)
-    '-mtune=native',          # Tune for build machine's specific CPU
     '-funroll-loops',         # Loop unrolling
-    '-ffast-math',            # Aggressive floating-point optimizations
     '-ftree-vectorize',       # Auto-vectorization with SIMD
-    '-fno-math-errno',        # Don't set errno for math functions (faster)
+    '-fno-math-errno',        # Don't set errno for math functions. Safe here:
+                              # nothing in Apollo reads errno after a math call.
     '-Wall',                  # All warnings
-    '-DUSE_BLAS',             # Enable optimized BLAS routines
 ]
+
+# Architecture tuning. 'native' produces a binary that only runs on CPUs at least
+# as capable as the build machine, which is the wrong default when the login node
+# of a cluster is newer than its compute nodes (the binary dies with SIGILL). It
+# stays the default for continuity, but is now selectable.
+arch = warpMConstructionEnv['arch']
+if arch and arch != 'none':
+    optimizationFlags += ['-march=%s' % arch, '-mtune=%s' % arch]
+    print("optimized build: tuning for -march=%s" % arch)
+else:
+    print("optimized build: no -march/-mtune (portable binary)")
+
+# Floating-point model. -ffast-math implies -ffinite-math-only, under which the
+# compiler may assume no operand is ever NaN and therefore folds `x != x` to
+# false. Apollo guards its solution vectors with exactly that idiom
+# (hyperapps/euler/wxeulereqn.cc:1408+, hyperapps/euler/apeulerentropyeqn.cc:507+,
+# subsolvers/wxnodaldg2dmethod.cc:505) and reports NaN through PETSc's
+# PetscIsInfOrNanReal, so -ffast-math silently deletes every check that would
+# stop a diverged run before it writes physically meaningless output. It is
+# therefore opt-in, and even then finite-math is excluded so the guards survive.
+if warpMConstructionEnv['fastmath']:
+    optimizationFlags += ['-ffast-math', '-fno-finite-math-only']
+    print("optimized build: -ffast-math enabled "
+          "(NaN guards preserved via -fno-finite-math-only)")
+
+# BLAS is used by lib/wxcubature2d.cc behind #ifdef USE_BLAS, which pulls in
+# <cblas.h>. Defining it unconditionally breaks the build wherever no BLAS was
+# found, and defining it for only one variant makes build-opt and build-debug
+# evaluate the same cubature product by different code paths. config_blas.py
+# records what it actually found; both variants now follow it.
+haveBlas = bool(warpMConstructionEnv.get('APOLLO_HAVE_BLAS'))
+if haveBlas:
+    optimizationFlags.append('-DUSE_BLAS')
+    print("optimized build: using BLAS for cubature matrix products")
+else:
+    print("optimized build: no BLAS found, using the built-in matrix product")
 
 # C++ specific flags
 cxxFlags = [
@@ -178,7 +249,9 @@ cxxFlags = [
 # Add OpenMP compilation flags based on compiler (for optimized build only)
 openmp_linkflags = ''
 
-if is_clang:
+if not warpMConstructionEnv['openmp']:
+    print("optimized build: OpenMP disabled (openmp=no)")
+elif is_clang:
     # Clang on macOS requires special OpenMP flags
     if libomp_include_path:  # Only add OpenMP if libomp was found
         optimizationFlags.extend([

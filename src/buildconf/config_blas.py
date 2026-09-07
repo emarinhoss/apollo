@@ -73,9 +73,23 @@ if not blas_found:
     print("For best performance, install OpenBLAS: sudo apt-get install libopenblas-dev")
     # Don't exit - allow compilation without BLAS, will use fallback
 
+# lib/wxcubature2d.cc includes <cblas.h> under #ifdef USE_BLAS. Having a BLAS
+# *library* to link is not enough: the header has to be present too, or the
+# build fails at compile time on a machine that only ships the runtime package.
+if blas_found and not conf.CheckCHeader('cblas.h'):
+    print("WARNING: a BLAS library was found but <cblas.h> was not; building "
+          "without BLAS. Install the development package (Debian/Ubuntu: "
+          "libopenblas-dev, RHEL/Fedora: openblas-devel).")
+    blas_found = False
+
 # Check for gfortran (needed by some BLAS implementations)
 if not conf.CheckLib('gfortran'):
     print("Note: gfortran not found, may be needed for some BLAS implementations")
     # Don't exit - not always needed
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions
+
+# Record the result so SConstruct defines USE_BLAS only when the code can
+# actually compile against it, and defines it identically for every build
+# variant. Set after Finish() so it lands on the environment SConstruct holds.
+warpMConstructionEnv['APOLLO_HAVE_BLAS'] = blas_found
