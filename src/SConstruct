@@ -63,15 +63,18 @@ vars.AddVariables(
                      "-fno-finite-math-only is added back so those guards keep working.",
                      'no'),
         BoolVariable('openmp',
-                     'Compile the optimized build with OpenMP. OFF by default: the one '
-                     'parallelised loop (subsolvers/wxnodaldg2dmethod.cc) calls '
-                     'DMPlexGetConeSize and DMPlexPointLocalRead/Ref once per element, '
-                     'and PETSc is not thread-safe unless it was built '
-                     '--with-threadsafety, which the distribution packages are not '
-                     '(check for PETSC_HAVE_THREADSAFETY in petscconf.h). It also '
-                     'measured slower than serial on the bundled isentropicVortex '
-                     'example, because with PETSC_USE_LOG on every PETSc call updates '
-                     'shared logging counters. Set openmp=yes to re-enable.',
+                     'Compile the optimized build with OpenMP. OFF by default, for a '
+                     'correctness reason rather than a speed one: the one parallelised '
+                     'loop (subsolvers/wxnodaldg2dmethod.cc) calls DMPlexGetConeSize '
+                     'and DMPlexPointLocalRead/Ref once per element, and PETSc is not '
+                     'thread-safe unless it was built --with-threadsafety, which the '
+                     'distribution packages are not - check for '
+                     'PETSC_HAVE_THREADSAFETY in your petscconf.h. Scaling is also '
+                     'poor and non-monotonic: on the bundled isentropicVortex example '
+                     'on 4 cores, 2.64 s on 1 thread, 1.68 s on 2, 4.35 s on 4, since '
+                     'with PETSC_USE_LOG on every PETSc call updates shared counters. '
+                     'Set openmp=yes if you have a thread-safe PETSc; results are '
+                     'identical across thread counts.',
                      'no'),
 )
 

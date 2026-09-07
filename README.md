@@ -244,14 +244,12 @@ deleted from the binary and a run that has gone to NaN keeps going silently.
 `fastmath=yes` adds `-fno-finite-math-only` alongside it so the guards survive,
 but the remaining reassociation still changes results run to run.
 
-**A note on OpenMP.** It is off by default. Only one loop is annotated
-(`subsolvers/wxnodaldg2dmethod.cc`), and that loop calls `DMPlexGetConeSize` and
-`DMPlexPointLocalRead`/`Ref` once per element. PETSc is not thread-safe unless
-built `--with-threadsafety`, which the distribution packages are not - check for
-`PETSC_HAVE_THREADSAFETY` in your `petscconf.h`. With PETSc's logging enabled
-(the default) every such call also updates shared counters, and threaded runs
-measured slower than serial rather than faster. `openmp=yes` re-enables it if
-you have a thread-safe PETSc and want to experiment.
+**A note on OpenMP.** It is off by default, for a correctness reason: the one
+annotated loop (`subsolvers/wxnodaldg2dmethod.cc`) calls `DMPlexGetConeSize` and
+`DMPlexPointLocalRead`/`Ref` once per element, and PETSc is not thread-safe
+unless built `--with-threadsafety`, which the distribution packages are not.
+Scaling is poor and non-monotonic besides — see
+[Performance](#performance) for measured numbers. `openmp=yes` re-enables it.
 
 **What the optimized build actually does:**
 
@@ -373,14 +371,27 @@ that scales; use `mpirun -np N`.
 
 ### What it does not give you
 
-**OpenMP is off by default and should stay off** unless you have specifically
-checked otherwise. Only one loop in the codebase carries an OpenMP directive, and
-it calls PETSc (`DMPlexGetConeSize`, `DMPlexPointLocalRead`/`Ref`) once per
-element. PETSc is not thread-safe unless it was configured
-`--with-threadsafety`, which distribution packages are not; and with PETSc's
-event logging on - the default - each of those calls updates shared counters, so
-adding threads adds contention. Threaded runs of the bundled examples measured
-slower than serial. See the `openmp` build variable if you want to experiment.
+**OpenMP is off by default**, for a correctness reason rather than a speed one.
+Only one loop in the codebase carries an OpenMP directive, and it calls PETSc
+(`DMPlexGetConeSize`, `DMPlexPointLocalRead`/`Ref`) once per element. PETSc is
+not thread-safe unless it was configured `--with-threadsafety`, which
+distribution packages are not - check for `PETSC_HAVE_THREADSAFETY` in your
+`petscconf.h`.
+
+Scaling is also poor and non-monotonic, because with PETSc's event logging on
+(the default) each of those per-element calls updates shared counters. On the
+bundled isentropic vortex, on a 4-core machine, best of three runs:
+
+| `OMP_NUM_THREADS` | time | vs. serial |
+| --- | --- | --- |
+| 1 | 2.64 s | — |
+| 2 | 1.68 s | 1.57x faster |
+| 4 | 4.35 s | 1.65x slower |
+
+Results are bit-identical across thread counts, so the parallelisation is
+correct as far as Apollo's own state goes; it is PETSc's that is the problem.
+Build with `openmp=yes` if you have a thread-safe PETSc and want to experiment,
+and measure on your own hardware - four threads on four cores is a small sample.
 
 **`-ffast-math` is off by default.** See the note under [Building
 Apollo](#building-apollo): it deletes Apollo's own NaN guards.
