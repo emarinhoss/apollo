@@ -528,12 +528,20 @@ Be aware that several scripts are near-duplicates of each other
 `SGC.py`/`SGC_MB.py`, and the `wxxdmf*` set), and it is not always obvious which
 is canonical.
 
+## Known issues
+
+[docs/known-issues.md](docs/known-issues.md) records defects that are confirmed
+but not fixed, with the evidence and a way to reproduce each. Read it before
+trusting a result from the multifluid module, before using
+`Numerical_Flux = Wave`, or before assuming a run can be restarted.
+
 ## Documentation
 
 Documentation is a work in progress. The most reliable sources are, in order:
 - this file, for building and running;
 - `examples/unstructuredDG/`, for what a deck looks like per physics module;
 - `test/run_examples.sh`, for a working end-to-end invocation;
+- [docs/known-issues.md](docs/known-issues.md), for what is broken;
 - the headers in `src/`, for the class structure.
 
 There is no generated API documentation and no description of the discretization
