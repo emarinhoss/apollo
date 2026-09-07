@@ -412,8 +412,11 @@ Unimplemented, listed roughly by expected value:
 ## Testing
 
 ```bash
-# Python tooling: ~1 s, needs only python3 (pyflakes adds one more check)
+# Everything: python tooling (~1 s) plus solver verification (~25 s)
 python3 -m unittest discover -s test -v
+
+# Just the parts that need no compiler
+python3 -m unittest discover -s test -p 'test_python*' -v
 
 # Solver against its own examples: ~15 s, needs a built binary
 test/run_examples.sh                       # uses src/build-opt/apollo
@@ -421,6 +424,29 @@ test/run_examples.sh -b src/build-debug/apollo
 test/run_examples.sh -j 2                  # under mpirun
 test/run_examples.sh euler-isentropic-vortex
 ```
+
+There are two kinds of test here.
+
+**Verification** (`test/test_vortex_accuracy.py`) asks whether Apollo solves the
+equations it claims to. The isentropic vortex is an exact, smooth solution of the
+Euler equations that translates without changing shape, so the difference from
+the analytic result at t=1 is pure discretization error. The suite measures it
+for every numerical flux, and measures the convergence rate across the 290/1110/
+4454-cell meshes shipped with the example:
+
+```
+    grid.msh       290 cells   L2(rho) = 1.58e-02
+    grid2.msh     1110 cells   L2(rho) = 5.13e-03      observed order 1.68
+    grid3.msh     4454 cells   L2(rho) = 1.14e-03      observed order 2.16
+```
+
+Second order is what P1 DG should give. This is the test that catches a wrong
+answer, as opposed to a crash: a flux that writes the wrong momentum component
+runs to completion and returns nonsense, and only a comparison against a known
+solution notices.
+
+**Smoke** (`test/run_examples.sh` and the rest of `test/`) asks whether things
+still run at all.
 
 Or through the root makefile: `make test`, `make test-python`,
 `make test-examples`; `make help` lists everything, including `make opt`,
