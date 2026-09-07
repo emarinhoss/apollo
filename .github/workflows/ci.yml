@@ -109,7 +109,6 @@ jobs:
 
       - name: Solver smoke tests under MPI (2 ranks)
         run: test/run_examples.sh -b src/build-opt/apollo -j 2
-        continue-on-error: true
 
       - name: Upload logs on failure
         if: failure()

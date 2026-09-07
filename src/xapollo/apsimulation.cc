@@ -15,6 +15,7 @@
 
 // std includes
 #include <ctime>
+#include <iostream>
 
 template <typename REAL>
 ApSimulation<REAL>::ApSimulation(int argc, char **argv)
@@ -215,9 +216,13 @@ ApSimulation<REAL>::parseCmdLine(int argc, char **argv)
     { NULL, 0, NULL, 0}
   };
 
-  char ch;
-  // parse command line parameters
-  while ((ch = getopt_long(argc, argv, "i:r:o:", longopts, NULL)) != -1)
+  // getopt_long returns int, and signals "no more options" with -1. Storing that
+  // in a char is only correct where char happens to be signed: on ARM and
+  // PowerPC, where it is unsigned, -1 becomes 255 and the loop never ends.
+  int ch;
+  // parse command line parameters. 'h' is in the option string because usage()
+  // advertises -h; without it getopt rejected the documented flag.
+  while ((ch = getopt_long(argc, argv, "hi:r:o:", longopts, NULL)) != -1)
   {
     switch (ch)
     {
@@ -243,18 +248,36 @@ ApSimulation<REAL>::parseCmdLine(int argc, char **argv)
         realType = optarg;
         break;
 
+      case 'h':
       case 1:
-        // real number type to use
+        // help
         usage();
         exit(0);
 
       default:
-        // do nothing
-        break;
+        // getopt_long has already written its own diagnostic; do not continue
+        // with a half-parsed command line and a default input file.
+        usage();
+        exit(2);
     }
   }
+  // Consume the options; whatever is left is a positional argument.
   argc -= optind;
   argv += optind;
+
+  if (argc > 0)
+  { // Apollo takes its input file with -i. A bare filename is not the input
+    // file, and silently falling back to apollo.inp made that look like a
+    // missing-file error rather than the usage error it is.
+    std::cerr << "Apollo: unexpected argument '" << argv[0]
+              << "'.\n  The input file is given with -i, for example:\n"
+                 "    apollo -i " << argv[0] << std::endl;
+    exit(2);
+  }
+
+  if (realType == "float")
+    std::cerr << "Apollo: warning: --real-type=float is accepted but has no "
+                 "effect; the solver is instantiated as double." << std::endl;
 }
 
 template <typename REAL>
@@ -294,9 +317,12 @@ std::string
 ApSimulation<REAL>::stripName(const std::string& nm)
 {
   std::string snm = nm;
-  unsigned trunc = nm.find_last_of(".", snm.size());
-  if (trunc > 0)
-    snm.erase(trunc, snm.size());
+  // find_last_of returns npos when there is no '.', and npos is not 0, so the
+  // old `if (trunc > 0)` test passed and erase(npos, ...) threw std::out_of_range
+  // for any input file whose name has no extension.
+  std::string::size_type trunc = snm.find_last_of('.');
+  if (trunc != std::string::npos && trunc > 0)
+    snm.erase(trunc);
   return snm;
 }
 

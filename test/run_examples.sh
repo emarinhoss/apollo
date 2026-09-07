@@ -59,6 +59,18 @@ if [[ $# -gt 0 ]]; then
   CASES=("${selected[@]}")
 fi
 
+# Extra mpirun flags. Open MPI refuses to run as root without being told to,
+# which is the normal situation inside a container, and CI runners have fewer
+# cores than the rank counts worth testing.
+MPI_FLAGS=()
+if [[ "$RANKS" -gt 1 ]]; then
+  read -r -a MPI_FLAGS <<< "${APOLLO_MPI_FLAGS:-}"
+  if [[ ${#MPI_FLAGS[@]} -eq 0 ]]; then
+    MPI_FLAGS=(--oversubscribe)
+    [[ "$(id -u)" -eq 0 ]] && MPI_FLAGS+=(--allow-run-as-root)
+  fi
+fi
+
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -98,7 +110,7 @@ for case_spec in "${CASES[@]}"; do
   fi
 
   if [[ "$RANKS" -gt 1 ]]; then
-    runner=(mpirun -np "$RANKS" "$APOLLO")
+    runner=(mpirun "${MPI_FLAGS[@]}" -np "$RANKS" "$APOLLO")
   else
     runner=("$APOLLO")
   fi
