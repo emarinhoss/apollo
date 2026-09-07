@@ -32,11 +32,11 @@ class Node(object):
         self.id = ident                 # Unique Identity of Node (global ID from Cubit)
         self.position = list(position)  # Physical position of Node
         self.indices = []               # Holds the Indices of the Node within the Grid
-	self.neighbors = []             # Holds the neighboring cell originally found in the elements list
-	self.geometry = []              # Holds the corresponding nodes associated with the cell 
-	self.faces = []                 # Holds the corresponding faces associated with the cell, 
-					# arranged in paired sets, i.e. each direction is presented 
-					# as a set of two faces on opposite sides of the cell.
+        self.neighbors = []             # Holds the neighboring cell originally found in the elements list
+        self.geometry = []              # Holds the corresponding nodes associated with the cell 
+        self.faces = []                 # Holds the corresponding faces associated with the cell, 
+                                        # arranged in paired sets, i.e. each direction is presented 
+                                        # as a set of two faces on opposite sides of the cell.
         self.domain = []
         self.celldata = []
 
@@ -46,13 +46,12 @@ class Node(object):
 
     # Returns the Local ID of the Node (-1 if Node is not in Domain)
     def getLocalID(self, domain_index = -1):
-        if domain_index < 0:
-            return -1
-        else:
-            if domain_index in self.owners:    
-                return self.owners[domain_index][patch_index]
-            else:
-                return -1
+        # Per-domain local IDs were never implemented: there is no `owners`
+        # attribute on Node and no `patch_index` anywhere in this module. The
+        # original body referenced both and could only ever raise. Nothing in
+        # the repository calls this, so it is kept as an explicit stub.
+        raise NotImplementedError(
+            "Node.getLocalID: per-domain local node IDs are not implemented")
 
     def getNeighbors(self):
         return self.neighbors
@@ -218,17 +217,17 @@ class Node(object):
 
 
 
-            print('Given nnID = ') + str(self.id) + ', nodes for cell '+str(externalcellID)+':'
-            print('n000 is ')+str(n000.id)+ ' = ('+str(round(n000pos[0],1))+', \t'+str(round(n000pos[1],1))+', \t'+str(round(n000pos[2],1))+')'
-            print('nx00 is ') +str(nx00.id)+ ' = ('+str(round(nx00pos[0],1))+', \t'+str(round(nx00pos[1],1))+', \t'+str(round(nx00pos[2],1))+')'
-            print('n0y0 is ') +str(n0y0.id)+ ' = ('+str(round(n0y0pos[0],1))+', \t'+str(round(n0y0pos[1],1))+', \t'+str(round(n0y0pos[2],1))+')'
-            print('n00z is ') +str(n00z.id)+ ' = ('+str(round(n00zpos[0],1))+', \t'+str(round(n00zpos[1],1))+', \t'+str(round(n00zpos[2],1))+')'
-            print('nxy0 is ') +str(nxy0.id)+ ' = ('+str(round(nxy0pos[0],1))+', \t'+str(round(nxy0pos[1],1))+', \t'+str(round(nxy0pos[2],1))+')'
-            print('n0yz is ') +str(n0yz.id)+ ' = ('+str(round(n0yzpos[0],1))+', \t'+str(round(n0yzpos[1],1))+', \t'+str(round(n0yzpos[2],1))+')'
-            print('nx0z is ') +str(nx0z.id)+ ' = ('+str(round(nx0zpos[0],1))+', \t'+str(round(nx0zpos[1],1))+', \t'+str(round(nx0zpos[2],1))+')'
-            print('nxyz is ') +str(nxyz.id)+ ' = ('+str(round(nxyzpos[0],1))+', \t'+str(round(nxyzpos[1],1))+', \t'+str(round(nxyzpos[2],1))+')'
+            print('Given nnID = ' + str(self.id) + ', nodes for cell '+str(externalcellID)+':')
+            print('n000 is ' + str(n000.id)+ ' = ('+str(round(n000pos[0],1))+', \t'+str(round(n000pos[1],1))+', \t'+str(round(n000pos[2],1))+')')
+            print('nx00 is ' + str(nx00.id)+ ' = ('+str(round(nx00pos[0],1))+', \t'+str(round(nx00pos[1],1))+', \t'+str(round(nx00pos[2],1))+')')
+            print('n0y0 is ' + str(n0y0.id)+ ' = ('+str(round(n0y0pos[0],1))+', \t'+str(round(n0y0pos[1],1))+', \t'+str(round(n0y0pos[2],1))+')')
+            print('n00z is ' + str(n00z.id)+ ' = ('+str(round(n00zpos[0],1))+', \t'+str(round(n00zpos[1],1))+', \t'+str(round(n00zpos[2],1))+')')
+            print('nxy0 is ' + str(nxy0.id)+ ' = ('+str(round(nxy0pos[0],1))+', \t'+str(round(nxy0pos[1],1))+', \t'+str(round(nxy0pos[2],1))+')')
+            print('n0yz is ' + str(n0yz.id)+ ' = ('+str(round(n0yzpos[0],1))+', \t'+str(round(n0yzpos[1],1))+', \t'+str(round(n0yzpos[2],1))+')')
+            print('nx0z is ' + str(nx0z.id)+ ' = ('+str(round(nx0zpos[0],1))+', \t'+str(round(nx0zpos[1],1))+', \t'+str(round(nx0zpos[2],1))+')')
+            print('nxyz is ' + str(nxyz.id)+ ' = ('+str(round(nxyzpos[0],1))+', \t'+str(round(nxyzpos[1],1))+', \t'+str(round(nxyzpos[2],1))+')')
         else:
-            print('for nodeID: ')+str(self.id)+':  cellID = '+str(externalcellID)+' not found'
+            print('for nodeID: ' + str(self.id)+':  cellID = '+str(externalcellID)+' not found')
 # ---------------------------------------------
 
     def calculateFaces(self, style, geometrylist):
@@ -258,13 +257,13 @@ class Node(object):
 
     def addNeighbor(self,cell, nodes, style, domain, domains):
 
-	geometrylist = list(nodes)
+        geometrylist = list(nodes)
 
         faces = self.calculateFaces(style, geometrylist)
         self.domain.append(domain)
-	self.neighbors.append(cell)
-	self.geometry.append(geometrylist)
-	self.faces.append(faces)
+        self.neighbors.append(cell)
+        self.geometry.append(geometrylist)
+        self.faces.append(faces)
         celldata = [self.id, domain, cell, geometrylist, faces]
         self.celldata.append(celldata)
 
@@ -287,7 +286,7 @@ class Node(object):
 
     def addCellData(self,cell, nodes, style, domain, domains):
 
-	geometrylist = list(nodes)
+        geometrylist = list(nodes)
 
         faces = self.calculateFaces(style, geometrylist)
         celldata = [domain,cell,geometrylist,faces]
@@ -305,7 +304,7 @@ class Node(object):
 ###########################################        
 
     def addIndices(self,indices):
-	self.indices=list(indices)
+        self.indices=list(indices)
 
 class CellData(object):
 
@@ -321,7 +320,7 @@ class IndexedNodes(object):
         self.id      = ident            # decimal number corresponding to indices
         self.indices = list(index)      # Logical grid location of the node
         self.position = list(position)  # Physical position of Node
-	self.oldnodeid = oldnodeid
+        self.oldnodeid = oldnodeid
 
     def getID(self):
         return self.id
@@ -433,98 +432,98 @@ class Domain(object):
         return self.blockneighborlist
 
     def addBlockFaceList(self,blockfacelist):
-	self.blockfacelist=blockfacelist
+        self.blockfacelist=blockfacelist
 
     def addN000(self,n000id):
-	self.n000=n000id
+        self.n000=n000id
 
     def addNx00(self,nx00id):
-	self.nx00=nx00id
+        self.nx00=nx00id
 
     def addN0y0(self,n0y0id):
-	self.n0y0=n0y0id
+        self.n0y0=n0y0id
 
     def addN00z(self,n00zid):
-	self.n00z=n00zid
+        self.n00z=n00zid
 
     def addNxy0(self,nxy0id):
-	self.nxy0=nxy0id
+        self.nxy0=nxy0id
 
     def addN0yz(self,n0yzid):
-	self.n0yz=n0yzid
+        self.n0yz=n0yzid
 
     def addNx0z(self,nx0zid):
-	self.nx0z=nx0zid
+        self.nx0z=nx0zid
 
     def addNxyz(self,nxyzid):
-	self.nxyz=nxyzid
+        self.nxyz=nxyzid
 
     def printDomainCornerNodes(self,nodes):
 
-        print('n000 id: (x,y,z) = ')+str(self.n000)+':\t('+str(round(nodes[self.n000].position[0],1))+','+str(round(nodes[self.n000].position[1],1))+','+str(round(nodes[self.n000].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.n000].indices[0])+', '+str(nodes[self.n000].indices[1])+', '+str(nodes[self.n000].indices[2])+')'
-        print('n0y0 id: (x,y,z) = ')+str(self.n0y0)+':\t('+str(round(nodes[self.n0y0].position[0],1))+','+str(round(nodes[self.n0y0].position[1],1))+','+str(round(nodes[self.n0y0].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.n0y0].indices[0])+', '+str(nodes[self.n0y0].indices[1])+', '+str(nodes[self.n0y0].indices[2])+')'
-        print('n0yz id: (x,y,z) = ')+str(self.n0yz)+':\t('+str(round(nodes[self.n0yz].position[0],1))+','+str(round(nodes[self.n0yz].position[1],1))+','+str(round(nodes[self.n0yz].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.n0yz].indices[0])+', '+str(nodes[self.n0yz].indices[1])+', '+str(nodes[self.n0yz].indices[2])+')'
-        print('n00z id: (x,y,z) = ')+str(self.n00z)+':\t('+str(round(nodes[self.n00z].position[0],1))+','+str(round(nodes[self.n00z].position[1],1))+','+str(round(nodes[self.n00z].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.n00z].indices[0])+', '+str(nodes[self.n00z].indices[1])+', '+str(nodes[self.n00z].indices[2])+')'
-        print('nx00 id: (x,y,z) = ')+str(self.nx00)+':\t('+str(round(nodes[self.nx00].position[0],1))+','+str(round(nodes[self.nx00].position[1],1))+','+str(round(nodes[self.nx00].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.nx00].indices[0])+', '+str(nodes[self.nx00].indices[1])+', '+str(nodes[self.nx00].indices[2])+')'
-        print('nxy0 id: (x,y,z) = ')+str(self.nxy0)+':\t('+str(round(nodes[self.nxy0].position[0],1))+','+str(round(nodes[self.nxy0].position[1],1))+','+str(round(nodes[self.nxy0].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.nxy0].indices[0])+', '+str(nodes[self.nxy0].indices[1])+', '+str(nodes[self.nxy0].indices[2])+')'
-        print('nxyz id: (x,y,z) = ')+str(self.nxyz)+':\t('+str(round(nodes[self.nxyz].position[0],1))+','+str(round(nodes[self.nxyz].position[1],1))+','+str(round(nodes[self.nxyz].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.nxyz].indices[0])+', '+str(nodes[self.nxyz].indices[1])+', '+str(nodes[self.nxyz].indices[2])+')'
-        print('nx0z id: (x,y,z) = ')+str(self.nx0z)+':\t('+str(round(nodes[self.nx0z].position[0],1))+','+str(round(nodes[self.nx0z].position[1],1))+','+str(round(nodes[self.nx0z].position[2],1))+')'
-        print('         (i,j,k) = (')+str(nodes[self.nx0z].indices[0])+', '+str(nodes[self.nx0z].indices[1])+', '+str(nodes[self.nx0z].indices[2])+')'
+        print('n000 id: (x,y,z) = ' + str(self.n000)+':\t('+str(round(nodes[self.n000].position[0],1))+','+str(round(nodes[self.n000].position[1],1))+','+str(round(nodes[self.n000].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.n000].indices[0])+', '+str(nodes[self.n000].indices[1])+', '+str(nodes[self.n000].indices[2])+')')
+        print('n0y0 id: (x,y,z) = ' + str(self.n0y0)+':\t('+str(round(nodes[self.n0y0].position[0],1))+','+str(round(nodes[self.n0y0].position[1],1))+','+str(round(nodes[self.n0y0].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.n0y0].indices[0])+', '+str(nodes[self.n0y0].indices[1])+', '+str(nodes[self.n0y0].indices[2])+')')
+        print('n0yz id: (x,y,z) = ' + str(self.n0yz)+':\t('+str(round(nodes[self.n0yz].position[0],1))+','+str(round(nodes[self.n0yz].position[1],1))+','+str(round(nodes[self.n0yz].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.n0yz].indices[0])+', '+str(nodes[self.n0yz].indices[1])+', '+str(nodes[self.n0yz].indices[2])+')')
+        print('n00z id: (x,y,z) = ' + str(self.n00z)+':\t('+str(round(nodes[self.n00z].position[0],1))+','+str(round(nodes[self.n00z].position[1],1))+','+str(round(nodes[self.n00z].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.n00z].indices[0])+', '+str(nodes[self.n00z].indices[1])+', '+str(nodes[self.n00z].indices[2])+')')
+        print('nx00 id: (x,y,z) = ' + str(self.nx00)+':\t('+str(round(nodes[self.nx00].position[0],1))+','+str(round(nodes[self.nx00].position[1],1))+','+str(round(nodes[self.nx00].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.nx00].indices[0])+', '+str(nodes[self.nx00].indices[1])+', '+str(nodes[self.nx00].indices[2])+')')
+        print('nxy0 id: (x,y,z) = ' + str(self.nxy0)+':\t('+str(round(nodes[self.nxy0].position[0],1))+','+str(round(nodes[self.nxy0].position[1],1))+','+str(round(nodes[self.nxy0].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.nxy0].indices[0])+', '+str(nodes[self.nxy0].indices[1])+', '+str(nodes[self.nxy0].indices[2])+')')
+        print('nxyz id: (x,y,z) = ' + str(self.nxyz)+':\t('+str(round(nodes[self.nxyz].position[0],1))+','+str(round(nodes[self.nxyz].position[1],1))+','+str(round(nodes[self.nxyz].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.nxyz].indices[0])+', '+str(nodes[self.nxyz].indices[1])+', '+str(nodes[self.nxyz].indices[2])+')')
+        print('nx0z id: (x,y,z) = ' + str(self.nx0z)+':\t('+str(round(nodes[self.nx0z].position[0],1))+','+str(round(nodes[self.nx0z].position[1],1))+','+str(round(nodes[self.nx0z].position[2],1))+')')
+        print('         (i,j,k) = (' + str(nodes[self.nx0z].indices[0])+', '+str(nodes[self.nx0z].indices[1])+', '+str(nodes[self.nx0z].indices[2])+')')
 
         return
         
         
     def printDomainCornerNodeIndices(self,nodes):
 
-        print('n000 id: = ')+str(self.n000)+':\t(i,j,k) = ('+str(nodes[self.n000].indices[0])+', '+str(nodes[self.n000].indices[1])+', '+str(nodes[self.n000].indices[2])+')'
-        print('n0y0 id: = ')+str(self.n0y0)+':\t(i,j,k) = ('+str(nodes[self.n0y0].indices[0])+', '+str(nodes[self.n0y0].indices[1])+', '+str(nodes[self.n0y0].indices[2])+')'
-        print('n0yz id: = ')+str(self.n0yz)+':\t(i,j,k) = ('+str(nodes[self.n0yz].indices[0])+', '+str(nodes[self.n0yz].indices[1])+', '+str(nodes[self.n0yz].indices[2])+')'
-        print('n00z id: = ')+str(self.n00z)+':\t(i,j,k) = ('+str(nodes[self.n00z].indices[0])+', '+str(nodes[self.n00z].indices[1])+', '+str(nodes[self.n00z].indices[2])+')'
-        print('nx00 id: = ')+str(self.nx00)+':\t(i,j,k) = ('+str(nodes[self.nx00].indices[0])+', '+str(nodes[self.nx00].indices[1])+', '+str(nodes[self.nx00].indices[2])+')'
-        print('nxy0 id: = ')+str(self.nxy0)+':\t(i,j,k) = ('+str(nodes[self.nxy0].indices[0])+', '+str(nodes[self.nxy0].indices[1])+', '+str(nodes[self.nxy0].indices[2])+')'
-        print('nxyz id: = ')+str(self.nxyz)+':\t(i,j,k) = ('+str(nodes[self.nxyz].indices[0])+', '+str(nodes[self.nxyz].indices[1])+', '+str(nodes[self.nxyz].indices[2])+')'
-        print('nx0z id: = ')+str(self.nx0z)+':\t(i,j,k) = ('+str(nodes[self.nx0z].indices[0])+', '+str(nodes[self.nx0z].indices[1])+', '+str(nodes[self.nx0z].indices[2])+')'
+        print('n000 id: = ' + str(self.n000)+':\t(i,j,k) = ('+str(nodes[self.n000].indices[0])+', '+str(nodes[self.n000].indices[1])+', '+str(nodes[self.n000].indices[2])+')')
+        print('n0y0 id: = ' + str(self.n0y0)+':\t(i,j,k) = ('+str(nodes[self.n0y0].indices[0])+', '+str(nodes[self.n0y0].indices[1])+', '+str(nodes[self.n0y0].indices[2])+')')
+        print('n0yz id: = ' + str(self.n0yz)+':\t(i,j,k) = ('+str(nodes[self.n0yz].indices[0])+', '+str(nodes[self.n0yz].indices[1])+', '+str(nodes[self.n0yz].indices[2])+')')
+        print('n00z id: = ' + str(self.n00z)+':\t(i,j,k) = ('+str(nodes[self.n00z].indices[0])+', '+str(nodes[self.n00z].indices[1])+', '+str(nodes[self.n00z].indices[2])+')')
+        print('nx00 id: = ' + str(self.nx00)+':\t(i,j,k) = ('+str(nodes[self.nx00].indices[0])+', '+str(nodes[self.nx00].indices[1])+', '+str(nodes[self.nx00].indices[2])+')')
+        print('nxy0 id: = ' + str(self.nxy0)+':\t(i,j,k) = ('+str(nodes[self.nxy0].indices[0])+', '+str(nodes[self.nxy0].indices[1])+', '+str(nodes[self.nxy0].indices[2])+')')
+        print('nxyz id: = ' + str(self.nxyz)+':\t(i,j,k) = ('+str(nodes[self.nxyz].indices[0])+', '+str(nodes[self.nxyz].indices[1])+', '+str(nodes[self.nxyz].indices[2])+')')
+        print('nx0z id: = ' + str(self.nx0z)+':\t(i,j,k) = ('+str(nodes[self.nx0z].indices[0])+', '+str(nodes[self.nx0z].indices[1])+', '+str(nodes[self.nx0z].indices[2])+')')
 
         return
         
         
     def printDomainCornerNodeRoundedPositions(self,nodes):
 
-        print('n000 id: (x,y,z) = ')+str(self.n000)+':\t('+str(round(nodes[self.n000].position[0],1))+','+str(round(nodes[self.n000].position[1],1))+','+str(round(nodes[self.n000].position[2],1))+')'
-        print('n0y0 id: (x,y,z) = ')+str(self.n0y0)+':\t('+str(round(nodes[self.n0y0].position[0],1))+','+str(round(nodes[self.n0y0].position[1],1))+','+str(round(nodes[self.n0y0].position[2],1))+')'
-        print('n0yz id: (x,y,z) = ')+str(self.n0yz)+':\t('+str(round(nodes[self.n0yz].position[0],1))+','+str(round(nodes[self.n0yz].position[1],1))+','+str(round(nodes[self.n0yz].position[2],1))+')'
-        print('n00z id: (x,y,z) = ')+str(self.n00z)+':\t('+str(round(nodes[self.n00z].position[0],1))+','+str(round(nodes[self.n00z].position[1],1))+','+str(round(nodes[self.n00z].position[2],1))+')'
-        print('nx00 id: (x,y,z) = ')+str(self.nx00)+':\t('+str(round(nodes[self.nx00].position[0],1))+','+str(round(nodes[self.nx00].position[1],1))+','+str(round(nodes[self.nx00].position[2],1))+')'
-        print('nxy0 id: (x,y,z) = ')+str(self.nxy0)+':\t('+str(round(nodes[self.nxy0].position[0],1))+','+str(round(nodes[self.nxy0].position[1],1))+','+str(round(nodes[self.nxy0].position[2],1))+')'
-        print('nxyz id: (x,y,z) = ')+str(self.nxyz)+':\t('+str(round(nodes[self.nxyz].position[0],1))+','+str(round(nodes[self.nxyz].position[1],1))+','+str(round(nodes[self.nxyz].position[2],1))+')'
-        print('nx0z id: (x,y,z) = ')+str(self.nx0z)+':\t('+str(round(nodes[self.nx0z].position[0],1))+','+str(round(nodes[self.nx0z].position[1],1))+','+str(round(nodes[self.nx0z].position[2],1))+')'
+        print('n000 id: (x,y,z) = ' + str(self.n000)+':\t('+str(round(nodes[self.n000].position[0],1))+','+str(round(nodes[self.n000].position[1],1))+','+str(round(nodes[self.n000].position[2],1))+')')
+        print('n0y0 id: (x,y,z) = ' + str(self.n0y0)+':\t('+str(round(nodes[self.n0y0].position[0],1))+','+str(round(nodes[self.n0y0].position[1],1))+','+str(round(nodes[self.n0y0].position[2],1))+')')
+        print('n0yz id: (x,y,z) = ' + str(self.n0yz)+':\t('+str(round(nodes[self.n0yz].position[0],1))+','+str(round(nodes[self.n0yz].position[1],1))+','+str(round(nodes[self.n0yz].position[2],1))+')')
+        print('n00z id: (x,y,z) = ' + str(self.n00z)+':\t('+str(round(nodes[self.n00z].position[0],1))+','+str(round(nodes[self.n00z].position[1],1))+','+str(round(nodes[self.n00z].position[2],1))+')')
+        print('nx00 id: (x,y,z) = ' + str(self.nx00)+':\t('+str(round(nodes[self.nx00].position[0],1))+','+str(round(nodes[self.nx00].position[1],1))+','+str(round(nodes[self.nx00].position[2],1))+')')
+        print('nxy0 id: (x,y,z) = ' + str(self.nxy0)+':\t('+str(round(nodes[self.nxy0].position[0],1))+','+str(round(nodes[self.nxy0].position[1],1))+','+str(round(nodes[self.nxy0].position[2],1))+')')
+        print('nxyz id: (x,y,z) = ' + str(self.nxyz)+':\t('+str(round(nodes[self.nxyz].position[0],1))+','+str(round(nodes[self.nxyz].position[1],1))+','+str(round(nodes[self.nxyz].position[2],1))+')')
+        print('nx0z id: (x,y,z) = ' + str(self.nx0z)+':\t('+str(round(nodes[self.nx0z].position[0],1))+','+str(round(nodes[self.nx0z].position[1],1))+','+str(round(nodes[self.nx0z].position[2],1))+')')
 
         return
         
     def printDomainCornerNodeIDs(self,nodes):
         
-        print('domainID = ')+str(self.id)
+        print('domainID = ' + str(self.id))
 
-        print('n000 id: ')+str(self.n000)
-        print('n0y0 id: ')+str(self.n0y0)
-        print('n0yz id: ')+str(self.n0yz)
-        print('n00z id: ')+str(self.n00z)
-        print('nx00 id: ')+str(self.nx00)
-        print('nxy0 id: ')+str(self.nxy0)
-        print('nxyz id: ')+str(self.nxyz)
-        print('nx0z id: ')+str(self.nx0z)
+        print('n000 id: ' + str(self.n000))
+        print('n0y0 id: ' + str(self.n0y0))
+        print('n0yz id: ' + str(self.n0yz))
+        print('n00z id: ' + str(self.n00z))
+        print('nx00 id: ' + str(self.nx00))
+        print('nxy0 id: ' + str(self.nxy0))
+        print('nxyz id: ' + str(self.nxyz))
+        print('nx0z id: ' + str(self.nx0z))
         return
         
     def printDomainCornerGeometryNodeIDs(self,nodes):
         
-        print('domainID: ')+str(self.id)+' - geometry: '+str(self.geometry)
+        print('domainID: ' + str(self.id)+' - geometry: '+str(self.geometry))
         return
 
 
@@ -538,9 +537,9 @@ class Domain(object):
 
         faces = range(0,6)
 
-        print('findDomainNeighbor:                domainID = ')+str(self.id)
+        print('findDomainNeighbor:                domainID = ' + str(self.id))
         for face in faces:
-            print('findDomainNeighbor:                    face = ')+str(face)
+            print('findDomainNeighbor:                    face = ' + str(face))
             currentface = domainfacelist[face]
             
             setlist = []
@@ -556,11 +555,11 @@ class Domain(object):
                                     
             self.blockfaceneighborlist.append(tempfacedomainlist)
             domainfaceneighborlist = self.blockfaceneighborlist
-            print('findDomainNeighbor:  domainfaceneighborlist = ') + str(domainfaceneighborlist)
+            print('findDomainNeighbor:  domainfaceneighborlist = ' + str(domainfaceneighborlist))
             print('findDomainNeighbor:  pause')
             
-        print('findDomainNeighbor:  domain ') +str(self.id) + ' facelist = ' +str(domainfacelist)
-        print('findDomainNeighbor:  domainfaceneighborlist = ') + str(domainfaceneighborlist)
+        print('findDomainNeighbor:  domain ' + str(self.id) + ' facelist = ' +str(domainfacelist))
+        print('findDomainNeighbor:  domainfaceneighborlist = ' + str(domainfaceneighborlist))
 
         return
 
@@ -579,7 +578,7 @@ class Domain(object):
 
         self.geometry = [node_000,node_0y0,node_0yz,node_00z,node_x00,node_xy0,node_xyz,node_x0z]
 
-        print('generateBlockFaces:  geometry = ') +str(self.geometry)
+        print('generateBlockFaces:  geometry = ' + str(self.geometry))
 
         self.addN000(node_000)
         self.addNx00(node_x00)
@@ -617,7 +616,7 @@ class Domain(object):
 
         blockfacelist = [face_xpos, face_xneg, face_ypos, face_yneg, face_zpos, face_zneg]
         
-        print('domain ')+str(self.id)+' facelist = '+str(blockfacelist)
+        print('domain ' + str(self.id)+' facelist = '+str(blockfacelist))
 
         self.addBlockFaceList(blockfacelist)
 
@@ -656,14 +655,14 @@ class Domain(object):
 
     def printDomainCornerNodePositions(self,nodes):
     
-        print('n000 position, indices = ')+str(nodes[self.n000].position)
-        print('nx00 position, indices = ')+str(nodes[self.nx00].position)
-        print('n0y0 position, indices = ')+str(nodes[self.n0y0].position)
-        print('n00z position, indices = ')+str(nodes[self.n00z].position)
-        print('nxy0 position, indices = ')+str(nodes[self.nxy0].position)
-        print('n0yz position, indices = ')+str(nodes[self.n0yz].position)
-        print('nx0z position, indices = ')+str(nodes[self.nx0z].position)
-        print('nxyz position, indices = ')+str(nodes[self.nxyz].position)
+        print('n000 position, indices = ' + str(nodes[self.n000].position))
+        print('nx00 position, indices = ' + str(nodes[self.nx00].position))
+        print('n0y0 position, indices = ' + str(nodes[self.n0y0].position))
+        print('n00z position, indices = ' + str(nodes[self.n00z].position))
+        print('nxy0 position, indices = ' + str(nodes[self.nxy0].position))
+        print('n0yz position, indices = ' + str(nodes[self.n0yz].position))
+        print('nx0z position, indices = ' + str(nodes[self.nx0z].position))
+        print('nxyz position, indices = ' + str(nodes[self.nxyz].position))
 
         return
             
@@ -684,8 +683,8 @@ class Domain(object):
             elif ((facepos==4)or(facepos==5)):            
                 direction = 2
                 
-            print('self.maxidx[direction] = ')+str(self.maxidx[direction])
-            print('localghostcells = ')+str(localghostcells)
+            print('self.maxidx[direction] = ' + str(self.maxidx[direction]))
+            print('localghostcells = ' + str(localghostcells))
             
             if ((facepos==0)or(facepos==2)or(facepos==4)):
                 ghostcellrange = [self.maxidx[direction]-lgc for lgc in localghostcells]
@@ -814,7 +813,7 @@ class Domain(object):
     
         for face in range(6):
 
-            print('finalBlockConstruction: current face is ')+str(face)
+            print('finalBlockConstruction: current face is ' + str(face))
 
             nextdomainlistlength = len(self.blockfaceneighborlist[face])
             facepresentflag      = (nextdomainlistlength!=0)
@@ -850,10 +849,10 @@ class Domain(object):
         
            
         domainID = self.id
-        print("finalBlockConstruction: Saving Block...") +str(domainID)        
+        print("finalBlockConstruction: Saving Block..." + str(domainID))        
         outfilename = filename + "_block_" +str(domainID)+ ".inp"    
         writeASCIIFile(outfilename, self.finalnodearray, nodes, style)
-        print("finalBlockConstruction: Written to ") + outfilename
+        print("finalBlockConstruction: Written to " + outfilename)
 
         return          
                 
@@ -927,7 +926,7 @@ def findDomainCornerNode(domains, nodes, nodeID, cellID, style, domainID, idv, f
 def buildOppositeCellFace(nodes, nodeID, cellID,sharedfacenodelist,style):
 
         oppositeface = [0, 0, 0, 0]
-	idv = [0, 0, 0]
+        idv = [0, 0, 0]
 
 #        geometry = nodes[nodeID].geometry[cellIDposition]
 
@@ -1103,7 +1102,7 @@ def calculateDomainCorners(style, blocksharedfacenodelist, blockoppositefacenode
                 bsfnodepos_indices.append(bsfnodepos)
                 
     bsfnodepos_indices = [0, 1, 2, 3]
-    print('bsfnodepos_indices = ') +str(bsfnodepos_indices)
+    print('bsfnodepos_indices = ' + str(bsfnodepos_indices))
     
                 
     if (matchednodes!=len(facenodelist)):
@@ -1138,8 +1137,8 @@ def calculateDomainCorners(style, blocksharedfacenodelist, blockoppositefacenode
     
     nD_oppositeface = [blockoppositefacenodelist[i] for i in bofnodepos_indices]
     
-    print('nD_sharedface = ')+str(nD_sharedface)
-    print('nD_oppositeface = ')+str(nD_oppositeface)
+    print('nD_sharedface = ' + str(nD_sharedface))
+    print('nD_oppositeface = ' + str(nD_oppositeface))
     
     nD_geometry = [0,0,0,0,0,0,0,0]
 
@@ -1151,7 +1150,7 @@ def calculateDomainCorners(style, blocksharedfacenodelist, blockoppositefacenode
 #        print('nD_sharedface[')+str(i)+'] = '+str(nD_sharedface[i])
 #        print('nD_geometry[')+str(nextDomain_bsf_geometryindex)+'] = '+str(nD_geometry[nextDomain_bsf_geometryindex])
 
-    print('nD_geometry = ') +str(nD_geometry)
+    print('nD_geometry = ' + str(nD_geometry))
     
     if (style == 'Hexahedron'):
         node_000 = nD_geometry[0]
@@ -1402,13 +1401,13 @@ def readFile(filename, ghostCells):
     print(spacing + "Element Nodes Reindexed")
     
     for node in range(len(nodes)):
-	nodes[node].id=node
+        nodes[node].id=node
     
     return nodes, elements, domains, style
 
 # The following functions take a list of elements and builds a list of faces from them (each face is only connected to a single Element initially)
 
-def buildLineFaces(nodes,currentnode):
+def buildLineFaces(nodes,currentnode,elements):
     faces = []
     face_id = [[0],[1]] # This is untested, but probably correct
     for i in range(len(elements)):
@@ -1416,7 +1415,7 @@ def buildLineFaces(nodes,currentnode):
         faces.append(Face(i,1,-1,0,[elements[i].nodes[face_id[1][0]],elements[i].getDomainIndex(), -1]))
     return faces
 
-def buildRectangleFaces(nodes,currentnode):
+def buildRectangleFaces(nodes,currentnode,elements):
     faces = []
     face_id = [[0,1],[1,2],[2,3],[3,0]] # This is untested but probably correct
     for i in range(len(nodes[currentnode].neighbor)):
@@ -1427,7 +1426,7 @@ def buildRectangleFaces(nodes,currentnode):
         faces.append(Face(i,3,-1,0,[elements[i].nodes[face_id[3][0]],elements[i].nodes[face_id[3][1]]],elements[i].getDomainIndex(), -1))
     return faces
 
-def buildHexahedronFaces(nodes,currentnode):
+def buildHexahedronFaces(nodes,currentnode,elements):
     faces = []
     face_id = [[0,1,2,3],[4,5,6,7],[0,1,4,5],[2,3,6,7],[1,2,5,6],[0,3,4,7]]
     for i in range(len(elements)):
@@ -1444,7 +1443,7 @@ def getCornerNodeIDs(indexednodes,maxidx):
     imax = maxidx[0]+1
     jmax = maxidx[1]+1
     kmax = maxidx[2]+1
-	
+        
     i_index = 0
     j_index = 0
     k_index = 0
@@ -1506,9 +1505,9 @@ def createIndexedNodes(nodes,style):
     jmax = maxidx[1]+1
     kmax = maxidx[2]+1
 
-    print('after sort imax =') + str(imax)
-    print('after sort jmax =') + str(jmax)
-    print('after sort kmax =') + str(kmax)
+    print('after sort imax =' + str(imax))
+    print('after sort jmax =' + str(jmax))
+    print('after sort kmax =' + str(kmax))
     
     indexednodes = []
 
@@ -1533,9 +1532,9 @@ def renameIndexedNodes(nodes,style):
     jmax = maxidx[1]+1
     kmax = maxidx[2]+1
 
-    print('after sort imax =') + str(imax)
-    print('after sort jmax =') + str(jmax)
-    print('after sort kmax =') + str(kmax)
+    print('after sort imax =' + str(imax))
+    print('after sort jmax =' + str(jmax))
+    print('after sort kmax =' + str(kmax))
     
     indexednodes = []
 
@@ -1715,7 +1714,7 @@ def findSubsequentBlockCornersandFaces(domains, nodes, nextdomainIDlist, current
         previousDomainID = currentDomainID
            
     else:
-        print('findSubsequentBlockCornersandFaces:  node domain not found on face ')+str(face)+' of domain '+str(currentDomainID)
+        print('findSubsequentBlockCornersandFaces:  node domain not found on face ' + str(face)+' of domain '+str(currentDomainID))
         previousDomainID = -1
         nextDomainID = -1
         cellID = -1
@@ -1760,7 +1759,7 @@ def recursiveCall(currentdomainID, nodes, domains,style, nr, filename):
 #    print('recursiveCall: domains[')+str(currentdomainID)+'].blockfacelist = ' +str(domains[currentdomainID].blockfacelist)
     for face in range(6):
 
-        print('recursiveCall: current face is ')+str(face)
+        print('recursiveCall: current face is ' + str(face))
 
         nextdomainlistlength = len(currentdomain.blockfaceneighborlist[face])
         facepresentflag      = (nextdomainlistlength!=0)
@@ -1781,23 +1780,23 @@ def recursiveCall(currentdomainID, nodes, domains,style, nr, filename):
 
                 rotatednodearray, maxidx = performRotations(nodearray,maxidx,nodes,domains,nextDomainID,style)
 
-                print("recursiveCall: Saving Block...") +str(nextDomainID)        
+                print("recursiveCall: Saving Block..." + str(nextDomainID))        
                 outfilename = filename + "_block_" +str(nextDomainID)+ ".inp"    
                 writeASCIIFile(outfilename, rotatednodearray, nodes, style)
-                print("recursiveCall: Written to ") + outfilename
+                print("recursiveCall: Written to " + outfilename)
                 currentdomainID = nextDomainID
 
                 recursiveCall(currentdomainID,nodes,domains, style, nr, filename)
             else:
-                print('recursiveCall: face = ')+str(face) +', does not have  a another block attached to it.'
+                print('recursiveCall: face = ' + str(face) +', does not have  a another block attached to it.')
         else:
             if (not(facepresentflag)):
-                print('recursiveCall: for domain ')+str(currentdomainID)+ ', no domain detected on face = '+str(face)
+                print('recursiveCall: for domain ' + str(currentdomainID)+ ', no domain detected on face = '+str(face))
             elif (blockindexedflag):
-                print('recursiveCall: for domain ')+str(currentdomainID)+ ', domain '+str(nextdomain.id)+' detected on face = '+str(face)+' previously indexed'
+                print('recursiveCall: for domain ' + str(currentdomainID)+ ', domain '+str(nextdomain.id)+' detected on face = '+str(face)+' previously indexed')
     
-    print('recursiveCall: returning from domain  = ')+str(currentdomainID)
-    print('recursiveCall: domainfaceneighborlist = ')+str(domains[currentdomainID].blockfaceneighborlist)
+    print('recursiveCall: returning from domain  = ' + str(currentdomainID))
+    print('recursiveCall: domainfaceneighborlist = ' + str(domains[currentdomainID].blockfaceneighborlist))
 
 def findNodeandFacePositionFromFacelist(facelist,nodeID):
 
@@ -1829,7 +1828,7 @@ def find4thNodeinFace(face,nID):
     return nID_4th
 
 def setIndices(nodeID,cellID,cellposition,nodes,firstnodeflag,nr,idv,idvo,style,deltacells,oldnodeID,domainID):
-	
+        
     """
     setIndices does the actual setting of the node indices.  If it is the first node, 
     then the value of the node indices is set based on an initialized len(idv)-vector
@@ -1844,11 +1843,11 @@ def setIndices(nodeID,cellID,cellposition,nodes,firstnodeflag,nr,idv,idvo,style,
     nodeindices =[0]*len(idv)
 
     if (firstnodeflag==True):
-	    	print('initialized nodeindices = ') + str(nodeindices)
+                print('initialized nodeindices = ' + str(nodeindices))
     else:
-		oldnodeindices = nodes[oldnodeID].indices
-		for direction in range(len(nodeindices)):
-		  nodeindices[direction] = oldnodeindices[direction]+idv[direction]  
+                oldnodeindices = nodes[oldnodeID].indices
+                for direction in range(len(nodeindices)):
+                  nodeindices[direction] = oldnodeindices[direction]+idv[direction]  
 
     nodes[nodeID].addIndices(nodeindices)
 
@@ -1857,29 +1856,29 @@ def setIndices(nodeID,cellID,cellposition,nodes,firstnodeflag,nr,idv,idvo,style,
     return nnr 
 
 def findFirstBlockCornerNode(domains, nodes,nr,style,domainID,firstblockpath):
-	cornerfound = False
+        cornerfound = False
         
         position = getStartCornerFromKeyboard()
         refxpos = round(position[0],1)
         refypos = round(position[1],1)
         refzpos = round(position[2],1)
 
-        print('position from keyboard = (')+str(refxpos)+', '+str(refypos)+', '+str(refzpos)+')'
+        print('position from keyboard = (' + str(refxpos)+', '+str(refypos)+', '+str(refzpos)+')')
 
-	for node in nodes:
+        for node in nodes:
 #            singledomainneighborlist = node.findSharedCellsForSingleDomain(domainID)
 #            singledomaingeometrylist = node.findSharedCellsGeometryForSingleDomain(domainID)
             totalneighborlist = node.getNeighbors()
             numofneighbors = len(totalneighborlist)
 
             """
-            print('findCornerNode:  totalneighborlist = ') +str(totalneighborlist)
-            print('findCornerNode:  numoftotalneighborlist = ')+str(numofneighbors)
-            print('findCornerNode:  singledomainneighborlist = ')+str(totalneighborlist)
+            print('findCornerNode:  totalneighborlist = ' + str(totalneighborlist))
+            print('findCornerNode:  numoftotalneighborlist = ' + str(numofneighbors))
+            print('findCornerNode:  singledomainneighborlist = ' + str(totalneighborlist))
             """
 
             if (numofneighbors==1):
-                print('findCornerNode:  node ')+str(node.id)+' position = '+str(node.position)
+                print('findCornerNode:  node ' + str(node.id)+' position = '+str(node.position))
                 xpos = round(node.position[0],1)
                 ypos = round(node.position[1],1)
                 zpos = round(node.position[2],1)
@@ -1898,11 +1897,11 @@ def findFirstBlockCornerNode(domains, nodes,nr,style,domainID,firstblockpath):
                     domainID = node.domain[0]
                     nr       = setIndices(cornernodeID,cellID,geometrylist,nodes,firstnodeflag,nr,idv,idvo,style,deltacells,oldnodeID,domainID)
                     """
-                    print('findCornerNode:  cornernodeID   = ')+str(cornernodeID)
-                    print('findCornerNode:  cellID         = ')+str(cellID)
-                    print('findCornerNode:  domainID       = ')+str(domainID)
-                    print('findCornerNode:  firstblockpath = ')+str(firstblockpath)
-                    print('findCornerNode:  node[')+str(cornernodeID)+'].domain = '+str(node.domain)
+                    print('findCornerNode:  cornernodeID   = ' + str(cornernodeID))
+                    print('findCornerNode:  cellID         = ' + str(cellID))
+                    print('findCornerNode:  domainID       = ' + str(domainID))
+                    print('findCornerNode:  firstblockpath = ' + str(firstblockpath))
+                    print('findCornerNode:  node[' + str(cornernodeID)+'].domain = '+str(node.domain))
                     """
                     nfv, nnv      = setNfvandNnv(domains, nodes,cornernodeID,cellID,style,domainID,firstblockpath)
                     nextnodeID    = getNextNode(nnv,idv)
@@ -1914,11 +1913,11 @@ def findFirstBlockCornerNode(domains, nodes,nr,style,domainID,firstblockpath):
  #                   print('findCornerNode:  Cornernode found, but not what we want.  Continuing to the next node')
  #           else:
  #               print('findCornerNode:  Cornernode not found.  Continuing to the next node')
-	if (cornerfound==True):
-	     print("findCornerNode:  desired corner nodeID is ") + str(cornernodeID) + " found in cell " +str(cellID)+' in domain '+str(node.domain)
-	else:
-	     print("findCornerNode:  corner node was not found.")
-	return nextnodeID, cellID, nnv, idv, nfv, nr, cornernodeID, domainID 
+        if (cornerfound==True):
+             print("findCornerNode:  desired corner nodeID is " + str(cornernodeID) + " found in cell " +str(cellID)+' in domain '+str(node.domain))
+        else:
+             print("findCornerNode:  corner node was not found.")
+        return nextnodeID, cellID, nnv, idv, nfv, nr, cornernodeID, domainID 
 
 def getStartCornerFromKeyboard():
     
@@ -1931,7 +1930,7 @@ def getStartCornerFromKeyboard():
             posdir = 'y'
         elif (i == 2):
             posdir = 'z'
-        nb = raw_input('enter the '+posdir+' position value for the first corner node:')
+        nb = input('enter the '+posdir+' position value for the first corner node:')
 
         try:
             position[i] = float(nb)
@@ -2022,11 +2021,11 @@ def getOppositeFaceFromFacelist(faces,current_fpv,current_fp):
         opposite_fp = 4
 
     """
-    print('getOppositeFaceFromFacelist:  faces = ') + str(faces)
-    print('getOppositeFaceFromFacelist:  shared_fp = ')+str(shared_fp)
-    print('getOppositeFaceFromFacelist:  opposite_fp = ')+str(opposite_fp)
-    print('getOppositeFaceFromFacelist:  shared_facenodelist = ')+str(faces[shared_fp])
-    print('getOppositeFaceFromFacelist:  opposite_facenodelist = ')+str(faces[opposite_fp])
+    print('getOppositeFaceFromFacelist:  faces = ' + str(faces))
+    print('getOppositeFaceFromFacelist:  shared_fp = ' + str(shared_fp))
+    print('getOppositeFaceFromFacelist:  opposite_fp = ' + str(opposite_fp))
+    print('getOppositeFaceFromFacelist:  shared_facenodelist = ' + str(faces[shared_fp]))
+    print('getOppositeFaceFromFacelist:  opposite_facenodelist = ' + str(faces[opposite_fp]))
     """
     oppositefacenodelist = faces[opposite_fp]
 
@@ -2080,9 +2079,9 @@ def rotateFaces(current_np, previous_np, current_fp, previous_fp, oldcellsharedf
 
 
       """
-      print('rotateFaces:  oldcellsharedfacenodelist = ')+ str(oldcellsharedfacenodelist)
-      print('rotateFaces:  newcelloppositefacenodelist = ')+ str(newcelloppositefacenodelist)
-      print('rotateFaces:  newcellsharedfacenodelist = ')+ str(newcellsharedfacenodelist)
+      print('rotateFaces:  oldcellsharedfacenodelist = ' + str(oldcellsharedfacenodelist))
+      print('rotateFaces:  newcelloppositefacenodelist = ' + str(newcelloppositefacenodelist))
+      print('rotateFaces:  newcellsharedfacenodelist = ' + str(newcellsharedfacenodelist))
       """
 
       for oldcellnodeposition in range(facelength):
@@ -2205,7 +2204,7 @@ def defineFaceandCellPosition(domains, nodes,nodeID,cellID,domainID,previousDoma
 
     if (firstblockflag):
         fpv, nIDp, faces = establishBlindFPV(facelist,nodeID)
-	
+        
     return fpv, nIDp, cellIDposition
 
 def setNfvandNnv(domains, nodes,nodeID,cellID,style,domainID,firstblockpath):
@@ -2246,48 +2245,48 @@ def setNfvandNnv(domains, nodes,nodeID,cellID,style,domainID,firstblockpath):
 
 def buildNnv(nfv,nIDp,nodes,nodeID,cellID,cellIDposition,domainID):
 
-	nnv = []
+        nnv = []
 
-	for dir in range(len(nfv)):
-		nfp = nfv[dir]
-		nodeIDposition = nIDp[dir]
+        for dir in range(len(nfv)):
+                nfp = nfv[dir]
+                nodeIDposition = nIDp[dir]
 #                if (domainID==2):
  #                   print('buildNnv:  nodeIDposition = ')+str(nodeIDposition)
-		nextnode = findNode(nfv,nfp,nodes,nodeID,cellID,cellIDposition,nodeIDposition,domainID)
-		nnv.append(nextnode)
+                nextnode = findNode(nfv,nfp,nodes,nodeID,cellID,cellIDposition,nodeIDposition,domainID)
+                nnv.append(nextnode)
 
-	return nnv
+        return nnv
 
 def buildNfv(fpv,style):
 
 #    print('from within buildNfv: fpv = ')+str(fpv)
 
     if (style=='Rectangle'):
-		if (fpv[0]==0)and(fpv[1]==2):
-		  nfv=[1,3]
-		elif (fpv[0]==0)and(fpv[1]==3):
-		  nfv=[1,2]
-		elif (fpv[0]==1)and(fpv[1]==2):
-		  nfv=[0,1]
-		elif (fpv[0]==1)and(fpv[1]==3):
-		  nfv=[0,2]
+                if (fpv[0]==0)and(fpv[1]==2):
+                  nfv=[1,3]
+                elif (fpv[0]==0)and(fpv[1]==3):
+                  nfv=[1,2]
+                elif (fpv[0]==1)and(fpv[1]==2):
+                  nfv=[0,1]
+                elif (fpv[0]==1)and(fpv[1]==3):
+                  nfv=[0,2]
     elif (style=='Hexahedron'):
-		if ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==4)):
-		  nfv=[1,3,5]
-		elif ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==5)):
-		  nfv=[1,3,4]
-		elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==4)):
-		  nfv=[1,2,5]
-		elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==5)):
-		  nfv=[1,2,4]
-		elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==4)):
-		  nfv=[0,3,5]
-		elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==5)):
-		  nfv=[0,3,4]
-		elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==4)):
-		  nfv=[0,2,5]
-		elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==5)):
-		  nfv=[0,2,4]
+                if ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==4)):
+                  nfv=[1,3,5]
+                elif ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==5)):
+                  nfv=[1,3,4]
+                elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==4)):
+                  nfv=[1,2,5]
+                elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==5)):
+                  nfv=[1,2,4]
+                elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==4)):
+                  nfv=[0,3,5]
+                elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==5)):
+                  nfv=[0,3,4]
+                elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==4)):
+                  nfv=[0,2,5]
+                elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==5)):
+                  nfv=[0,2,4]
 
         # loop over all faces
 
@@ -2310,48 +2309,48 @@ def findNode(nfv,faceposition,nodes,nodeID,cellID,cellIDposition,nodeIDposition,
     nextnode = facenodelist[nodeIDposition]
 
     """
-    print('findNode:  domainID \t= ')+str(domainID)
-    print('findNode:  nodeID \t= ')+str(nodeID)
-    print('findNode:  cellID \t= ')+str(cellID)
-    print('findNode:  cellIDposition = ')+str(cellIDposition)
-    print('findNode:  nodeIDposition = ')+str(nodeIDposition)
-    print('findNode:  faceposition = ')+str(faceposition)
-    print('findNode:  sharedCellListFaces = ')+str(sharedCellListFaces)
-    print('findNode:  facelist = ')+str(facelist)
-    print('findNode:  facenodelist = ')+str(facenodelist)
-    print('findNode:  nextnode = ') +str(nextnode)
+    print('findNode:  domainID \t= ' + str(domainID))
+    print('findNode:  nodeID \t= ' + str(nodeID))
+    print('findNode:  cellID \t= ' + str(cellID))
+    print('findNode:  cellIDposition = ' + str(cellIDposition))
+    print('findNode:  nodeIDposition = ' + str(nodeIDposition))
+    print('findNode:  faceposition = ' + str(faceposition))
+    print('findNode:  sharedCellListFaces = ' + str(sharedCellListFaces))
+    print('findNode:  facelist = ' + str(facelist))
+    print('findNode:  facenodelist = ' + str(facenodelist))
+    print('findNode:  nextnode = ' + str(nextnode))
     """
     return nextnode
 
 def endOfRow(oldnocells,nodes,nodeID):
-	newnocells=len(nodes[nodeID].neighbors)
-	delta=newnocells-oldnocells
-	if delta < 0:
-	   startnewrow=True
-	else:
-	   startnewrow=False
-	return startnewrow, newnocells
+        newnocells=len(nodes[nodeID].neighbors)
+        delta=newnocells-oldnocells
+        if delta < 0:
+           startnewrow=True
+        else:
+           startnewrow=False
+        return startnewrow, newnocells
 
 def cellDelta(oldnocells,nodes,nodeID,domainID):
-	newnocells= nodes[nodeID].findNumofSharedCells(domainID)
-	delta=newnocells-oldnocells
-	return delta, newnocells
+        newnocells= nodes[nodeID].findNumofSharedCells(domainID)
+        delta=newnocells-oldnocells
+        return delta, newnocells
 
 def nodeVisited(nodes,nodeID):
-	visited=(nodes[nodeID].indices!=[])
-	return visited
+        visited=(nodes[nodeID].indices!=[])
+        return visited
 
 def nodeUnVisited(nodes,nodeID):
-	nodes[nodeID].indices=[]
-	return 
+        nodes[nodeID].indices=[]
+        return 
 
 def findDirection(idv):
 
-	for dir in range(len(idv)):
-		if (idv[dir]!=0):
-			direction=dir
+        for dir in range(len(idv)):
+                if (idv[dir]!=0):
+                        direction=dir
 
-	return direction	
+        return direction	
 
 
 def findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction,domainID,firstblockpath): 
@@ -2361,19 +2360,19 @@ def findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction,domainID,firstb
 #        facelist = nodes[nodeID].faces
 
         """
-        print('findOldCell:  nodeID                = ') +str(nodeID)
-        print('findOldCell:  singledomainneighbors = ') +str(singledomainneighbors)
-        print('findOldCell:  oldcellID             = ')+str(oldcellID)
-        print('findOldCell:  sharedcellsfacelist   = ')+str(sharedcellsfacelist)
-        print('findOldCell:  facelist              = ')+str(facelist)
+        print('findOldCell:  nodeID                = ' + str(nodeID))
+        print('findOldCell:  singledomainneighbors = ' + str(singledomainneighbors))
+        print('findOldCell:  oldcellID             = ' + str(oldcellID))
+        print('findOldCell:  sharedcellsfacelist   = ' + str(sharedcellsfacelist))
+        print('findOldCell:  facelist              = ' + str(facelist))
         """
-	numberofneighbors = len(singledomainneighbors)
+        numberofneighbors = len(singledomainneighbors)
         
  #       print('findOldCell:  numberofneighbors = ')+str(numberofneighbors)
 
         cellposition = -1
 
-	for cell in range(numberofneighbors):
+        for cell in range(numberofneighbors):
             cellID = singledomainneighbors[cell]
             if (numberofneighbors==1):
                 cellposition=0
@@ -2394,69 +2393,69 @@ def findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction,domainID,firstb
             return
                         
 #        print('findOldCell: (cellposition, oldface, and oldfacelist) = (')+str(cellposition)+', '+str(oldface)+', '+str(oldfacelist)+')'
-	return cellposition, oldface, oldfacelist
+        return cellposition, oldface, oldfacelist
 
         
 def findNewCell(nodes,nodeID,oldcellID,oldface,style):
 
-	defaultcellID = -1
-	
-	defaultcellposition = -1
+        defaultcellID = -1
+        
+        defaultcellposition = -1
 
-	for cell in range(len(nodes[nodeID].neighbors)):
-	 	currentcellID = nodes[nodeID].neighbors[cell]
+        for cell in range(len(nodes[nodeID].neighbors)):
+                currentcellID = nodes[nodeID].neighbors[cell]
                 if (len(nodes[nodeID].neighbors)==1):
                         cellposition  = cell
                         cellID = currentcellID
                         break
-	 	celltest =(currentcellID!=oldcellID)
-	 	if celltest:
-		  facelist=nodes[nodeID].faces[cell]
-		  cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellposition)
+                celltest =(currentcellID!=oldcellID)
+                if celltest:
+                  facelist=nodes[nodeID].faces[cell]
+                  cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellposition)
 
-		  if (cellID!=-1):
-			break  
-	
-	return cellposition,cellID
+                  if (cellID!=-1):
+                        break  
+        
+        return cellposition,cellID
 
 
 def faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellposition,domainID):
 
-	cellID = defaultcellID
-	cellposition = defaultcellID
+        cellID = defaultcellID
+        cellposition = defaultcellID
 
-	for position in range(len(facelist)):
-	   localface            =(facelist[position])
-	   if (style=='Rectangle'):
-		match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1]))
-		match2= ((localface[0]==oldface[1])and(localface[1]==oldface[0]))
-		if (match1 or match2):
-			cellID = nodes[nodeID].neighbors[cell]
-			cellposition = cell
+        for position in range(len(facelist)):
+           localface            =(facelist[position])
+           if (style=='Rectangle'):
+                match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1]))
+                match2= ((localface[0]==oldface[1])and(localface[1]==oldface[0]))
+                if (match1 or match2):
+                        cellID = nodes[nodeID].neighbors[cell]
+                        cellposition = cell
 #			print('Cell found! cellID = ')+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
-			break
+                        break
 
-	   if (style=='Hexahedron'):
+           if (style=='Hexahedron'):
 #                        print('faceTest:  localface = ')+str(localface)
 #                        print('faceTest:  oldface = ')+str(oldface)
-			match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1])and(localface[2]==oldface[2])and(localface[3]==oldface[3]))
-			match2= ((localface[1]==oldface[0])and(localface[2]==oldface[1])and(localface[3]==oldface[2])and(localface[0]==oldface[3]))
+                        match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1])and(localface[2]==oldface[2])and(localface[3]==oldface[3]))
+                        match2= ((localface[1]==oldface[0])and(localface[2]==oldface[1])and(localface[3]==oldface[2])and(localface[0]==oldface[3]))
                         match3= ((localface[2]==oldface[0])and(localface[3]==oldface[1])and(localface[0]==oldface[2])and(localface[1]==oldface[3]))
                         match4= ((localface[3]==oldface[0])and(localface[0]==oldface[1])and(localface[1]==oldface[2])and(localface[2]==oldface[3]))
-			if (match1 or match2 or match3 or match4):
+                        if (match1 or match2 or match3 or match4):
                             singledomainneighbors =nodes[nodeID].findSharedCellsForSingleDomain(domainID)
                             cellID = singledomainneighbors[cell]
                             cellposition = cell
                             #			  print('Cell found! cellID = ')+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
                             break
 
-	return cellID, cellposition
+        return cellID, cellposition
 
 
 def   findCell(nodeID,oldcellID,nfv,nodes,idv,style,deltacell,nodevisited,domainID,firstblockpath):
     
-	"""
-	So this node is important for the purpose of finding the cellID and cellposition.
+        """
+        So this node is important for the purpose of finding the cellID and cellposition.
       First we find the position of the old face in the facelist (i.e. oldfaceposition).
       This information is used to generate the cell position, oldface nodelist, and 
       oldfacelist.  If a transition to a face, or edge, or corner is reached, then the
@@ -2464,33 +2463,33 @@ def   findCell(nodeID,oldcellID,nfv,nodes,idv,style,deltacell,nodevisited,domain
       nodes.  If a u turn is not in process, i.e. if the oldcellID != cellID, then the 
       cellID and cellposition are extracted by faceTest.  An error value of -1 is 
       checked to see if faceTest succeeded.
-	"""
+        """
 
-	direction = findDirection(idv)
-	oldfaceposition= nfv[direction]
+        direction = findDirection(idv)
+        oldfaceposition= nfv[direction]
 
-	cellposition, oldface, oldfacelist = findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction,domainID,firstblockpath)
+        cellposition, oldface, oldfacelist = findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction,domainID,firstblockpath)
 
-	cellID = -1
-	
-	defaultcellposition = -1
+        cellID = -1
+        
+        defaultcellposition = -1
 
-	singledomainneighbors = nodes[nodeID].findSharedCellsForSingleDomain(domainID)
-	singledomainfaces     = nodes[nodeID].findSharedCellsFaceListForSingleDomain(domainID)
+        singledomainneighbors = nodes[nodeID].findSharedCellsForSingleDomain(domainID)
+        singledomainfaces     = nodes[nodeID].findSharedCellsFaceListForSingleDomain(domainID)
 
-	cornercell    = (len(singledomainneighbors)==1)
-	edgereached   = (deltacell<0)
+        cornercell    = (len(singledomainneighbors)==1)
+        edgereached   = (deltacell<0)
 
-	for cell in range(len(singledomainneighbors)):
-	 	currentcellID = singledomainneighbors[cell]
+        for cell in range(len(singledomainneighbors)):
+                currentcellID = singledomainneighbors[cell]
 
-	 	if (edgereached or cornercell): 
+                if (edgereached or cornercell): 
                     if (currentcellID == oldcellID):
                         cellposition  = cell
                         cellID = currentcellID
                  
-	 	celltest =(currentcellID!=oldcellID)
-	 	if celltest:
+                celltest =(currentcellID!=oldcellID)
+                if celltest:
                     facelist=singledomainfaces[cell]
 
                     cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,cellID,defaultcellposition,domainID)
@@ -2538,10 +2537,10 @@ def twodIdvUpdate(idv,idvo,deltacells,oddslice):
     nidv = [0, 0, 0]
 
     if (deltacells<0):
-	   if (oddslice):
+           if (oddslice):
               idv1=1
-	   else:
-	      idv1=-1
+           else:
+              idv1=-1
 
     sliceshift = (idvo[2]!=1)
 
@@ -2587,28 +2586,28 @@ def twodIdvUpdate(idv,idvo,deltacells,oddslice):
                         nidv[0]=-1
                         nidv[1]=0              
     elif (entrance_transition): # if changing status from the other direction, then
-	  if(movinginy):  # having just done a row change, record everything
-	    if (previouslymovinginNegX):
-	      nidv[0]=+1
-	      nidv[1]=0
-	    elif (previouslymovinginPosX):
-	      nidv[0]=-1
-	      nidv[1]=0
-	  else: # if no row change, then just keep plugging
-	      nidv=idv
+          if(movinginy):  # having just done a row change, record everything
+            if (previouslymovinginNegX):
+              nidv[0]=+1
+              nidv[1]=0
+            elif (previouslymovinginPosX):
+              nidv[0]=-1
+              nidv[1]=0
+          else: # if no row change, then just keep plugging
+              nidv=idv
     elif (nochangeinsharedcells): 
-	  if(movinginy): # if have just done a row increment/decrement, then advance all counters as appropriate
-	    if (previouslymovinginNegX):
-	      nidv[0]=+1
-	      nidv[1]=0
-	    if (previouslymovinginPosX):
-	      nidv[0]=-1
-	      nidv[1]=0
-	  else: # if no row change, then just keep plugging
-	      nidv=idv
+          if(movinginy): # if have just done a row increment/decrement, then advance all counters as appropriate
+            if (previouslymovinginNegX):
+              nidv[0]=+1
+              nidv[1]=0
+            if (previouslymovinginPosX):
+              nidv[0]=-1
+              nidv[1]=0
+          else: # if no row change, then just keep plugging
+              nidv=idv
     else:
-	  nidv=idv
-	
+          nidv=idv
+        
     return nidv 
 ###################################################################
 
@@ -2632,25 +2631,25 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
     done = False
 
     if (visited):
-	if (oddslice==True):
-	  newoddslice=False
-	else:
-	  newoddslice=True
+        if (oddslice==True):
+          newoddslice=False
+        else:
+          newoddslice=True
         nidv[2]=+1
         nidv[1]=0
         nidv[0]=0
-	nidvo = idvo
+        nidvo = idvo
     elif (movinginz):
         nidv[2]=0
         nidv[1]=0
         if (idvo[0]==+1):
-	    nidv[0]=-1
+            nidv[0]=-1
         if (idvo[0]==-1):
-	    nidv[0]=+1
-	nidvo = idv
+            nidv[0]=+1
+        nidvo = idv
     elif (not(movinginz)):
         nidv=twodIdvUpdate(idv,idvo,deltacells,oddslice)
-	nidvo = idv
+        nidvo = idv
     else:
         print("error in 3dIDVupdate!")
 
@@ -2658,21 +2657,21 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
     nodevisited = nodeVisited(nodes,nnID)
     if (nodevisited):
         print("********************")
-        print("nodevisited in idvUpdate = ")+str(nodevisited)
+        print("nodevisited in idvUpdate = " + str(nodevisited))
         print("********************")
-	if (oddslice==True):
-	  newoddslice=False
-	else:
-	  newoddslice=True
+        if (oddslice==True):
+          newoddslice=False
+        else:
+          newoddslice=True
         nidv[2]=+1
         nidv[1]=0
         nidv[0]=0
-	nidvo = idvo
+        nidvo = idvo
         nnID = getNextNode(nnv,nidv)
         nodevisited = nodeVisited(nodes,nnID)
         if (nodevisited):
             print("********************")
-            print("idvUpdate Finished = ")+str(nodevisited)
+            print("idvUpdate Finished = " + str(nodevisited))
             print("********************")
             done = True
             return nidv, newoddslice, nidvo, done             
@@ -2691,9 +2690,9 @@ def idvUpdate(idv,idvo,nn,style,deltacells,visited,oddslice,nnv,nodes):
     """    
         
     if (style=='Rectangle'):
-		nidv = twodIdvUpdate(idv,idvo,deltacells,oddslice)
+                nidv = twodIdvUpdate(idv,idvo,deltacells,oddslice)
     elif style=='Hexahedron':
-		nidv,newoddslice, nidvo, done = threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes)
+                nidv,newoddslice, nidvo, done = threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes)
                 
 
     nidvo = idv
@@ -2701,18 +2700,18 @@ def idvUpdate(idv,idvo,nn,style,deltacells,visited,oddslice,nnv,nodes):
     return nidv, nidvo, newoddslice, done
 
 def getNextNode(nnv,idv):
-	nnfound = False
-	nn = -1
-	for pos in range(len(idv)):
-	  if (idv[pos]!=0):
+        nnfound = False
+        nn = -1
+        for pos in range(len(idv)):
+          if (idv[pos]!=0):
 #	    print('nnv=')+str(nnv)
-	    nn = nnv[pos]
-	    nnfound = True
-	    break
+            nn = nnv[pos]
+            nnfound = True
+            break
         if (nnfound==False):
-	  print('next node not found in nnv in getNextNode')
+          print('next node not found in nnv in getNextNode')
        
-  	return nn
+        return nn
 
 def writeASCIIFile(outfilename,indexednodes,nodes, style):
 
@@ -2731,8 +2730,8 @@ def writeASCIIFile(outfilename,indexednodes,nodes, style):
 
     indexednodeIDmax = kmax*jmax*imax + kmax*jmax + kmax
 
-    print('indexednodeIDmax = ')+str(indexednodeIDmax)
-    print('len(indexednodes) = ')+str(len(indexednodes))
+    print('indexednodeIDmax = ' + str(indexednodeIDmax))
+    print('len(indexednodes) = ' + str(len(indexednodes)))
 
 
     for i in range(imax):
@@ -2950,7 +2949,7 @@ def sizethegrid(nodes,style):
 
 
 
-    print("maxidx =") + str(maxidx)
+    print("maxidx =" + str(maxidx))
 
     return maxidx
 
@@ -2970,14 +2969,14 @@ def constructNodes(style, nodes, elements, domains, filename):
     """
     """
     for domain in range(len(domains)):
-	print('domain identify =') +str(domains[domain].getID())
+        print('domain identify =' + str(domains[domain].getID()))
  
 
 #    print('constructNodes: a nuisance print statement')
 
     for element in elements:
-	for nodeid in element.nodes:
-	    nodes[nodeid].addNeighbor(element.id,element.nodes,style,element.domain,domains)
+        for nodeid in element.nodes:
+            nodes[nodeid].addNeighbor(element.id,element.nodes,style,element.domain,domains)
             
 
 #    for domain in range(len(domains)):
@@ -2991,11 +2990,11 @@ def constructNodes(style, nodes, elements, domains, filename):
 
     nr = len(nodes)
 
-    print("There are ") + str(nr) + " nodes to begin."
+    print("There are " + str(nr) + " nodes to begin.")
     
     domainID = 0
 
-    print("The current block is ") +str(domainID)
+    print("The current block is " + str(domainID))
 
     print('constructNodes:  entering findCornerNode')
     firstblockpath = True
@@ -3006,20 +3005,20 @@ def constructNodes(style, nodes, elements, domains, filename):
     nodearray, maxidx = indexBlock(domains, nodes,domainID,previousDomainID,cornernodeID,cellID,style,nr,firstblockpath)
 
     domains[domainID].generateBlockCornerNodes(nodearray, maxidx, style)
-    print('constructNodes:  domains[domainID].geometry with original corner nodes  = ')+str(domains[domainID].geometry)
+    print('constructNodes:  domains[domainID].geometry with original corner nodes  = ' + str(domains[domainID].geometry))
 
     adjustedgeometry = adjustCornerNodesForFirstBlock(domains,nodes,domainID,nodearray)
     domains[domainID].geometry = adjustedgeometry
-    print('constructNodes:  domains[domainID].geometry with adjusted corner nodes  = ')+str(domains[domainID].geometry)
+    print('constructNodes:  domains[domainID].geometry with adjusted corner nodes  = ' + str(domains[domainID].geometry))
     domains[domainID].calculateFacesFromGeometry(style, adjustedgeometry)
     
-    print('constructNodes:  blockfacelist = ')+str(domains[domainID].blockfacelist)
+    print('constructNodes:  blockfacelist = ' + str(domains[domainID].blockfacelist))
 
     rotatednodearray, maxidx = performRotations(nodearray,maxidx,nodes,domains,domainID,style)
 
-    print('constructNodes:  blockfaceneighborlist = ')+str(domains[domainID].blockfaceneighborlist)
+    print('constructNodes:  blockfaceneighborlist = ' + str(domains[domainID].blockfaceneighborlist))
 
-    print("Saving Block...") +str(domainID)        
+    print("Saving Block..." + str(domainID))        
     outfilename = filename + "_block_" +str(domainID)+ ".inp"    
     writeASCIIFile(outfilename,rotatednodearray, nodes, style)
         
@@ -3089,13 +3088,13 @@ def adjustCornerNodesForFirstBlock(domains,nodes,domainID,nodearray):
             maxzcorners.append(corner)
 
     """
-    print('minxcorners = ')+str(minxcorners)
-    print('minycorners = ')+str(minycorners)
-    print('minzcorners = ')+str(minzcorners)
+    print('minxcorners = ' + str(minxcorners))
+    print('minycorners = ' + str(minycorners))
+    print('minzcorners = ' + str(minzcorners))
 
-    print('maxxcorners = ')+str(maxxcorners)
-    print('maxycorners = ')+str(maxycorners)
-    print('maxzcorners = ')+str(maxzcorners)
+    print('maxxcorners = ' + str(maxxcorners))
+    print('maxycorners = ' + str(maxycorners))
+    print('maxzcorners = ' + str(maxzcorners))
     """
 
     for xc_min in minxcorners:
@@ -3131,23 +3130,23 @@ def adjustCornerNodesForFirstBlock(domains,nodes,domainID,nodearray):
 
                                 
     """
-    print('n000id = ')+str(n000_id)
-    print('nx00id = ')+str(nx00_id)
-    print('n0y0id = ')+str(n0y0_id)
-    print('n00zid = ')+str(n00z_id)
-    print('nxy0id = ')+str(nxy0_id)
-    print('n0yzid = ')+str(n0yz_id)
-    print('nx0zid = ')+str(nx0z_id)
-    print('nxyzid = ')+str(nxyz_id)
+    print('n000id = ' + str(n000_id))
+    print('nx00id = ' + str(nx00_id))
+    print('n0y0id = ' + str(n0y0_id))
+    print('n00zid = ' + str(n00z_id))
+    print('nxy0id = ' + str(nxy0_id))
+    print('n0yzid = ' + str(n0yz_id))
+    print('nx0zid = ' + str(nx0z_id))
+    print('nxyzid = ' + str(nxyz_id))
 
-    print('n000idpos = ')+str(nodes[n000_id].position)
-    print('nx00idpos = ')+str(nodes[nx00_id].position)
-    print('n0y0idpos = ')+str(nodes[n0y0_id].position)
-    print('n00zidpos = ')+str(nodes[n00z_id].position)
-    print('nxy0idpos = ')+str(nodes[nxy0_id].position)
-    print('n0yzidpos = ')+str(nodes[n0yz_id].position)
-    print('nx0zidpos = ')+str(nodes[nx0z_id].position)
-    print('nxyzidpos = ')+str(nodes[nxyz_id].position)
+    print('n000idpos = ' + str(nodes[n000_id].position))
+    print('nx00idpos = ' + str(nodes[nx00_id].position))
+    print('n0y0idpos = ' + str(nodes[n0y0_id].position))
+    print('n00zidpos = ' + str(nodes[n00z_id].position))
+    print('nxy0idpos = ' + str(nodes[nxy0_id].position))
+    print('n0yzidpos = ' + str(nodes[n0yz_id].position))
+    print('nx0zidpos = ' + str(nodes[nx0z_id].position))
+    print('nxyzidpos = ' + str(nodes[nxyz_id].position))
     """
 
     domains[domainID].addN000(n000_id)
@@ -3191,7 +3190,7 @@ def performRotations(nodearray,maxidx,nodes,domains,domainID,style):
     domains[domainID].printDomainCornerNodeIDs(nodes)
     domains[domainID].printDomainCornerGeometryNodeIDs(nodes)
 
-    print("performRotations: Storing indexed block in domain ...") +str(domainID)        
+    print("performRotations: Storing indexed block in domain ..." + str(domainID))        
     domains[domainID].indexedBlock = numpynodearray_newid
     domains[domainID].maxidx = maxidx
     domains[domainID].getAndStoreIndexedBlockFaceSlices()
@@ -3240,9 +3239,9 @@ def translateNumpyNodeArrayBackToNodeArray(nodes,rotatednumpynodearray,nodearray
 def printIndexedBlocks(rotatednodearray,nodearray):
 
     for rotatednode in range(len(rotatednodearray)):
-        print('printIndexedBlocks:  rotatednodearray[')+str(rotatednode)+'].oldnodeid = '+str(rotatednodearray[rotatednode].oldnodeid)
+        print('printIndexedBlocks:  rotatednodearray[' + str(rotatednode)+'].oldnodeid = '+str(rotatednodearray[rotatednode].oldnodeid))
     for rotatednode in range(len(rotatednodearray)):
-        print('printIndexedBlocks:         nodearray[')+str(rotatednode)+'].oldnodeid = '+str(nodearray[rotatednode].oldnodeid)
+        print('printIndexedBlocks:         nodearray[' + str(rotatednode)+'].oldnodeid = '+str(nodearray[rotatednode].oldnodeid))
 
     return
 
@@ -3300,10 +3299,10 @@ def rotateNumpyNodeArray(nodes,domains,numpynodearray,domainID):
 
     dfm = nodeMatchTest(nodes,domains,domainID)
 
-    print('dfm = ')+str(dfm)
+    print('dfm = ' + str(dfm))
 
     if (dfm == 7777):
-        print('nothing to be done for domain ')+str(domainID)
+        print('nothing to be done for domain ' + str(domainID))
         axis1 = 1
         axis2 = 1
         rotatednumpynodearray=numpynodearray.swapaxes(axis1,axis2)
@@ -3390,7 +3389,7 @@ def translateNodeArrayToNumpy(nodearray,maxidx):
         for j in range(jmax):
             for i in range(imax):
                 nodeID = npyna3D[i,j,k,0]
-                print('npyna3D(')+str(i)+','+str(j)+','+str(k)+') =['+str(nodeID)+']'
+                print('npyna3D(' + str(i)+','+str(j)+','+str(k)+') =['+str(nodeID)+']')
     """
 
     return npyna3D
@@ -3402,11 +3401,11 @@ def main(argv):
     formatting = ""   
     # We need to parse in the readfile
     if len(argv) < 3 or len(argv) > 3:
-        print("")""I need an input terms. Please set:
+        print("""I need an input terms. Please set:
     python gridconverterhdf5.py inputfilename.whatever [ngc-x,ngc+x,ngc-y...]
 
 Where ngc = number of ghost cells
-        """
+        """)
         return
     else:
         period = argv[1].index(".")
@@ -3422,7 +3421,7 @@ Where ngc = number of ghost cells
 
     time1 = time()
     
-    print("Loaded in ") + str(time1 - time0) + " seconds"
+    print("Loaded in " + str(time1 - time0) + " seconds")
 
     if(style == ""):
         print("Error Found. Exiting Script...")
@@ -3436,14 +3435,14 @@ Where ngc = number of ghost cells
 
     time2 = time()
 
-    print("Nodes Constructed in ") + str(time2-time1) + " seconds"
+    print("Nodes Constructed in " + str(time2-time1) + " seconds")
 
     time3 = time()
 
-    print("File Saved in ") + str(time3 - time2) + " seconds"
+    print("File Saved in " + str(time3 - time2) + " seconds")
     
-    print("Grid Rebuild Complete in ") + str(time3-time0) + " seconds."
+    print("Grid Rebuild Complete in " + str(time3-time0) + " seconds.")
 
         
 if __name__ == "__main__":
-	main(sys.argv)
+        main(sys.argv)

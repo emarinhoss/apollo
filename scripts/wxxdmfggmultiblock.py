@@ -127,12 +127,12 @@ if __name__ == '__main__':
 
 
     for i in range(numWriters):
-	# get writer block
-	writer = top.childrenMap[outNmsWS[i]]
-	# now determine the names of the variables written by this block
-	outNms = writer.values['writeNames']
+        # get writer block
+        writer = top.childrenMap[outNmsWS[i]]
+        # now determine the names of the variables written by this block
+        outNms = writer.values['writeNames']
 #	print outNms[0]
-	grid = top.childrenMap[writer.values['OnGrid']]
+        grid = top.childrenMap[writer.values['OnGrid']]
 #	print(grid.values)
     # get writer block
     gridwriterstep = top.childrenMap[options.gridwriterstep]
@@ -142,10 +142,10 @@ if __name__ == '__main__':
 #    print(numGrids)
 #    print(outNmsGS)
     for i in range(numGrids):
-	# get writer block
-	gridwriter = top.childrenMap[outNmsGS[i]]
-	# now determine the names of the variables written by this block
-	outGNms = gridwriter.values['writeNames']
+        # get writer block
+        gridwriter = top.childrenMap[outNmsGS[i]]
+        # now determine the names of the variables written by this block
+        outGNms = gridwriter.values['writeNames']
 #	print("outGNms = ")+str(outGNms)
 
 
@@ -203,11 +203,11 @@ if __name__ == '__main__':
                 # extract the writeNames from the excessive quotation marks
                 myOutNms = eval(outNms[0])
                 if type(myOutNms) == type(""):
-            		myOutNms = (myOutNms,)
-	     
+                        myOutNms = (myOutNms,)
+             
             # now write out each data array
             for j in range(len(myOutNms)):
-                	xmfFile.writelines(attribute2d % (myOutNms[0], spatialOrder*cells[0], spatialOrder*cells[1],
+                        xmfFile.writelines(attribute2d % (myOutNms[0], spatialOrder*cells[0], spatialOrder*cells[1],
                                                     h5, top.name, myOutNms[0]))
             xmfFile.writelines(gridfooter)
 
@@ -233,13 +233,13 @@ if __name__ == '__main__':
                 myOutNms = eval(outNms[0])
        
                 if type(myOutNms) == type(""):
-            		myOutNms = (myOutNms,)
+                        myOutNms = (myOutNms,)
                 # now write out each data array
 
-                print("myOutNms = ") + str(myOutNms)           
+                print("myOutNms = " + str(myOutNms))           
                 
                 for nm in myOutNms:
-                    print("nm in myOutNms = ") + str(nm)           
+                    print("nm in myOutNms = " + str(nm))           
 
                     xmfFile.writelines(attribute3d % (nm, 
                                                     spatialOrder*cells[0],

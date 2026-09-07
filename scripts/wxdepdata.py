@@ -117,7 +117,7 @@ class WxData:
         for i in range(self.dims):
             dx = (self.upper[i] - self.lower[i])/self.cells[i]
             self.dx.append( dx ) # add to cell size list
-            axis = numpy.zeros((self.cells[i],), numpy.float)
+            axis = numpy.zeros((self.cells[i],), numpy.float64)
             for ix in range(self.cells[i]):
                 axis[ix] = self.lower[i] + (ix+0.5)*dx
             self.axis.append( axis ) # add to axis list
@@ -136,7 +136,7 @@ class WxData:
         print("Reading frame data from file %s...") % fn        
         data = open(fn, 'r').read().split()
         condata = numpy.array( map(lambda s: float(s), data),
-                                 numpy.float)
+                                 numpy.float64)
         # now get it into correct shape depending on dimension
         if self.dims == 1:
             # 1D data file

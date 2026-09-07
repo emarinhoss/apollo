@@ -4,6 +4,7 @@ r"""Provides a general interface to plot warpx results quickly.
 """
 
 import os
+import sys
 from pylab import *
 import wxdata
 import wxinteractiveplot

@@ -127,12 +127,12 @@ if __name__ == '__main__':
 
 
     for i in range(numWriters):
-	# get writer block
-	writer = top.childrenMap[outNmsWS[i]]
-	# now determine the names of the variables written by this block
-	outNms = writer.values['writeNames']
+        # get writer block
+        writer = top.childrenMap[outNmsWS[i]]
+        # now determine the names of the variables written by this block
+        outNms = writer.values['writeNames']
 #	print outNms[0]
-	grid = top.childrenMap[writer.values['OnGrid']]
+        grid = top.childrenMap[writer.values['OnGrid']]
 #	print(grid.values)
     # get writer block
     gridwriterstep = top.childrenMap[options.gridwriterstep]
@@ -142,10 +142,10 @@ if __name__ == '__main__':
 #    print(numGrids)
 #    print(outNmsGS)
     for i in range(numGrids):
-	# get writer block
-	gridwriter = top.childrenMap[outNmsGS[i]]
-	# now determine the names of the variables written by this block
-	outGNms = gridwriter.values['writeNames']
+        # get writer block
+        gridwriter = top.childrenMap[outNmsGS[i]]
+        # now determine the names of the variables written by this block
+        outGNms = gridwriter.values['writeNames']
 #	print("outGNms = ")+str(outGNms)
 
 
@@ -179,71 +179,71 @@ if __name__ == '__main__':
     for i in dumps:
         xmfFile = open('%s_%d.xmf' % (inpFile[:-4], i), 'w')
         h5 = '%s_%d.h5' % (inpFile[:-4], i)
-	# write out header data
+        # write out header data
         xmfFile.writelines(header)
 
         empty = []
 
         if ndim == 2:
-	    for nm in range(numGrids):
-		writer = top.childrenMap[outNmsWS[nm]]
-		# now determine the names of the variables written by this block
-		outNms = writer.values['writeNames']
-		grid = top.childrenMap[writer.values['OnGrid']]
-    		# now fetch the grid size
-    		cells = grid.values['Cells']
-            	# write grid data
-        	xmfFile.writelines(gridheader % (nm+1))
-            	# write toplogy data
-            	xmfFile.writelines(topology2d % (spatialOrder*cells[0], 
-						 spatialOrder*cells[1]))
-            	# write geometry data
-            	xmfFile.writelines(geometry2d % (spatialOrder*cells[1], h5, top.name,nm+1,
+            for nm in range(numGrids):
+                writer = top.childrenMap[outNmsWS[nm]]
+                # now determine the names of the variables written by this block
+                outNms = writer.values['writeNames']
+                grid = top.childrenMap[writer.values['OnGrid']]
+                # now fetch the grid size
+                cells = grid.values['Cells']
+                # write grid data
+                xmfFile.writelines(gridheader % (nm+1))
+                # write toplogy data
+                xmfFile.writelines(topology2d % (spatialOrder*cells[0], 
+                                                 spatialOrder*cells[1]))
+                # write geometry data
+                xmfFile.writelines(geometry2d % (spatialOrder*cells[1], h5, top.name,nm+1,
                                                  spatialOrder*cells[0], h5, top.name,nm+1))
-	        # extract the writeNames from the excessive quotation marks
-	        myOutNms = eval(outNms[0])
-        	if type(myOutNms) == type(""):
-            		myOutNms = (myOutNms,)
-	        # now write out each data array
-            	for j in range(len(myOutNms)):
-                	xmfFile.writelines(attribute2d % (myOutNms[0], 
-							  spatialOrder*cells[0], 
-							  spatialOrder*cells[1],
+                # extract the writeNames from the excessive quotation marks
+                myOutNms = eval(outNms[0])
+                if type(myOutNms) == type(""):
+                        myOutNms = (myOutNms,)
+                # now write out each data array
+                for j in range(len(myOutNms)):
+                        xmfFile.writelines(attribute2d % (myOutNms[0], 
+                                                          spatialOrder*cells[0], 
+                                                          spatialOrder*cells[1],
                                                           h5, top.name, 
-							  myOutNms[0]))
-	        xmfFile.writelines(gridfooter)
+                                                          myOutNms[0]))
+                xmfFile.writelines(gridfooter)
 
         elif ndim == 3:
-	    for nm in range(numGrids):
-		writer = top.childrenMap[outNmsWS[nm]]
-		# now determine the names of the variables written by this block
-		outNms = writer.values['writeNames']
-		grid = top.childrenMap[writer.values['OnGrid']]
-    		# now fetch the grid size
-    		cells = grid.values['Cells']
-            	# write grid data
-        	xmfFile.writelines(gridheader % (nm+1))
-            	# write toplogy data
-            	xmfFile.writelines(topology3d % (spatialOrder*cells[0], 
-						 spatialOrder*cells[1], 
-						 spatialOrder*cells[2]))
-            	# write geometry data
+            for nm in range(numGrids):
+                writer = top.childrenMap[outNmsWS[nm]]
+                # now determine the names of the variables written by this block
+                outNms = writer.values['writeNames']
+                grid = top.childrenMap[writer.values['OnGrid']]
+                # now fetch the grid size
+                cells = grid.values['Cells']
+                # write grid data
+                xmfFile.writelines(gridheader % (nm+1))
+                # write toplogy data
+                xmfFile.writelines(topology3d % (spatialOrder*cells[0], 
+                                                 spatialOrder*cells[1], 
+                                                 spatialOrder*cells[2]))
+                # write geometry data
                 xmfFile.writelines(geometry3d % (spatialOrder*cells[2], h5, top.name,nm+1,
                                                  spatialOrder*cells[1], h5, top.name,nm+1,
                                                  spatialOrder*cells[0], h5, top.name,nm+1))
-	        # extract the writeNames from the excessive quotation marks
-	        myOutNms = eval(outNms[0])
-        	if type(myOutNms) == type(""):
-            		myOutNms = (myOutNms,)
-	        # now write out each data array
-            	for j in range(len(myOutNms)):
-                	xmfFile.writelines(attribute3d % (myOutNms[0], 
-                                                  	  spatialOrder*cells[0],
-							  spatialOrder*cells[1],
-							  spatialOrder*cells[2],
+                # extract the writeNames from the excessive quotation marks
+                myOutNms = eval(outNms[0])
+                if type(myOutNms) == type(""):
+                        myOutNms = (myOutNms,)
+                # now write out each data array
+                for j in range(len(myOutNms)):
+                        xmfFile.writelines(attribute3d % (myOutNms[0], 
+                                                          spatialOrder*cells[0],
+                                                          spatialOrder*cells[1],
+                                                          spatialOrder*cells[2],
                                                           h5, top.name, 
-							  myOutNms[0]))
-	        xmfFile.writelines(gridfooter)
+                                                          myOutNms[0]))
+                xmfFile.writelines(gridfooter)
 
         # write out footer data
         xmfFile.writelines(footer)

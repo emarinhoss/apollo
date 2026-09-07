@@ -100,5 +100,5 @@ class WxInteractivePlot(cmd.Cmd):
             print(e.__class__, ":", e)
 
 if __name__ == '__main__':
-        console = Console()
+        console = WxInteractivePlot()
         console.cmdloop()

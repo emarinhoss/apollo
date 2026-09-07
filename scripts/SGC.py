@@ -30,11 +30,11 @@ class Node(object):
         self.id = ident                 # Unique Identity of Node (global ID from Cubit)
         self.position = list(position)  # Physical position of Node
         self.indices = []               # Holds the Indices of the Node within the Grid
-	self.neighbors = []             # Holds the neighboring cell originally found in the elements list
-	self.geometry = []              # Holds the corresponding nodes associated with the cell 
-	self.faces = []                 # Holds the corresponding faces associated with the cell, 
-					# arranged in paired sets, i.e. each direction is presented 
-					# as a set of two faces on opposite sides of the cell.
+        self.neighbors = []             # Holds the neighboring cell originally found in the elements list
+        self.geometry = []              # Holds the corresponding nodes associated with the cell 
+        self.faces = []                 # Holds the corresponding faces associated with the cell, 
+                                        # arranged in paired sets, i.e. each direction is presented 
+                                        # as a set of two faces on opposite sides of the cell.
 
     # Returns the Global ID of the Node
     def getID(self):
@@ -42,57 +42,56 @@ class Node(object):
 
     # Returns the Local ID of the Node (-1 if Node is not in Domain)
     def getLocalID(self, domain_index = -1):
-        if domain_index < 0:
-            return -1
-        else:
-            if domain_index in self.owners:    
-                return self.owners[domain_index][patch_index]
-            else:
-                return -1
+        # Per-domain local IDs were never implemented: there is no `owners`
+        # attribute on Node and no `patch_index` anywhere in this module. The
+        # original body referenced both and could only ever raise. Nothing in
+        # the repository calls this, so it is kept as an explicit stub.
+        raise NotImplementedError(
+            "Node.getLocalID: per-domain local node IDs are not implemented")
 
 ###########################################        
 
     def addNeighbor(self,cell, nodes, style):
-	self.neighbors.append(cell)
-	self.geometry.append(list(nodes))
+        self.neighbors.append(cell)
+        self.geometry.append(list(nodes))
 
-	geometrylist = list(nodes)
+        geometrylist = list(nodes)
 
-	if (style == 'Hexahedron'):
-	  face1pindices = (0,3,2,1)
-	  face1nindices = (4,7,6,5)
-	  face2pindices = (3,2,6,7)
-	  face2nindices = (0,1,5,4)
-	  face3pindices = (1,5,6,2)
-	  face3nindices = (0,4,7,3)
+        if (style == 'Hexahedron'):
+          face1pindices = (0,3,2,1)
+          face1nindices = (4,7,6,5)
+          face2pindices = (3,2,6,7)
+          face2nindices = (0,1,5,4)
+          face3pindices = (1,5,6,2)
+          face3nindices = (0,4,7,3)
 
 
-	  face1p = [geometrylist[i] for i in face1pindices]
-	  face1n = [geometrylist[i] for i in face1nindices]
-	  face2p = [geometrylist[i] for i in face2pindices]
-	  face2n = [geometrylist[i] for i in face2nindices]
-	  face3p = [geometrylist[i] for i in face3pindices]
-	  face3n = [geometrylist[i] for i in face3nindices]
-	  faces = (face1p,face1n,face2p,face2n,face3p,face3n)
-	
-	elif (style == 'Rectangle'):
-	  face1nindices = (0,1)
-	  face2nindices = (0,3)
-	  face1pindices = (3,2)
-	  face2pindices = (1,2)
+          face1p = [geometrylist[i] for i in face1pindices]
+          face1n = [geometrylist[i] for i in face1nindices]
+          face2p = [geometrylist[i] for i in face2pindices]
+          face2n = [geometrylist[i] for i in face2nindices]
+          face3p = [geometrylist[i] for i in face3pindices]
+          face3n = [geometrylist[i] for i in face3nindices]
+          faces = (face1p,face1n,face2p,face2n,face3p,face3n)
+        
+        elif (style == 'Rectangle'):
+          face1nindices = (0,1)
+          face2nindices = (0,3)
+          face1pindices = (3,2)
+          face2pindices = (1,2)
 
-	  face1p = [geometrylist[i] for i in face1pindices]
-	  face1n = [geometrylist[i] for i in face1nindices]
-	  face2p = [geometrylist[i] for i in face2pindices]
-	  face2n = [geometrylist[i] for i in face2nindices]
-	  faces = (face1p,face1n,face2p,face2n)
+          face1p = [geometrylist[i] for i in face1pindices]
+          face1n = [geometrylist[i] for i in face1nindices]
+          face2p = [geometrylist[i] for i in face2pindices]
+          face2n = [geometrylist[i] for i in face2nindices]
+          faces = (face1p,face1n,face2p,face2n)
 
-	self.faces.append(faces)
+        self.faces.append(faces)
 
 ###########################################        
 
     def addIndices(self,indices):
-	self.indices=list(indices)
+        self.indices=list(indices)
 
 class IndexedNodes(object):
 
@@ -394,13 +393,13 @@ def readFile(filename, ghostCells):
     print(spacing + "Element Nodes Reindexed")
     
     for node in range(len(nodes)):
-	nodes[node].id=node
+        nodes[node].id=node
     
     return nodes, elements, domains, style
 
 # The following functions take a list of elements and builds a list of faces from them (each face is only connected to a single Element initially)
 
-def buildLineFaces(nodes,currentnode):
+def buildLineFaces(nodes,currentnode,elements):
     faces = []
     face_id = [[0],[1]] # This is untested, but probably correct
     for i in range(len(elements)):
@@ -408,7 +407,7 @@ def buildLineFaces(nodes,currentnode):
         faces.append(Face(i,1,-1,0,[elements[i].nodes[face_id[1][0]],elements[i].getDomainIndex(), -1]))
     return faces
 
-def buildRectangleFaces(nodes,currentnode):
+def buildRectangleFaces(nodes,currentnode,elements):
     faces = []
     face_id = [[0,1],[1,2],[2,3],[3,0]] # This is untested but probably correct
     for i in range(len(nodes[currentnode].neighbor)):
@@ -419,7 +418,7 @@ def buildRectangleFaces(nodes,currentnode):
         faces.append(Face(i,3,-1,0,[elements[i].nodes[face_id[3][0]],elements[i].nodes[face_id[3][1]]],elements[i].getDomainIndex(), -1))
     return faces
 
-def buildHexahedronFaces(nodes,currentnode):
+def buildHexahedronFaces(nodes,currentnode,elements):
     faces = []
     face_id = [[0,1,2,3],[4,5,6,7],[0,1,4,5],[2,3,6,7],[1,2,5,6],[0,3,4,7]]
     for i in range(len(elements)):
@@ -432,82 +431,82 @@ def buildHexahedronFaces(nodes,currentnode):
     return faces
 
 def setIndices(nodeID,cellID,cellposition,nodes,firstnodeflag,nr,idv,idvo,style,deltacells,oldnodeID):
-	
+        
 #	print('entering setIndices, where idv =')+str(idv)
 
-    	nodeindices =[0]*len(idv)
-	if (firstnodeflag==True):
-	    	print('initialized nodeindices = ') + str(nodeindices)
-	else:
-		oldnodeindices = nodes[oldnodeID].indices
-		facelist = findFaceList(nodes,nodeID,cellID)
-		for direction in range(len(nodeindices)):
-		  nodeindices[direction] = oldnodeindices[direction]+idv[direction]  
+        nodeindices =[0]*len(idv)
+        if (firstnodeflag==True):
+                print('initialized nodeindices = ' + str(nodeindices))
+        else:
+                oldnodeindices = nodes[oldnodeID].indices
+                facelist = findFaceList(nodes,nodeID,cellID)
+                for direction in range(len(nodeindices)):
+                  nodeindices[direction] = oldnodeindices[direction]+idv[direction]  
 
-	nodes[nodeID].addIndices(nodeindices)
+        nodes[nodeID].addIndices(nodeindices)
 
-	print('nodeID = ') + str(nodeID) + ', where nodeindices after assignment = '+str(nodes[nodeID].indices)
+        print('nodeID = ' + str(nodeID) + ', where nodeindices after assignment = '+str(nodes[nodeID].indices))
 
-	nnr = nr - 1
+        nnr = nr - 1
 
-	return nnr 
+        return nnr 
 
 def findCornerNode(nodes,nr,style):
-	cornerfound = False
-	for node in nodes:
-	    numofneighbors=len(node.neighbors)
-	    if (numofneighbors<3):
-		    print(numofneighbors)
-	    if (numofneighbors==1):
-		cornerfound = True	    
-		cellID = node.neighbors[0]
-		cornernodeID = node.id
-		geometrylist=node.geometry[0]
-		firstnodeflag=True
-		idv  = [1,0,0]
-		idvo = [1,0,0]
-		deltacells = 0
-		oldnodeID = -1
+        cornerfound = False
+        for node in nodes:
+            numofneighbors=len(node.neighbors)
+            if (numofneighbors<3):
+                    print(numofneighbors)
+            if (numofneighbors==1):
+                cornerfound = True	    
+                cellID = node.neighbors[0]
+                cornernodeID = node.id
+                geometrylist=node.geometry[0]
+                firstnodeflag=True
+                idv  = [1,0,0]
+                idvo = [1,0,0]
+                deltacells = 0
+                oldnodeID = -1
 
-	        nr = setIndices(cornernodeID,cellID,geometrylist,nodes,firstnodeflag,nr,idv,idvo,style,deltacells,oldnodeID)
+                nr = setIndices(cornernodeID,cellID,geometrylist,nodes,firstnodeflag,nr,idv,idvo,style,deltacells,oldnodeID)
 
-		nfv, nnv = setNfvandNnv(nodes,cornernodeID,cellID,style)
-     		nextnodeID = getNextNode(nnv,idv)
-		oldnodeID = cornernodeID
+                nfv, nnv = setNfvandNnv(nodes,cornernodeID,cellID,style)
+                nextnodeID = getNextNode(nnv,idv)
+                oldnodeID = cornernodeID
 
 
-		firstnodeflag=False
+                firstnodeflag=False
 
-		break
+                break
 
-	if (cornerfound==True):
-	     print("corner nodeID is ") + str(cornernodeID) + " found in cell " +str(cellID)
-	else:
-	     print("corner node was not found.")
-	return nextnodeID, cellID, nnv, idv, nfv, nr, cornernodeID 
+        if (cornerfound==True):
+             print("corner nodeID is " + str(cornernodeID) + " found in cell " +str(cellID))
+        else:
+             print("corner node was not found.")
+        return nextnodeID, cellID, nnv, idv, nfv, nr, cornernodeID 
 
 def defineFaceandCellPosition(nodes,nodeID,cellID):
 
-	cellIDposition = -1
+        cellIDposition = -1
 
-	for cellposition in range(len(nodes[nodeID].neighbors)):
-		if (nodes[nodeID].neighbors[cellposition]==cellID):
-			cellIDposition = cellposition
+        for cellposition in range(len(nodes[nodeID].neighbors)):
+                if (nodes[nodeID].neighbors[cellposition]==cellID):
+                        cellIDposition = cellposition
 
-	facelist =nodes[nodeID].faces[cellIDposition]
+        facelist =nodes[nodeID].faces[cellIDposition]
 
-	fpv  = []
-	nIDp = []
+        fpv  = []
+        nIDp = []
 
-	for face in range(len(facelist)):
-	   currentface =facelist[face]
-	   for nodeposition in range(len(currentface)):
-		nodefoundonface = (currentface[nodeposition]==nodeID)
-		if nodefoundonface: 
-		   fpv.append(face)
-		   nIDp.append(nodeposition)
+        for face in range(len(facelist)):
+           currentface =facelist[face]
+           for nodeposition in range(len(currentface)):
+                nodefoundonface = (currentface[nodeposition]==nodeID)
+                if nodefoundonface: 
+                   fpv.append(face)
+                   nIDp.append(nodeposition)
 
-	return fpv, nIDp, cellIDposition
+        return fpv, nIDp, cellIDposition
 
 def setNfvandNnv(nodes,nodeID,cellID,style):
 #################################################################
@@ -521,177 +520,177 @@ def setNfvandNnv(nodes,nodeID,cellID,style):
 #  face vector as the original node was for the original face.
 #################################################################
 
-	fpv, nIDp, cellIDposition = defineFaceandCellPosition(nodes,nodeID,cellID)
-	
-	nfv = buildNfv(fpv,style)
+        fpv, nIDp, cellIDposition = defineFaceandCellPosition(nodes,nodeID,cellID)
+        
+        nfv = buildNfv(fpv,style)
 
         nnv = buildNnv(nfv,nIDp,nodes,nodeID,cellID,cellIDposition)
 
-	return nfv, nnv
+        return nfv, nnv
 
 def buildNnv(nfv,nIDp,nodes,nodeID,cellID,cellIDposition):
 
-	nnv = []
+        nnv = []
 
-	for dir in range(len(nfv)):
-		nfp = nfv[dir]
-		nodeIDposition = nIDp[dir]
-		nextnode = findNode(nfv,nfp,nodes,nodeID,cellID,cellIDposition,nodeIDposition)
-		nnv.append(nextnode)
+        for dir in range(len(nfv)):
+                nfp = nfv[dir]
+                nodeIDposition = nIDp[dir]
+                nextnode = findNode(nfv,nfp,nodes,nodeID,cellID,cellIDposition,nodeIDposition)
+                nnv.append(nextnode)
 
-	return nnv
+        return nnv
 
 def buildNfv(fpv,style):
 
-	if (style=='Rectangle'):
-		if (fpv[0]==0)and(fpv[1]==2):
-		  nfv=[1,3]
-		elif (fpv[0]==0)and(fpv[1]==3):
-		  nfv=[1,2]
-		elif (fpv[0]==1)and(fpv[1]==2):
-		  nfv=[0,1]
-		elif (fpv[0]==1)and(fpv[1]==3):
-		  nfv=[0,2]
-	elif (style=='Hexahedron'):
-		if ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==4)):
-		  nfv=[1,3,5]
-		elif ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==5)):
-		  nfv=[1,3,4]
-		elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==4)):
-		  nfv=[1,2,5]
-		elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==5)):
-		  nfv=[1,2,4]
-		elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==4)):
-		  nfv=[0,3,5]
-		elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==5)):
-		  nfv=[0,3,4]
-		elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==4)):
-		  nfv=[0,2,5]
-		elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==5)):
-		  nfv=[0,2,4]
+        if (style=='Rectangle'):
+                if (fpv[0]==0)and(fpv[1]==2):
+                  nfv=[1,3]
+                elif (fpv[0]==0)and(fpv[1]==3):
+                  nfv=[1,2]
+                elif (fpv[0]==1)and(fpv[1]==2):
+                  nfv=[0,1]
+                elif (fpv[0]==1)and(fpv[1]==3):
+                  nfv=[0,2]
+        elif (style=='Hexahedron'):
+                if ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==4)):
+                  nfv=[1,3,5]
+                elif ((fpv[0]==0)and(fpv[1]==2)and(fpv[2]==5)):
+                  nfv=[1,3,4]
+                elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==4)):
+                  nfv=[1,2,5]
+                elif ((fpv[0]==0)and(fpv[1]==3)and(fpv[2]==5)):
+                  nfv=[1,2,4]
+                elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==4)):
+                  nfv=[0,3,5]
+                elif ((fpv[0]==1)and(fpv[1]==2)and(fpv[2]==5)):
+                  nfv=[0,3,4]
+                elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==4)):
+                  nfv=[0,2,5]
+                elif ((fpv[0]==1)and(fpv[1]==3)and(fpv[2]==5)):
+                  nfv=[0,2,4]
 
         # loop over all faces
 
-	return nfv
+        return nfv
 
 def findNode(nfv,faceposition,nodes,nodeID,cellID,cellIDposition,nodeIDposition):
 
-	facelist = nodes[nodeID].faces[cellIDposition]
+        facelist = nodes[nodeID].faces[cellIDposition]
 
-	facenodelist = facelist[faceposition]
+        facenodelist = facelist[faceposition]
 
-	nextnode = facenodelist[nodeIDposition]
+        nextnode = facenodelist[nodeIDposition]
 
-	return nextnode
+        return nextnode
 
 def endOfRow(oldnocells,nodes,nodeID):
-	newnocells=len(nodes[nodeID].neighbors)
-	delta=newnocells-oldnocells
-	if delta < 0:
-	   startnewrow=True
-	else:
-	   startnewrow=False
-	return startnewrow, newnocells
+        newnocells=len(nodes[nodeID].neighbors)
+        delta=newnocells-oldnocells
+        if delta < 0:
+           startnewrow=True
+        else:
+           startnewrow=False
+        return startnewrow, newnocells
 
 def cellDelta(oldnocells,nodes,nodeID):
-	newnocells=len(nodes[nodeID].neighbors)
-	delta=newnocells-oldnocells
-	return delta, newnocells
+        newnocells=len(nodes[nodeID].neighbors)
+        delta=newnocells-oldnocells
+        return delta, newnocells
 
 def nodeVisited(nodes,nodeID):
-	visited=(nodes[nodeID].indices!=[])
-	return visited
+        visited=(nodes[nodeID].indices!=[])
+        return visited
 
 def findDirection(idv):
 
-	for dir in range(len(idv)):
-		if (idv[dir]!=0):
-			direction=dir
+        for dir in range(len(idv)):
+                if (idv[dir]!=0):
+                        direction=dir
 
-	return direction	
+        return direction	
 
 def findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction): 
 
-	numberofneighbors = len(nodes[nodeID].neighbors)
-	for cell in range(numberofneighbors):
-	 	cellID = nodes[nodeID].neighbors[cell]
-		if (numberofneighbors==1):
-		   cellposition=0
-		if (cellID==oldcellID):
-			cellposition      = cell
-			oldfacelist       = nodes[nodeID].faces[cell]
-			oldface 	  = oldfacelist[oldfaceposition]
+        numberofneighbors = len(nodes[nodeID].neighbors)
+        for cell in range(numberofneighbors):
+                cellID = nodes[nodeID].neighbors[cell]
+                if (numberofneighbors==1):
+                   cellposition=0
+                if (cellID==oldcellID):
+                        cellposition      = cell
+                        oldfacelist       = nodes[nodeID].faces[cell]
+                        oldface 	  = oldfacelist[oldfaceposition]
 
-	return cellposition, oldface, oldfacelist
+        return cellposition, oldface, oldfacelist
 
         
 def findNewCell(nodes,nodeID,oldcellID,oldface,style):
 
-	defaultcellID = -1
-	
-	defaultcellposition = -1
+        defaultcellID = -1
+        
+        defaultcellposition = -1
 
-	for cell in range(len(nodes[nodeID].neighbors)):
-	 	currentcellID = nodes[nodeID].neighbors[cell]
+        for cell in range(len(nodes[nodeID].neighbors)):
+                currentcellID = nodes[nodeID].neighbors[cell]
                 if (len(nodes[nodeID].neighbors)==1):
                         cellposition  = cell
                         cellID = currentcellID
                         break
-	 	celltest =(currentcellID!=oldcellID)
-	 	if celltest:
-		  facelist=nodes[nodeID].faces[cell]
-		  cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellposition)
+                celltest =(currentcellID!=oldcellID)
+                if celltest:
+                  facelist=nodes[nodeID].faces[cell]
+                  cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellposition)
 
-		  if (cellID!=-1):
-			break  
-	
-	return cellposition,cellID
+                  if (cellID!=-1):
+                        break  
+        
+        return cellposition,cellID
 
 
 def faceTest(style,oldface,facelist,nodes,nodeID,cell,defaultcellID,defaultcellposition):
 
-	cellID = defaultcellID
-	cellposition = defaultcellID
+        cellID = defaultcellID
+        cellposition = defaultcellID
 
-	for position in range(len(facelist)):
-	   localface            =(facelist[position])
-	   if (style=='Rectangle'):
-		match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1]))
-		match2= ((localface[0]==oldface[1])and(localface[1]==oldface[0]))
-		if (match1 or match2):
-			cellID = nodes[nodeID].neighbors[cell]
-			cellposition = cell
+        for position in range(len(facelist)):
+           localface            =(facelist[position])
+           if (style=='Rectangle'):
+                match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1]))
+                match2= ((localface[0]==oldface[1])and(localface[1]==oldface[0]))
+                if (match1 or match2):
+                        cellID = nodes[nodeID].neighbors[cell]
+                        cellposition = cell
 #			print('Cell found! cellID = ')+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
-			break
+                        break
 
-	   if (style=='Hexahedron'):
-			match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1])and(localface[2]==oldface[2])and(localface[3]==oldface[3]))
-			match2= ((localface[1]==oldface[0])and(localface[2]==oldface[1])and(localface[3]==oldface[2])and(localface[0]==oldface[3]))
+           if (style=='Hexahedron'):
+                        match1= ((localface[0]==oldface[0])and(localface[1]==oldface[1])and(localface[2]==oldface[2])and(localface[3]==oldface[3]))
+                        match2= ((localface[1]==oldface[0])and(localface[2]==oldface[1])and(localface[3]==oldface[2])and(localface[0]==oldface[3]))
                         match3= ((localface[2]==oldface[0])and(localface[3]==oldface[1])and(localface[0]==oldface[2])and(localface[1]==oldface[3]))
                         match4= ((localface[3]==oldface[0])and(localface[0]==oldface[1])and(localface[1]==oldface[2])and(localface[2]==oldface[3]))
-			if (match1 or match2 or match3 or match4):
-			  cellID = nodes[nodeID].neighbors[cell]
-			  cellposition = cell
+                        if (match1 or match2 or match3 or match4):
+                          cellID = nodes[nodeID].neighbors[cell]
+                          cellposition = cell
 #			  print('Cell found! cellID = ')+str(cellID)+' for nodeID = '+str(nodeID)+' with a cell position of '+str(cellposition)
-			  break
+                          break
 
-	return cellID, cellposition
+        return cellID, cellposition
 
  
                 
 def findCell(nodeID,oldcellID,nfv,nodes,idv,style,deltacell,nodevisited):
 
-	direction = findDirection(idv)
+        direction = findDirection(idv)
 
-	oldfaceposition= nfv[direction]
-	cellposition, oldface, oldfacelist = findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction)
+        oldfaceposition= nfv[direction]
+        cellposition, oldface, oldfacelist = findOldCell(nodes,nodeID,oldcellID,oldfaceposition,direction)
 
-	cellID = -1
-	
-	defaultcellposition = -1
+        cellID = -1
+        
+        defaultcellposition = -1
 
-	for cell in range(len(nodes[nodeID].neighbors)):
-	 	currentcellID = nodes[nodeID].neighbors[cell]
+        for cell in range(len(nodes[nodeID].neighbors)):
+                currentcellID = nodes[nodeID].neighbors[cell]
                 cornercell =len(nodes[nodeID].neighbors)==1
                 edgereached = (deltacell<0)
 
@@ -700,28 +699,28 @@ def findCell(nodeID,oldcellID,nfv,nodes,idv,style,deltacell,nodevisited):
                         cellposition  = cell
                         cellID = currentcellID
                         break
-	 	celltest =(currentcellID!=oldcellID)
-	 	if celltest:
-			facelist=nodes[nodeID].faces[cell]
+                celltest =(currentcellID!=oldcellID)
+                if celltest:
+                        facelist=nodes[nodeID].faces[cell]
 
-			cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,cellID,defaultcellposition)
+                        cellID, cellposition = faceTest(style,oldface,facelist,nodes,nodeID,cell,cellID,defaultcellposition)
 
-			if (cellID!=-1):
+                        if (cellID!=-1):
 #			  print('after faceTest, the cellID = ')+str(cellID)
-			  break  
+                          break  
         if (cellID==-1):
-		print("FindCell was unsuccessful.")
+                print("FindCell was unsuccessful.")
 
         return  cellposition, cellID
 
 def findFaceList(nodes,nodeID,cellID):
-	for cellposition in range(len(nodes[nodeID].neighbors)):
-	   if (nodes[nodeID].neighbors[cellposition]==cellID):
-           	cellIDposition=cellposition
+        for cellposition in range(len(nodes[nodeID].neighbors)):
+           if (nodes[nodeID].neighbors[cellposition]==cellID):
+                cellIDposition=cellposition
 
-	facelist = nodes[nodeID].faces[cellIDposition]
+        facelist = nodes[nodeID].faces[cellIDposition]
 
-	return facelist
+        return facelist
 
 def twodIdvUpdate(idv,idvo,deltacells,oddslice):
 ###################################################################
@@ -737,13 +736,13 @@ def twodIdvUpdate(idv,idvo,deltacells,oddslice):
 # negative (or positive) i-th direction, based on history (idvo is the old
 # idv from the previous node.
 ###################################################################
-	nidv = [0, 0, 0]
+        nidv = [0, 0, 0]
 
         if (deltacells<0):
-	   if (oddslice):
+           if (oddslice):
               idv1=1
-	   else:
-	      idv1=-1
+           else:
+              idv1=-1
 
         sliceshift = (idvo[2]!=1)
 
@@ -768,7 +767,7 @@ def twodIdvUpdate(idv,idvo,deltacells,oddslice):
 
 #        print("exit_transition, entrance_transition, sliceshift, movinginx, movinginy = (") + str(exit_transition) + ", " + str(entrance_transition)  + ", " + str(sliceshift) + ", "+str(movinginx) +","+str(movinginy)+")"
 
-	if (exit_transition):
+        if (exit_transition):
             if (sliceshift):
                 if(movinginx): # reached an end of row in the forward direction.  Increment/decrement row index.
                     nidv[0]=0
@@ -791,30 +790,30 @@ def twodIdvUpdate(idv,idvo,deltacells,oddslice):
                     if (previouslymovinginPosX): #if previous row direction positive, now negative.  Shut off row incr/decr.
                         nidv[0]=-1
                         nidv[1]=0              
-	elif(entrance_transition): # if changing status from the other direction, then
-	  if(movinginy):  # having just done a row change, record everything
-	    if (previouslymovinginNegX):
-	      nidv[0]=+1
-	      nidv[1]=0
-	    elif (previouslymovinginPosX):
-	      nidv[0]=-1
-	      nidv[1]=0
-	  else: # if no row change, then just keep plugging
-	      nidv=idv
-	elif (nochangeinsharedcells): 
-	  if(movinginy): # if have just done a row increment/decrement, then advance all counters as appropriate
-	    if (previouslymovinginNegX):
-	      nidv[0]=+1
-	      nidv[1]=0
-	    if (previouslymovinginPosX):
-	      nidv[0]=-1
-	      nidv[1]=0
-	  else: # if no row change, then just keep plugging
-	      nidv=idv
-	else:
-	  nidv=idv
-	
-	return nidv 
+        elif(entrance_transition): # if changing status from the other direction, then
+          if(movinginy):  # having just done a row change, record everything
+            if (previouslymovinginNegX):
+              nidv[0]=+1
+              nidv[1]=0
+            elif (previouslymovinginPosX):
+              nidv[0]=-1
+              nidv[1]=0
+          else: # if no row change, then just keep plugging
+              nidv=idv
+        elif (nochangeinsharedcells): 
+          if(movinginy): # if have just done a row increment/decrement, then advance all counters as appropriate
+            if (previouslymovinginNegX):
+              nidv[0]=+1
+              nidv[1]=0
+            if (previouslymovinginPosX):
+              nidv[0]=-1
+              nidv[1]=0
+          else: # if no row change, then just keep plugging
+              nidv=idv
+        else:
+          nidv=idv
+        
+        return nidv 
 ###################################################################
 
 def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
@@ -833,25 +832,25 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
     movinginz = (idv[2]==+1)
 
     if (visited):
-	if (oddslice==True):
-	  newoddslice=False
-	else:
-	  newoddslice=True
+        if (oddslice==True):
+          newoddslice=False
+        else:
+          newoddslice=True
         nidv[2]=+1
         nidv[1]=0
         nidv[0]=0
-	nidvo = idvo
+        nidvo = idvo
     elif (movinginz):
         nidv[2]=0
         nidv[1]=0
         if (idvo[0]==+1):
-	    nidv[0]=-1
+            nidv[0]=-1
         if (idvo[0]==-1):
-	    nidv[0]=+1
-	nidvo = idv
+            nidv[0]=+1
+        nidvo = idv
     elif (not(movinginz)):
         nidv=twodIdvUpdate(idv,idvo,deltacells,oddslice)
-	nidvo = idv
+        nidvo = idv
     else:
         print("error in 3dIDVupdate!")
 
@@ -859,21 +858,21 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
     nodevisited = nodeVisited(nodes,nnID)
     if (nodevisited):
         print("********************")
-        print("nodevisited in idvUpdate = ")+str(nodevisited)
+        print("nodevisited in idvUpdate = " + str(nodevisited))
         print("********************")
-	if (oddslice==True):
-	  newoddslice=False
-	else:
-	  newoddslice=True
+        if (oddslice==True):
+          newoddslice=False
+        else:
+          newoddslice=True
         nidv[2]=+1
         nidv[1]=0
         nidv[0]=0
-	nidvo = idvo
+        nidvo = idvo
         nnID = getNextNode(nnv,nidv)
         nodevisited = nodeVisited(nodes,nnID)
         if (nodevisited):
             print("********************")
-            print("idvUpdate Finished = ")+str(nodevisited)
+            print("idvUpdate Finished = " + str(nodevisited))
             print("********************")
             return nidv, newoddslice, nidvo             
 
@@ -882,29 +881,29 @@ def threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes):
     return nidv, newoddslice, nidvo 
 
 def idvUpdate(idv,idvo,nn,style,deltacells,visited,oddslice,nnv,nodes):
-	if (style=='Rectangle'):
-		nidv = twodIdvUpdate(idv,idvo,deltacells,oddslice)
-	elif style=='Hexahedron':
-		nidv,newoddslice, nidvo = threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes)
+        if (style=='Rectangle'):
+                nidv = twodIdvUpdate(idv,idvo,deltacells,oddslice)
+        elif style=='Hexahedron':
+                nidv,newoddslice, nidvo = threedIdvUpdate(idv,idvo,nn,deltacells,visited,oddslice,nnv,nodes)
                 
 
-	nidvo = idv
+        nidvo = idv
 
-	return nidv, nidvo, newoddslice
+        return nidv, nidvo, newoddslice
 
 def getNextNode(nnv,idv):
-	nnfound = False
-	nn = -1
-	for pos in range(len(idv)):
-	  if (idv[pos]!=0):
+        nnfound = False
+        nn = -1
+        for pos in range(len(idv)):
+          if (idv[pos]!=0):
 #	    print('nnv=')+str(nnv)
-	    nn = nnv[pos]
-	    nnfound = True
-	    break
+            nn = nnv[pos]
+            nnfound = True
+            break
         if (nnfound==False):
-	  print('next node not found in nnv in getNextNode')
+          print('next node not found in nnv in getNextNode')
        
-  	return nn
+        return nn
 
 def writeASCIIFile(outfilename,indexednodes,nodes, style):
 
@@ -1094,6 +1093,7 @@ def elementIndexer(elements, style):
         recursive3DElementIndexer(startingElementIndex,[0,0,0],elements)
 
 def sizethegrid(nodes,style):
+    spacing = "\t"          # This is for printing to screen
     currentimax = -1
     currentjmax = -1
     currentkmax = -1
@@ -1145,11 +1145,11 @@ def constructNodes(style, nodes, elements, domains):
     faces = []
 
     for domain in range(len(domains)):
-	print('domain identify =') +str(domains[domain].getID())
-	print(str(domains[domain].startIndices))
+        print('domain identify =' + str(domains[domain].getID()))
+        print(str(domains[domain].startIndices))
     for element in elements:
-	for nodeid in element.nodes:
-	    nodes[nodeid].addNeighbor(element.id,element.nodes,style)
+        for nodeid in element.nodes:
+            nodes[nodeid].addNeighbor(element.id,element.nodes,style)
     
 
     time1 = time()
@@ -1172,22 +1172,22 @@ def constructNodes(style, nodes, elements, domains):
     oddslice= True
 
     for node in range(len(nodes)-1):
-	celldelta, sharedcells = cellDelta(oldnocells,nodes,nnID)
+        celldelta, sharedcells = cellDelta(oldnocells,nodes,nnID)
 
 #        print("celldelta = ") +str(celldelta)
 
-	nodevisited                = nodeVisited(nodes,nnID)
+        nodevisited                = nodeVisited(nodes,nnID)
         celllist                   = nodes[nnID].neighbors
         oldcellID                  = cellID
         oldnodecellposition,cellID = findCell(nnID,oldcellID,nfv,nodes,idv,style,celldelta,nodevisited)
         nr                         = setIndices(nnID,cellID,oldnodecellposition,nodes,firstnodeflag,nr,idv,idvo,style,celldelta,oldnodeID)
 
-	fpv, nIDp, cellIDposition  = defineFaceandCellPosition(nodes,nnID,cellID)
-	nfv                        = buildNfv(fpv,style)
+        fpv, nIDp, cellIDposition  = defineFaceandCellPosition(nodes,nnID,cellID)
+        nfv                        = buildNfv(fpv,style)
         nnv                        = buildNnv(nfv,nIDp,nodes,nnID,cellID,cellIDposition)
-	oldnodeID                  = nnID
-	idv, idvo,oddslice         = idvUpdate(idv,idvo,nnID,style,celldelta,nodevisited,oddslice,nnv,nodes)	    
-     	nnID                       = getNextNode(nnv,idv)
+        oldnodeID                  = nnID
+        idv, idvo,oddslice         = idvUpdate(idv,idvo,nnID,style,celldelta,nodevisited,oddslice,nnv,nodes)	    
+        nnID                       = getNextNode(nnv,idv)
 
         veryoldnocells             = oldnocells
         oldcelldelta               = celldelta
@@ -1201,9 +1201,9 @@ def constructNodes(style, nodes, elements, domains):
     jmax = maxidx[1]+1
     kmax = maxidx[2]+1
 
-    print('after sort imax =') + str(imax)
-    print('after sort jmax =') + str(jmax)
-    print('after sort kmax =') + str(kmax)
+    print('after sort imax =' + str(imax))
+    print('after sort jmax =' + str(jmax))
+    print('after sort kmax =' + str(kmax))
     
     indexednodes = []
 
@@ -1241,11 +1241,11 @@ def main(argv):
     formatting = ""   
     # We need to parse in the readfile
     if len(argv) < 3 or len(argv) > 3:
-        print("")""I need an input terms. Please set:
+        print("""I need an input terms. Please set:
     python gridconverterhdf5.py inputfilename.whatever [ngc-x,ngc+x,ngc-y...]
 
 Where ngc = number of ghost cells
-        """
+        """)
         return
     else:
         period = argv[1].index(".")
@@ -1261,7 +1261,7 @@ Where ngc = number of ghost cells
 
     time1 = time()
     
-    print("Loaded in ") + str(time1 - time0) + " seconds"
+    print("Loaded in " + str(time1 - time0) + " seconds")
 
     if(style == ""):
         print("Error Found. Exiting Script...")
@@ -1275,7 +1275,7 @@ Where ngc = number of ghost cells
 
     time2 = time()
 
-    print("Nodes Constructed in ") + str(time2-time1) + " seconds"
+    print("Nodes Constructed in " + str(time2-time1) + " seconds")
 
     print("Saving File...")
     
@@ -1285,10 +1285,10 @@ Where ngc = number of ghost cells
 
     time3 = time()
 
-    print("File Saved in ") + str(time3 - time2) + " seconds"
+    print("File Saved in " + str(time3 - time2) + " seconds")
     
-    print("Grid Rebuild Complete in ") + str(time3-time0) + " seconds."
-    print("Written to ") + outfilename
+    print("Grid Rebuild Complete in " + str(time3-time0) + " seconds.")
+    print("Written to " + outfilename)
         
 if __name__ == "__main__":
-	main(sys.argv)
+        main(sys.argv)

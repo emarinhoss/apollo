@@ -213,7 +213,7 @@ def expandFile(inFileName, outFileName):
         outFile.write(data)
     else:
         # just copy input file to output file
-        data = open(fileName).read()
+        data = open(inFileName).read()
         outFile.write(data)
 
     outFile.close()
