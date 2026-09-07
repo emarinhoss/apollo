@@ -1,5 +1,6 @@
 // includes
 #include <apsimulation.h>
+#include <apversion.h>
 
 // include getopt or mygetopt
 #ifdef _NO_GETOPT_
@@ -143,7 +144,12 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
 //    WxLogStream errStrm = wrc->getErrorStream();
 //    WxLogStream wrnStrm = wrc->getWarningStream();
 
-    // now setup top level solver
+    // now setup top level solver. Record the build first: a result is only
+    // reproducible if the binary that produced it can be identified, and the log
+    // is the one artefact that always accompanies a run.
+    infStrm << Apollo::buildInfo() << std::endl;
+    infStrm << "Input file: " << inpFileName << std::endl;
+    infStrm << "MPI ranks: " << this->getMsg().numProcs() << std::endl;
     infStrm << "Setting up Apollo simulation..." << std::endl;
     std::string simName;
     // name of simulation to run
@@ -286,7 +292,7 @@ ApSimulation<REAL>::usage()
 {
   // print help
   std::cout << "*** Welcome to Apollo ***" << std::endl;
-  std::cout << "Version XXX from svn revision YYY" << std::endl;
+  std::cout << Apollo::buildInfo() << std::endl;
   std::cout << "Apollo accepts the following command line options" << std::endl;
 
   // for help message

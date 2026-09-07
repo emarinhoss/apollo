@@ -129,6 +129,36 @@ if not warpMConstructionEnv.GetOption('clean'):
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
 
+# Build provenance. A simulation result is only reproducible if the binary that
+# produced it can be identified, and Apollo previously reported
+# "Version XXX from svn revision YYY". Read the revision here so both variants
+# get the same value, and degrade gracefully outside a git checkout.
+def _gitDescribe():
+    import subprocess
+    def run(cmd):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=10,
+                                 cwd=Dir('#').abspath)
+        except (OSError, subprocess.SubprocessError):
+            return ''
+        return out.stdout.strip() if out.returncode == 0 else ''
+
+    sha = run(['git', 'rev-parse', '--short=12', 'HEAD'])
+    if not sha:
+        return 'unknown', 'unknown'
+    describe = run(['git', 'describe', '--tags', '--always', '--dirty']) or sha
+    # `git describe --dirty` only reports tracked modifications; ask explicitly.
+    if not describe.endswith('-dirty') and run(['git', 'status', '--porcelain']):
+        describe += '-dirty'
+    return describe, sha
+
+apolloDescribe, apolloSha = _gitDescribe()
+print("Apollo version:", apolloDescribe)
+warpMConstructionEnv.AppendUnique(CPPDEFINES=[
+    ('APOLLO_GIT_DESCRIBE', '\\"%s\\"' % apolloDescribe),
+    ('APOLLO_GIT_SHA', '\\"%s\\"' % apolloSha),
+])
+
 # configure number of compiler processes for scons
 import buildconf.getNumCores as getNumCores
 try:
@@ -243,7 +273,11 @@ else:
 # stop a diverged run before it writes physically meaningless output. It is
 # therefore opt-in, and even then finite-math is excluded so the guards survive.
 if warpMConstructionEnv['fastmath']:
-    optimizationFlags += ['-ffast-math', '-fno-finite-math-only']
+    # -DAPOLLO_FASTMATH because GCC predefines __FAST_MATH__ only when every
+    # sub-option is on, and this combination deliberately turns one back off, so
+    # the binary could not otherwise report how it was built.
+    optimizationFlags += ['-ffast-math', '-fno-finite-math-only',
+                          '-DAPOLLO_FASTMATH']
     print("optimized build: -ffast-math enabled "
           "(NaN guards preserved via -fno-finite-math-only)")
 

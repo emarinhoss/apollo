@@ -422,6 +422,10 @@ test/run_examples.sh -j 2                  # under mpirun
 test/run_examples.sh euler-isentropic-vortex
 ```
 
+Or through the root makefile: `make test`, `make test-python`,
+`make test-examples`; `make help` lists everything, including `make opt`,
+`make debug` and `make deps-ubuntu`.
+
 `test/run_examples.sh` preprocesses each deck and runs the solver to completion,
 failing on a non-zero exit or on a NaN, negative-pressure or exception
 diagnostic in the log - the solver does not always exit non-zero on those.
@@ -439,6 +443,30 @@ Apollo uses PETSc (Portable, Extensible Toolkit for Scientific Computation) for 
 - Scalability to millions/billions of unknowns
 - Industry-standard MPI-based communication
 - Extensive documentation and active development community
+
+## Reproducibility
+
+Every run begins by recording which binary produced it:
+
+```
+Apollo v1.0-3-g5af1384 (commit 5af13846e732), built Sep  7 2026 19:14:18, PETSc 3.19.6, BLAS
+Input file: isentropicVortex.inp
+MPI ranks: 4
+```
+
+The version comes from `git describe` at build time, with `-dirty` appended when
+the working tree has uncommitted changes, so a log can be traced back to a
+commit. The same line is printed by `apollo --help`.
+
+The tail of that line names the build options that change results: `BLAS`,
+`OpenMP`, `range-checked`, `fast-math`, and
+
+```
+*** finite-math-only: NaN CHECKS DISABLED ***
+```
+
+which appears when the binary was compiled such that its NaN guards were
+optimized away. If you are looking at a suspicious result, check that line first.
 
 ## Repository layout
 
