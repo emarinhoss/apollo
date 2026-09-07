@@ -29,6 +29,10 @@ src/build-debug/
 *.inp_1
 
 # Editor / IDE
+# *.creator.user is Qt Creator's per-user state: absolute paths, build kits and
+# window layout from one machine. src/Apollo.creator.user was tracked.
+*.creator.user
+*.creator.user.*
 .idea/
 .vscode/
 *.swp
