@@ -190,6 +190,63 @@ class TestNoMixedIndentation(unittest.TestCase):
             ['mixing tab and space indentation raises TabError:'] + offenders))
 
 
+class TestModulesImport(unittest.TestCase):
+    """A file can parse, lint clean, and still fail the moment it is imported.
+
+    scripts/SGC.py and SGC_MB.py did `from time import clock`; time.clock() was
+    removed in Python 3.8, so both raised ImportError before a single line of
+    their own code ran. Parsing and pyflakes both missed it.
+
+    Third-party imports are not the subject here - a machine without PyTables or
+    Mayavi should not fail the suite - so an ImportError naming a module that is
+    not part of the standard library is reported as a skip, not a failure.
+    """
+
+    # Modules the scripts import that are genuinely optional at test time.
+    THIRD_PARTY = {
+        'numpy', 'scipy', 'matplotlib', 'pylab', 'tables', 'vtk', 'pyvtk',
+        'tvtk', 'mayavi', 'joblib', 'h5py', 'SCons',
+    }
+
+    def test_imports(self):
+        import importlib
+        import importlib.util
+
+        failures, skipped = [], []
+        original = sys.path[:]
+        sys.path.insert(0, SCRIPTS)
+        try:
+            for path in sorted(python_files()):
+                if not path.startswith(SCRIPTS + os.sep):
+                    continue  # buildconf/* need SCons globals; test/* is us
+                name = os.path.splitext(os.path.basename(path))[0]
+                spec = importlib.util.spec_from_file_location(name, path)
+                module = importlib.util.module_from_spec(spec)
+                argv, sys.argv = sys.argv, [name]
+                try:
+                    spec.loader.exec_module(module)
+                except SystemExit:
+                    pass  # a __main__ guard that exits without arguments
+                except ImportError as exc:
+                    missing = (getattr(exc, 'name', '') or '').split('.')[0]
+                    if missing in self.THIRD_PARTY:
+                        skipped.append(f'{rel(path)} (needs {missing})')
+                    else:
+                        failures.append(f'{rel(path)}: {type(exc).__name__}: {exc}')
+                except Exception as exc:
+                    failures.append(f'{rel(path)}: {type(exc).__name__}: {exc}')
+                finally:
+                    sys.argv = argv
+                    sys.modules.pop(name, None)
+        finally:
+            sys.path[:] = original
+
+        if skipped:
+            print(f'\n  ({len(skipped)} module(s) skipped for optional deps)')
+        self.assertEqual([], failures, '\n'.join(
+            ['modules that fail on import:'] + failures))
+
+
 class TestNoUndefinedNames(unittest.TestCase):
     """pyflakes catches typo'd identifiers, the class of bug that hid
     WxDGArray2, Console() and open(fileName) in otherwise valid files."""

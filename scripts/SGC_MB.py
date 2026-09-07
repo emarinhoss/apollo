@@ -6,7 +6,9 @@ from numpy import *
 import numpy as np
 import random
 import pdb
-from time import clock, time
+# time.clock() was removed in Python 3.8. It was imported here but never
+# called; time() is the one actually used.
+from time import time
 from copy import copy, deepcopy
 
 sys.setrecursionlimit(1000000000) 
