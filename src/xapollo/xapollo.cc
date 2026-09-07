@@ -50,6 +50,18 @@ apolloMain(int argc, char **argv)
        MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
+  if (sim.isRestarting())
+  { // The restart machinery was never finished: the load() branch below is
+    // commented out, so -r is accepted and then ignored, and the run silently
+    // starts from the initial condition instead of the checkpoint. For a job
+    // being resumed that is worse than refusing.
+    if (msg.rank() == 0)
+      std::cerr << "Apollo: --restart is not implemented. The option is parsed "
+                   "but no checkpoint is ever read, so the run would silently "
+                   "start from the initial condition." << std::endl;
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+
   try
   {
     // create cryptset for complete simulation

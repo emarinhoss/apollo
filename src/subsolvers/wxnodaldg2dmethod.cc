@@ -272,10 +272,18 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     DMGetLocalVector(dataManage, &local_in);
     DMGetLocalVector(dataManage, &local_out);
 
-    // zero entries of the vectors that will be used to store
-    // information
-//    VecZeroEntries(local_in);
-//    VecZeroEntries(local_out);
+    // Zero the output before filling it. The element loop below skips any cell
+    // whose cone size is not 3 - Gmsh boundary line elements arrive as
+    // 2-vertex cells, 80 of them in the isentropic vortex mesh - and never
+    // writes their entries. DMGetLocalVector hands back a vector from PETSc's
+    // pool with no guarantee about its contents, and the DMLocalToGlobal below
+    // uses INSERT_VALUES, so whatever was in those slots is copied into the
+    // global RHS. Zeroing makes the skipped cells contribute nothing, which is
+    // what "skip" was meant to mean.
+    //
+    // local_in needs no zeroing: DMGlobalToLocal overwrites it entirely with
+    // INSERT_VALUES on the next line.
+    VecZeroEntries(local_out);
 
     // get local values of the global vector in into locX
     DMGlobalToLocalBegin(dataManage, in, INSERT_VALUES, local_in);

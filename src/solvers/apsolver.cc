@@ -185,18 +185,23 @@ ApSolver<REAL>::solve()
     // write data to file before running main loop
     this->writeData(solution);
 
-    // main solver loop
-    tsize = _tend/_nout;
+    // main solver loop. `Time = [start, end]` in the deck sets both, but the
+    // start was parsed into _tstart and then never read: every run began at 0
+    // regardless, so `Time = [2.0, 5.0]` silently integrated from 0 to 5.
+    // Every deck under examples/ starts at 0.0, so this changes nothing for
+    // them.
+    tsize = (_tend - _tstart)/_nout;
 
     for (unsigned i=0; i<_nout; ++i)
     {
-        _tend_temp = (i+1)*tsize;
+        REAL _tstart_temp = _tstart + i*tsize;
+        _tend_temp = _tstart + (i+1)*tsize;
 //        _dt_temp = tsize/(ceil(tsize/_dt));
         _dt_temp = _dt;
-        tssolver->setTimeParameters(i*tsize, _tend_temp, _dt_temp);
+        tssolver->setTimeParameters(_tstart_temp, _tend_temp, _dt_temp);
 
         infStrm << "Advancing solution"
-                << " from time " << (i*tsize)
+                << " from time " << _tstart_temp
                 << " to " << _tend_temp
                 << "..."
                 << std::endl;
