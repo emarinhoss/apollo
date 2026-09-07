@@ -7,6 +7,8 @@
 // std includes
 #include <iostream>
 #include <string>
+#include <map>
+#include <set>
 #include <vector>
 #include <sstream>
 
@@ -87,6 +89,13 @@ class WxExprParser {
     std::string getExprString() const;
 
   private:
+/**
+ * Reject identifiers that the variable factory invented. Called at the end of
+ * setup(), so a misspelt name is an error before the run starts rather than a
+ * silent zero in the middle of it.
+ */
+    void checkForUndefinedNames();
+
 /** Counter for results */
     unsigned resCount;
 /** Parser object */

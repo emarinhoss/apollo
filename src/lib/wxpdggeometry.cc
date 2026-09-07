@@ -363,7 +363,12 @@ WxpDGGeometry<REAL>::FaceNodesNormals2d(int k, REAL *nx, REAL *ny, REAL *Fscale)
             if(J[m]<=0){
                 WxLogger *l = WxLogger::get("apollo-root.console");
                 WxLogStream errStrm = l->getErrorStream();
-                errStrm << "Error: Jacobian determinant for element " << k << " is " << J[m];
+                errStrm << "Error: Jacobian determinant for element " << k
+                        << " node " << m << " is " << J[m]
+                        << ". A zero Jacobian across every element usually means "
+                           "the differentiation operators are zero rather than "
+                           "that the mesh is degenerate; a negative one means an "
+                           "inverted element in the mesh.";
                 exit(1); // abort execution
             }
     }

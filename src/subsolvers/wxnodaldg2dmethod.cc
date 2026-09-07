@@ -254,7 +254,10 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     if(_calculateGradients){
         VecDuplicate(in,&gradients);
         calculateGradients(in,gradients);
-        isInfinityOrNAN(in, "NAN/INF encountered in gradient vector of DG step-function.\n");
+        // Check the gradients, not `in`: `in` was already checked above, and
+        // testing it here means a NaN produced by calculateGradients goes
+        // unnoticed - which is the one thing this call exists to catch.
+        isInfinityOrNAN(gradients, "NAN/INF encountered in gradient vector of DG step-function.\n");
     }
 
     WxStepperStatus<REAL> status;
@@ -557,6 +560,11 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 //    REAL AD = AC-AB;
     VecDestroy(&local_out);
     VecDestroy(&local_in);
+    // VecDuplicate above allocates a full solution vector; without this the
+    // leak is one such vector per RHS evaluation, so several per timestep for
+    // an SSP-RK scheme, for the whole run.
+    if(_calculateGradients)
+        VecDestroy(&gradients);
     return status;
 }
 

@@ -239,9 +239,13 @@ ApSolver<REAL>::startOnly()
       {
         debStrm << " SubSolver " << *ssitr << std::endl;
 
-        _subSolvers[*ssitr]->setCurrentTime(this->getCurrentTime());
-        _subSolvers[*ssitr]->setDt(0.0);
-        WxStepperStatus<REAL> res = _subSolvers[*ssitr]->step(0.0, 0.0, NULL, solution);
+        // getSubSolver does a checked find() and throws a named exception;
+        // operator[] would insert a NULL for a misspelt name and then
+        // dereference it.
+        ApSubSolver<REAL>* ss = this->getSubSolver(*ssitr);
+        ss->setCurrentTime(this->getCurrentTime());
+        ss->setDt(0.0);
+        WxStepperStatus<REAL> res = ss->step(0.0, 0.0, NULL, solution);
         if (res.getStatus() == false)
         {
           WxExcept wxe("Subsolver ");
@@ -280,7 +284,7 @@ ApSolver<REAL>::init()
       std::vector<std::string>::const_iterator ssitr;
       for (ssitr = itrr->subSolvers.begin(); ssitr != itrr->subSolvers.end(); ++ssitr)
       {
-        suggestedDt = _subSolvers[*ssitr]->getDt();
+        suggestedDt = this->getSubSolver(*ssitr)->getDt();
         _dt = fmin(_dt,suggestedDt);
       }
     }
@@ -473,7 +477,7 @@ ApSolver<REAL>::ComputeRHSforTS(TS ts,PetscReal t,Vec global_in,Vec global_out,v
         for (ssitr = itr->subSolvers.begin(); ssitr != itr->subSolvers.end(); ++ssitr)
         {
             debStrm << "  SubSolver " << *ssitr << std::endl;
-            ApSubSolver<REAL> *ss = _subSolvers[*ssitr];
+            ApSubSolver<REAL> *ss = this->getSubSolver(*ssitr);
             // take this step
             status = ss->step(t,_dt_temp, global_in, X);
             //VecView(u,PETSC_VIEWER_STDOUT_WORLD);
