@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast gate: no compiler, no PETSc, runs in well under a minute. Catches the
+  # class of breakage that once left every post-processing script unrunnable.
+  python-tooling:
+    name: Python tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linters
+        run: python -m pip install --upgrade pip pyflakes
+
+      - name: Byte-compile every Python file
+        run: |
+          python -m compileall -q scripts src/buildconf src/this_host_config.py test
+
+      - name: Regression tests
+        run: python -m unittest discover -s test -v
+
+  # The SCons scripts are Python too, and a syntax error in one of them breaks
+  # the build for everybody. Reading them requires no toolchain.
+  build-scripts:
+    name: Build scripts parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Syntax-check SConstruct and SConscripts
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          bad = []
+          targets = [pathlib.Path('src/SConstruct')]
+          targets += sorted(pathlib.Path('src').rglob('SConscript'))
+          targets += sorted(pathlib.Path('src/buildconf').glob('*.py'))
+          for path in targets:
+              try:
+                  compile(path.read_text(), str(path), 'exec')
+              except SyntaxError as exc:
+                  bad.append(f'{path}:{exc.lineno}: {exc.msg}')
+          print(f'checked {len(targets)} build scripts')
+          if bad:
+              print('\n'.join(bad))
+              sys.exit(1)
+          PY
+
+  # The real thing: build Apollo against distribution packages and run its own
+  # examples. Everything here is apt-installable, so no PETSc source build.
+  build-and-smoke:
+    name: Build and smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenmpi-dev openmpi-bin \
+            libpetsc-real-dev \
+            libhdf5-openmpi-dev \
+            libopenblas-dev \
+            libgsl-dev \
+            libboost-dev \
+            libeigen3-dev
+          python -m pip install --upgrade pip scons
+
+      - name: Build (optimized)
+        working-directory: src
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          # The runner's CPU is not the CPU any other machine has, and -march=native
+          # would make the cache useless as GitHub rotates hardware.
+          SCONSFLAGS: ''
+        run: scons build-opt arch=x86-64-v2
+
+      - name: Build (debug)
+        working-directory: src
+        env:
+          PETSC_DIR: /usr/lib/petsc
+        run: scons build-debug
+
+      - name: Solver smoke tests
+        run: test/run_examples.sh -b src/build-opt/apollo
+
+      - name: Solver smoke tests under MPI (2 ranks)
+        run: test/run_examples.sh -b src/build-opt/apollo -j 2
+        continue-on-error: true
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            src/config.log
+            src/.sconf_temp/**
+          if-no-files-found: ignore

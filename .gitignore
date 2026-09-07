@@ -14,3 +14,23 @@ src/build-opt/
 /.project
 /.cproject
 /apollo.odg
+
+# Python
+__pycache__/
+*.egg-info/
+
+# SCons
+src/.sconf_temp/
+src/config.log
+src/build-opt/
+src/build-debug/
+
+# Input-deck preprocessing intermediates (wxinpparse.py)
+*.inp_1
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store

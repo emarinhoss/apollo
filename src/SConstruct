@@ -46,10 +46,15 @@ vars.AddVariables(
         ('hdf5_base', 'Base directory for the HDF5 package. Needed because '
                       "PETSc's petscviewerhdf5.h includes <hdf5.h>; leave empty "
                       'to autodetect.', ''),
-        ('arch', "Value for -march=/-mtune= in the optimized build. 'native' tunes for "
-                 "the build machine and will SIGILL on older nodes of a heterogeneous "
-                 "cluster; set e.g. 'x86-64-v3' for a portable binary, or 'none' to omit "
-                 "the flags entirely.", 'native'),
+        ('arch', "Value for -march= in the optimized build. 'native' targets the "
+                 "build machine's own ISA and will SIGILL on an older node of a "
+                 "heterogeneous cluster; set an explicit baseline such as 'x86-64-v2' "
+                 "for a portable binary, or 'none' to omit -march/-mtune entirely.",
+                 'native'),
+        ('tune', "Value for -mtune= in the optimized build. Empty means 'native' when "
+                 "arch is native and 'generic' otherwise, because -mtune only accepts "
+                 "CPU names (skylake, znver3, generic) and rejects the ISA levels "
+                 "-march takes, such as x86-64-v2.", ''),
         BoolVariable('fastmath',
                      "Compile the optimized build with -ffast-math. Off by default: it "
                      "implies -ffinite-math-only, which lets the compiler assume no value "
@@ -219,8 +224,13 @@ optimizationFlags = [
 # stays the default for continuity, but is now selectable.
 arch = warpMConstructionEnv['arch']
 if arch and arch != 'none':
-    optimizationFlags += ['-march=%s' % arch, '-mtune=%s' % arch]
-    print("optimized build: tuning for -march=%s" % arch)
+    tune = warpMConstructionEnv['tune']
+    if not tune:
+        # -mtune takes CPU names only, so an ISA level like x86-64-v2 that is
+        # perfectly valid for -march is rejected for -mtune.
+        tune = 'native' if arch == 'native' else 'generic'
+    optimizationFlags += ['-march=%s' % arch, '-mtune=%s' % tune]
+    print("optimized build: -march=%s -mtune=%s" % (arch, tune))
 else:
     print("optimized build: no -march/-mtune (portable binary)")
 

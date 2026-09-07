@@ -53,33 +53,33 @@ frame = int(options.frame)
 stt = int(options.startFrame)
 
 def generateVTUfile(n):
-	spOrd = int(options.spatialOrder)
-	component = int(options.variable)
-	filename = options.inputFile
+        spOrd = int(options.spatialOrder)
+        component = int(options.variable)
+        filename = options.inputFile
 
-	dh = wxunsdgdata.WxVisData(filename,n)
-	dd = dh.readDG(spOrd)
-	var= dd.variables[:,component]
-	
-	# number of nodes per element
-	nodesP = (spOrd+1)*(spOrd+2)/2
-	# element Type
-	elem_type = tvtk.Triangle().cell_type
-	tris = zeros((dd.TotNumElements,3),'int')
-	sk = 0
-	
-	for K in range(dd.TotNumElements):
-		for pots in range(3):
-			tris[K,pots] = sk
-			sk += 1
-	
-	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
-	ug.set_cells(elem_type, tris)
-	ug.point_data.scalars = var
-	ug.point_data.scalars.name = 'Q_var'
-	outfile = filename + '_Comp_' + str(component) + '_' + str('%03d' % n)  + '.vtu'
-	save_xml(ug, outfile)
-	print("Frame " + str("%d" % n)+" COMPLETE.")
+        dh = wxunsdgdata.WxVisData(filename,n)
+        dd = dh.readDG(spOrd)
+        var= dd.variables[:,component]
+        
+        # number of nodes per element
+        nodesP = (spOrd+1)*(spOrd+2)/2
+        # element Type
+        elem_type = tvtk.Triangle().cell_type
+        tris = zeros((dd.TotNumElements,3),'int')
+        sk = 0
+        
+        for K in range(dd.TotNumElements):
+                for pots in range(3):
+                        tris[K,pots] = sk
+                        sk += 1
+        
+        ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
+        ug.set_cells(elem_type, tris)
+        ug.point_data.scalars = var
+        ug.point_data.scalars.name = 'Q_var'
+        outfile = filename + '_Comp_' + str(component) + '_' + str('%03d' % n)  + '.vtu'
+        save_xml(ug, outfile)
+        print("Frame " + str("%d" % n)+" COMPLETE.")
 
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)

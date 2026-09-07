@@ -54,53 +54,53 @@ stt = int(options.startFrame)
 gm = double(options.gas_gamma)
 
 def generateVTUfile(n):
-	spOrd = int(options.spatialOrder)
-	filename = options.inputFile
+        spOrd = int(options.spatialOrder)
+        filename = options.inputFile
 
-	dh = wxunsdgdata2.WxVisData(filename,n)
-	dd = dh.readDG(spOrd)
+        dh = wxunsdgdata2.WxVisData(filename,n)
+        dd = dh.readDG(spOrd)
 
-	rho = dd.variables[:,0]
-	rhou = dd.variables[:,1]
-	rhov = dd.variables[:,2]
-	rhow = dd.variables[:,3]
-	e = dd.variables[:,4]
+        rho = dd.variables[:,0]
+        rhou = dd.variables[:,1]
+        rhov = dd.variables[:,2]
+        rhow = dd.variables[:,3]
+        e = dd.variables[:,4]
 
-	u = rhou/rho
-	v = rhov/rho
-	w = rhow/rho
+        u = rhou/rho
+        v = rhov/rho
+        w = rhow/rho
 
-	p = (gm-1.)*(e - 0.5*rho*(u*u+v*v+w*w))
-	
-	# number of nodes per element
-	nodesP = (spOrd+1)*(spOrd+2)/2
-	# element Type
-	elem_type = tvtk.Triangle().cell_type
-	tris = zeros((dd.TotNumElements,3),'int')
-	sk = 0
-	
-	for K in range(dd.TotNumElements):
-		for pots in range(3):
-			tris[K,pots] = sk
-			sk += 1
+        p = (gm-1.)*(e - 0.5*rho*(u*u+v*v+w*w))
+        
+        # number of nodes per element
+        nodesP = (spOrd+1)*(spOrd+2)/2
+        # element Type
+        elem_type = tvtk.Triangle().cell_type
+        tris = zeros((dd.TotNumElements,3),'int')
+        sk = 0
+        
+        for K in range(dd.TotNumElements):
+                for pots in range(3):
+                        tris[K,pots] = sk
+                        sk += 1
 
-	ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
-	ug.set_cells(elem_type, tris)
-	
-	ug.point_data.scalars = rho
-	ug.point_data.scalars.name = 'rho'
-	ug.point_data.add_array(u)
-	ug.point_data.get_array(1).name = 'u'
-	ug.point_data.add_array(v)
-	ug.point_data.get_array(2).name = 'v'
-	ug.point_data.add_array(w)
-	ug.point_data.get_array(3).name = 'w'
-	ug.point_data.add_array(p)
-	ug.point_data.get_array(4).name = 'p'	
+        ug = tvtk.UnstructuredGrid(points=dd.gridPoints)
+        ug.set_cells(elem_type, tris)
+        
+        ug.point_data.scalars = rho
+        ug.point_data.scalars.name = 'rho'
+        ug.point_data.add_array(u)
+        ug.point_data.get_array(1).name = 'u'
+        ug.point_data.add_array(v)
+        ug.point_data.get_array(2).name = 'v'
+        ug.point_data.add_array(w)
+        ug.point_data.get_array(3).name = 'w'
+        ug.point_data.add_array(p)
+        ug.point_data.get_array(4).name = 'p'	
 
-	outfile = filename + '_Euler_' + str('%03d' % n)  + '.vtu'
-	save_xml(ug, outfile)
-	print("Frame " + str("%d" % n)+" COMPLETE.")
+        outfile = filename + '_Euler_' + str('%03d' % n)  + '.vtu'
+        save_xml(ug, outfile)
+        print("Frame " + str("%d" % n)+" COMPLETE.")
 
 inputs = range(stt,frame+1)
 num_cores = int(options.num_cores)

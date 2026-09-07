@@ -14,38 +14,38 @@ import platform
 #   4. the compiler's default search paths (a distro package such as
 #      libpetsc-real-dev, or a PETSc built with --prefix)
 if warpMConstructionEnv['petsc_base'] == '' and 'PETSC_DIR' in os.environ:
-	warpMConstructionEnv['petsc_base'] = os.environ['PETSC_DIR']
+        warpMConstructionEnv['petsc_base'] = os.environ['PETSC_DIR']
 
 petscBase = warpMConstructionEnv['petsc_base']
 petscIncludeDirs = []
 petscLibDirs = []
 
 if petscBase != '':
-	petscIncludeDirs.append(os.path.join(petscBase, 'include'))
-	petscLibDirs.append(os.path.join(petscBase, 'lib'))
+        petscIncludeDirs.append(os.path.join(petscBase, 'include'))
+        petscLibDirs.append(os.path.join(petscBase, 'lib'))
 
-	# A PETSc configured without --prefix keeps the generated petscconf.h and
-	# the built libraries under $PETSC_DIR/$PETSC_ARCH, not directly under
-	# $PETSC_DIR. Without this, <petsc.h> is found but petscconf.h is not and
-	# the build fails with a confusing missing-header error deep in PETSc.
-	petscArch = os.environ.get('PETSC_ARCH', '')
-	if petscArch and os.path.isdir(os.path.join(petscBase, petscArch)):
-		petscIncludeDirs.append(os.path.join(petscBase, petscArch, 'include'))
-		petscLibDirs.append(os.path.join(petscBase, petscArch, 'lib'))
-		print("PETSC_ARCH set as", petscArch)
+        # A PETSc configured without --prefix keeps the generated petscconf.h and
+        # the built libraries under $PETSC_DIR/$PETSC_ARCH, not directly under
+        # $PETSC_DIR. Without this, <petsc.h> is found but petscconf.h is not and
+        # the build fails with a confusing missing-header error deep in PETSc.
+        petscArch = os.environ.get('PETSC_ARCH', '')
+        if petscArch and os.path.isdir(os.path.join(petscBase, petscArch)):
+                petscIncludeDirs.append(os.path.join(petscBase, petscArch, 'include'))
+                petscLibDirs.append(os.path.join(petscBase, petscArch, 'lib'))
+                print("PETSC_ARCH set as", petscArch)
 
 # Explicit include/lib directories win over anything derived from petsc_base.
 # These two variables are advertised by SConstruct; before this they were
 # accepted and then ignored.
 if warpMConstructionEnv['petsc_includedir'] != '':
-	petscIncludeDirs = [warpMConstructionEnv['petsc_includedir']]
+        petscIncludeDirs = [warpMConstructionEnv['petsc_includedir']]
 if warpMConstructionEnv['petsc_libdir'] != '':
-	petscLibDirs = [warpMConstructionEnv['petsc_libdir']]
+        petscLibDirs = [warpMConstructionEnv['petsc_libdir']]
 
 for d in petscIncludeDirs:
-	warpMConstructionEnv.AppendUnique(CPPPATH=[d])
+        warpMConstructionEnv.AppendUnique(CPPPATH=[d])
 for d in petscLibDirs:
-	warpMConstructionEnv.AppendUnique(LIBPATH=[d])
+        warpMConstructionEnv.AppendUnique(LIBPATH=[d])
 
 
 #configure libraries using some autoconf like functionality of scons
