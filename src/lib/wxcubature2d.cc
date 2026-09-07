@@ -198,31 +198,39 @@ template <typename REAL>
 void
 WxCubature2d<REAL>::invertMatrix(Mat A, Mat *invA)
 {
-    Mat inpA, B;
-    IS is;
+    Mat fact, B;
     MatFactorInfo iluinfo;
     PetscInt ncols;
     const PetscInt    *cols;
     const PetscScalar *vals;
 
-    MatDuplicate(A,MAT_COPY_VALUES,&inpA);
-
-    // begin by creating a dense matrix B and fill it with the identity matrix
+    // begin by creating a dense matrix B and fill it with the identity matrix.
+    // Every MatGetRow must be matched by a MatRestoreRow before the matrix is
+    // touched again; the row is only wanted for its width.
     MatGetRow(A,0,&ncols,&cols,&vals);
-    MatCreateSeqDense(PETSC_COMM_SELF,ncols,ncols,PETSC_NULL,&B);
-    for (int k=0; k<ncols;k++)
+    PetscInt n = ncols;
+    MatRestoreRow(A,0,&ncols,&cols,&vals);
+
+    MatCreateSeqDense(PETSC_COMM_SELF,n,n,PETSC_NULL,&B);
+    for (PetscInt k=0; k<n; k++)
         MatSetValue(B,k,k,1.0,INSERT_VALUES);
     MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);
 
-    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&inpA);
-    MatLUFactorSymbolic(inpA,A,is,is,&iluinfo);
-    MatLUFactorNumeric(inpA,A,&iluinfo);
-    // MatLUFactor(inpA,is,is,&iluinfo);
-    // Calculate inverse
-    MatMatSolve(inpA,B,*invA);
+    // MatFactorInfo is a plain struct with no constructor: PETSc requires it to
+    // be initialised, or the factorisation runs against whatever fill, pivoting
+    // and shift parameters happened to be on the stack.
+    MatFactorInfoInitialize(&iluinfo);
 
-    MatDestroy(&inpA);
+    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&fact);
+    // NULL row/column orderings mean the natural ordering. The previous code
+    // passed an uninitialised `IS is` here, twice.
+    MatLUFactorSymbolic(fact,A,NULL,NULL,&iluinfo);
+    MatLUFactorNumeric(fact,A,&iluinfo);
+    // Calculate inverse
+    MatMatSolve(fact,B,*invA);
+
+    MatDestroy(&fact);
     MatDestroy(&B);
 }
 
@@ -241,10 +249,9 @@ WxCubature2d<REAL>::petscMatTOArray(Mat A, REAL *array)
     for(unsigned kk=0; kk<mrows; kk++)
     {
         MatGetRow(A,kk,&ncols,&cols,&vals);
-        for(int kx=0; kx<ncols; kx++){
-            REAL AA = vals[kx];
+        for(int kx=0; kx<ncols; kx++)
             array[sk++] = vals[kx];
-        }
+        MatRestoreRow(A,kk,&ncols,&cols,&vals);
     }
 }
 
@@ -259,9 +266,10 @@ WxCubature2d<REAL>::numEqnMatExpand(int N, Mat A, Mat *B)
     for(unsigned kx=0; kx<N; kx++)
     {
         MatGetRow(A,kx,&ncols,&cols,&vals);
-        for(unsigned mx=0; mx<ncols; mx++)
+        for(PetscInt mx=0; mx<ncols; mx++)
             for(unsigned nx=0; nx<_meqn; nx++)
                 MatSetValue(*B, kx*_meqn+nx, cols[mx]*_meqn+nx, vals[mx], INSERT_VALUES);
+        MatRestoreRow(A,kx,&ncols,&cols,&vals);
     }
 
     MatAssemblyBegin(*B, MAT_FINAL_ASSEMBLY);
@@ -427,8 +435,9 @@ WxCubature2d<REAL>::MatrixTranspose(Mat A, Mat *A_trans)
     for(unsigned kk=0; kk<rrows; kk++)
     {
         MatGetRow(A,kk,&ncols,&cols,&vals);
-        for(unsigned kx=0; kx<ncols; kx++)
+        for(PetscInt kx=0; kx<ncols; kx++)
             MatSetValue(*A_trans, kx, kk, vals[kx], INSERT_VALUES);
+        MatRestoreRow(A,kk,&ncols,&cols,&vals);
     }
 
     MatAssemblyBegin(*A_trans, MAT_FINAL_ASSEMBLY);

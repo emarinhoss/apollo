@@ -136,6 +136,7 @@ wxNodalDGgeometry2D<REAL>::petscMatTOArray(Mat A, REAL *array)
         MatGetRow(A,kk,&ncols,&cols,&vals);
         for(int kx=0; kx<ncols; kx++)
             array[sk++] = vals[kx];
+        MatRestoreRow(A,kk,&ncols,&cols,&vals);
     }
 }
 
@@ -161,31 +162,39 @@ template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::invertMatrix(Mat A, Mat *invA)
 {
-    Mat inpA, B;
-    IS is;
+    Mat fact, B;
     MatFactorInfo iluinfo;
     PetscInt ncols;
     const PetscInt    *cols;
     const PetscScalar *vals;
 
-    MatDuplicate(A,MAT_COPY_VALUES,&inpA);
-
-    // begin by creating a dense matrix B and fill it with the identity matrix
+    // begin by creating a dense matrix B and fill it with the identity matrix.
+    // Every MatGetRow must be matched by a MatRestoreRow before the matrix is
+    // touched again; the row is only wanted for its width.
     MatGetRow(A,0,&ncols,&cols,&vals);
-    MatCreateSeqDense(PETSC_COMM_SELF,ncols,ncols,PETSC_NULL,&B);
-    for (int k=0; k<ncols;k++)
+    PetscInt n = ncols;
+    MatRestoreRow(A,0,&ncols,&cols,&vals);
+
+    MatCreateSeqDense(PETSC_COMM_SELF,n,n,PETSC_NULL,&B);
+    for (PetscInt k=0; k<n; k++)
         MatSetValue(B,k,k,1.0,INSERT_VALUES);
     MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);
 
-    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&inpA);
-    MatLUFactorSymbolic(inpA,A,is,is,&iluinfo);
-    MatLUFactorNumeric(inpA,A,&iluinfo);
-//    MatLUFactor(invA,is,is,&iluinfo);
-    // Calculate inverse
-    MatMatSolve(inpA,B,*invA);
+    // MatFactorInfo is a plain struct with no constructor: PETSc requires it to
+    // be initialised, or the factorisation runs against whatever fill, pivoting
+    // and shift parameters happened to be on the stack.
+    MatFactorInfoInitialize(&iluinfo);
 
-    MatDestroy(&inpA);
+    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&fact);
+    // NULL row/column orderings mean the natural ordering. The previous code
+    // passed an uninitialised `IS is` here, twice.
+    MatLUFactorSymbolic(fact,A,NULL,NULL,&iluinfo);
+    MatLUFactorNumeric(fact,A,&iluinfo);
+    // Calculate inverse
+    MatMatSolve(fact,B,*invA);
+
+    MatDestroy(&fact);
     MatDestroy(&B);
 }
 

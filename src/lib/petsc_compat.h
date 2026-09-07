@@ -22,13 +22,26 @@
 
 /* DMPlexGetHybridBounds was removed in PETSc 3.18 */
 #if PETSC_VERSION_GE(3, 18, 0)
+/*
+ * Callers use the returned bound directly as a loop limit, so every output is
+ * written before anything that can fail: an early CHKERRQ return must not leave
+ * the caller looping to an indeterminate value. This is what -Wmaybe-uninitialized
+ * was reporting at five call sites.
+ *
+ * NOTE: fMax, eMax and vMax are returned as -1, meaning "not tracked". A loop
+ * written as `for (f = fStart; f < fMax; ++f)` against one of those will run zero
+ * times rather than over the mesh. Only the cMax form is supported here; ask for
+ * the others and you are on your own.
+ */
 static inline PetscErrorCode DMPlexGetHybridBounds(DM dm, PetscInt *cMax, PetscInt *fMax, PetscInt *eMax, PetscInt *vMax)
 {
-  PetscInt pStart, pEnd;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = DMPlexGetChart(dm, &pStart, &pEnd); CHKERRQ(ierr);
+  if (cMax) *cMax = 0;
+  if (fMax) *fMax = -1; /* Not tracking face hybrid bounds */
+  if (eMax) *eMax = -1; /* Not tracking edge hybrid bounds */
+  if (vMax) *vMax = -1; /* Not tracking vertex hybrid bounds */
 
   if (cMax) {
     /* Get the end of interior cells */
@@ -36,9 +49,6 @@ static inline PetscErrorCode DMPlexGetHybridBounds(DM dm, PetscInt *cMax, PetscI
     ierr = DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd); CHKERRQ(ierr);
     *cMax = cEnd;
   }
-  if (fMax) *fMax = -1; /* Not tracking face hybrid bounds */
-  if (eMax) *eMax = -1; /* Not tracking edge hybrid bounds */
-  if (vMax) *vMax = -1; /* Not tracking vertex hybrid bounds */
 
   PetscFunctionReturn(0);
 }
