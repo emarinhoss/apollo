@@ -58,8 +58,16 @@ vars.AddVariables(
                      "-fno-finite-math-only is added back so those guards keep working.",
                      'no'),
         BoolVariable('openmp',
-                     'Compile the optimized build with OpenMP. Only one loop is '
-                     'currently annotated (subsolvers/wxnodaldg2dmethod.cc).', 'yes'),
+                     'Compile the optimized build with OpenMP. OFF by default: the one '
+                     'parallelised loop (subsolvers/wxnodaldg2dmethod.cc) calls '
+                     'DMPlexGetConeSize and DMPlexPointLocalRead/Ref once per element, '
+                     'and PETSc is not thread-safe unless it was built '
+                     '--with-threadsafety, which the distribution packages are not '
+                     '(check for PETSC_HAVE_THREADSAFETY in petscconf.h). It also '
+                     'measured slower than serial on the bundled isentropicVortex '
+                     'example, because with PETSC_USE_LOG on every PETSc call updates '
+                     'shared logging counters. Set openmp=yes to re-enable.',
+                     'no'),
 )
 
 #uhg, PGI compiler is not even working for me right now, and I don't see how to work this into this_host_config.py

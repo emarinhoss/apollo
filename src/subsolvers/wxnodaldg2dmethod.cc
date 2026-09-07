@@ -299,7 +299,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
     // OpenMP parallelization of element loop
     // Each element computation is independent, making this embarrassingly parallel
-    #pragma omp parallel for reduction(max:maxSpeed) schedule(static)
+    #pragma omp parallel for reduction(max:maxSpeed) reduction(+:TotalAreaInt[:_meqn]) schedule(static)
     for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
         // Skip non-triangular cells (boundary line elements with 2 vertices)
@@ -324,6 +324,17 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
         REAL qgtemp[NfE*Ngauss*_meqn];
 
         REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn], AreaIntegrals[_meqn];
+
+        // These six buffers used to be the class members _qM, _qP, _qauxM,
+        // _numericalFLux, _src and _areaInts. Each is a single scratch array
+        // shared by the whole object, so once this loop became an OpenMP
+        // parallel region every thread was reading and writing the same
+        // _meqn doubles at the same time. The race corrupts the numerical
+        // flux, which shows up downstream as spurious negative pressure on a
+        // problem that is smooth when run single-threaded. They are per-element
+        // temporaries, so they belong on the stack next to the others.
+        REAL qM[_meqn], qP[_meqn], qauxM[_meqn], numericalFlux[_meqn];
+        REAL src[_meqn], areaInts[_meqn];
         REAL geoFacts[5], normals[3*NfE];
 
         PetscScalar *qVal, *rhs;
@@ -369,15 +380,15 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 //            REAL AA = Qvar[15];
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
-            _srcSet.sourceTerms(xc, Qvar, Qvaraux, _src);
-            _areaSet.areaTerms(xc, Qvar, Qvaraux, _areaInts);
+            _srcSet.sourceTerms(xc, Qvar, Qvaraux, src);
+            _areaSet.areaTerms(xc, Qvar, Qvaraux, areaInts);
 
             for(unsigned component=0; component<_meqn; component++)
             {
                   If_vol[point*_meqn+component] = Fflux[component];
                   Ig_vol[point*_meqn+component] = Gflux[component];
-                ISrc_vol[point*_meqn+component] = _src[component];
-               Iarea_vol[point*_meqn+component] = _areaInts[component];
+                ISrc_vol[point*_meqn+component] = src[component];
+               Iarea_vol[point*_meqn+component] = areaInts[component];
             }
         }
 
@@ -421,12 +432,12 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                     nx[1] = normals[3*edge+1];
 
                     for(unsigned cmp=0; cmp<_meqn; cmp++)
-                        _qM[cmp] = QM[(edge*Ngauss+gpoint)*_meqn+cmp];
+                        qM[cmp] = QM[(edge*Ngauss+gpoint)*_meqn+cmp];
 
-                    applyBc(abs(edgeNum), xc, nx, _qM, _qauxM, _AgregateAreaIntegral, _qP);
+                    applyBc(abs(edgeNum), xc, nx, qM, qauxM, _AgregateAreaIntegral, qP);
 
                     for(unsigned comp=0; comp<_meqn; comp++)
-                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = _qP[comp];
+                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = qP[comp];
                 }
             }
             else
@@ -454,8 +465,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             int curEdge = kk/Ngauss;
 
             for(unsigned comp=0; comp<_meqn; comp++){
-                _qM[comp] = QM[kk*_meqn+comp];
-                _qP[comp] = QP[kk*_meqn+comp];}
+                qM[comp] = QM[kk*_meqn+comp];
+                qP[comp] = QP[kk*_meqn+comp];}
 
             REAL lambda; // Fastest propagating wave speed
 
@@ -465,7 +476,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
             // Evaluate the numerical flux and get the speed of the
             // fastest propagating wave
-            _eqnSet.DGnumericalFlux(nx,_qM,_qP,_numericalFLux,&lambda);
+            _eqnSet.DGnumericalFlux(nx,qM,qP,numericalFlux,&lambda);
             lambda = sqrt(lambda*lambda);
 
             // find maximum propagation speed in the entire domain;
@@ -473,7 +484,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             maxSpeed = dmax(maxSpeed,lambda);
 
             for(unsigned comp=0; comp<_meqn; comp++)
-                numFlux[kk*_meqn+comp] = _numericalFLux[comp]*normals[3*curEdge+2];
+                numFlux[kk*_meqn+comp] = numericalFlux[comp]*normals[3*curEdge+2];
         }
 
         // Compute surface integral contribution to all nodes
@@ -513,11 +524,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
         // compute \int q\cdot dA, add contribution from all elements
 //        REAL elementArea = _geom->elementArea(kelem);
-        #pragma omp critical
-        {
-            for(unsigned ar=0; ar<_meqn; ar++)
-                TotalAreaInt[ar] += AreaIntegrals[ar];
-        }
+        for(unsigned ar=0; ar<_meqn; ar++)
+            TotalAreaInt[ar] += AreaIntegrals[ar];
     }
 
     VecRestoreArrayRead(local_in, &u);
