@@ -16,6 +16,7 @@ import ast
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tokenize
@@ -211,10 +212,19 @@ class TestModulesImport(unittest.TestCase):
     def test_imports(self):
         import importlib
         import importlib.util
+        import tempfile
 
         failures, skipped = [], []
         original = sys.path[:]
         sys.path.insert(0, SCRIPTS)
+        # Import a module and its top-level code runs. scripts/wxpaths.py used to
+        # write a file from module scope, so running this test dropped
+        # wxpaths.sh into whatever directory it was invoked from. Do it
+        # somewhere disposable so a script with a side effect cannot touch the
+        # working tree.
+        cwd = os.getcwd()
+        scratch = tempfile.mkdtemp(prefix='apollo-import-')
+        os.chdir(scratch)
         try:
             for path in sorted(python_files()):
                 if not path.startswith(SCRIPTS + os.sep):
@@ -239,12 +249,41 @@ class TestModulesImport(unittest.TestCase):
                     sys.argv = argv
                     sys.modules.pop(name, None)
         finally:
+            os.chdir(cwd)
             sys.path[:] = original
+            shutil.rmtree(scratch, ignore_errors=True)
 
         if skipped:
             print(f'\n  ({len(skipped)} module(s) skipped for optional deps)')
         self.assertEqual([], failures, '\n'.join(
             ['modules that fail on import:'] + failures))
+
+
+class TestNoGeneratedFilesInTree(unittest.TestCase):
+    """Nothing generated should be tracked.
+
+    scripts/wxpaths.py wrote wxpaths.sh from module scope, so importing it -
+    which the suite above does - dropped a generated file into the repository,
+    and it was committed. Both halves are fixed; this is the guard.
+    """
+
+    GENERATED = ('wxpaths.sh', 'apollo.inp')
+    GENERATED_SUFFIXES = ('.inp', '.pyc', '_temp1', '_temp2')
+    ALLOWED_INP_DIRS = ()   # .inp files are always generated from a .pin
+
+    def test_no_generated_files_tracked(self):
+        tracked = subprocess.run(['git', 'ls-files'], cwd=REPO,
+                                 capture_output=True, text=True)
+        if tracked.returncode != 0:
+            self.skipTest('not a git checkout')
+        offenders = []
+        for path in tracked.stdout.split():
+            base = os.path.basename(path)
+            if base in self.GENERATED or path.endswith(self.GENERATED_SUFFIXES):
+                offenders.append(path)
+        self.assertEqual([], offenders, '\n'.join(
+            ['generated files are tracked; add them to .gitignore and git rm '
+             '--cached them:'] + offenders))
 
 
 class TestNoUndefinedNames(unittest.TestCase):
