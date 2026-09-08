@@ -345,31 +345,134 @@ The items below are kept for the record, each annotated with what was done.
    comment recording that the initial column is deliberately uniform — the literature's
    formation problem — and how to switch a profile back on.
 
-### Phase 1 — put the drive at the antenna, not the plasma edge (weeks)
+### Phase 1 — put the drive at the antenna, not the plasma edge — **DONE, with a finding**
 
-The physically right structure is: plasma disc r < a; vacuum annulus a < r < b; the RMF applied
-by the coils; the flux conserver at b. Two ways to get there, in order of preference:
+Implemented, and it changed the plan. The drive is now a current; the vacuum annulus turned
+out not to be representable in this model, and the reason is quantitative and worth keeping.
 
-**1a. Mesh the annulus.** Extend the circle mesh to r = b (or to the coil radius with the
-conductor beyond it) and treat a < r < b as a very-low-density two-fluid region, which Apollo's
-existing density and pressure floors already support. Apply the RMF either as a current-sheet
-source at r_coil — `maxwellRMFSrc` (`Kind = maxwellRMFSrc`, active for r > r₀) is the seed of
-this and already exists — or as the outer boundary condition at b: B_n from the coil field plus
-a perfect-conductor condition on the tangential E (a slotted conserver is then modelled by
-letting the m = 1 transverse component through and holding B_z flux). The field at the plasma
-edge becomes an outcome, the plasma can load the antenna, and the antenna power is the E·J
-integral over the source. Cost: the flux-conserver formula becomes an actual boundary rather
-than an integral feedback; the CFL step is set by the finest cell, so keep the annulus coarse.
+**What was built.** `examples/unstructuredDG/multifluid/rmf_frc/antenna/`:
 
-**1b. Impedance condition at r = a (cheaper, less general).** Outside the plasma the transverse
-field is a 2-D potential field: B⊥ = ∇×(A_z ẑ), ∇²A_z = 0, so A_z = (applied uniform field) +
-Σ_m (c_m / r^m) e^{imθ} (plasma response, m = 1 dominant) + image terms from the conductor at b.
-Matching A_z and ∂A_z/∂r at r = a with no surface current gives, per Fourier mode, a Robin
-condition relating the normal and tangential components of B⊥ at the edge to the applied
-field. This keeps the mesh as it is and correctly lets the plasma's m = 1 response reduce the
-edge field, but must be re-derived for each harmonic and for the slotted/unslotted conserver,
-and it does not represent the antenna current. Use it only if meshing the annulus is
-impractical.
+- **The antenna** — `maxwellRMFAntenna` (`src/hyperapps/maxwell/aprmfantennasrc.h`), a rotating
+  m = 1 axial current sheet, which is what the saddle coils of an RMF machine are. It sources
+  `dE_z/dt` with `-J_z/eps0`, the same normalisation the plasma's own current uses
+  (`WxCurrentSrc`), so the field it produces is a solution of Maxwell's equations rather than a
+  prescription. The deck states the field it wants and the class solves for the current,
+  reporting what it arrived at: for the shipped deck, 1190 A peak per coil.
+- **The flux conserver as an actual boundary** — `twoFluidConductingWallBC`, which already
+  existed. It zeroes *both* tangential components of E, so by Faraday's law the axial flux it
+  encloses is conserved exactly. That replaces the area-integral feedback of §3.5 with a local
+  condition that needs no assumption about how the expelled flux distributes itself.
+- **A mesh generator** — `scripts/mkdiscmesh.py`. The repository shipped `.msh` files with no
+  `.geo`, so the domain could not be changed at all. It writes graded polar-triangulated discs
+  in the gmsh 2.2 ASCII subset the reader accepts, with a node ring placed exactly on a chosen
+  radius. Extending the domain from r = 0.03 to r = 0.05 costs 1.54× the cells (11 989 triangles
+  against `optimizedCircle2.msh`'s 7 792) and *nothing* in time step: dt is set by the smallest
+  cell, which is still in the plasma, and is in fact larger on the new mesh — 3.57e-11 s against
+  the shipped mesh's 2.74e-11 s, both measured.
+- **Verification with an exact answer** — `antenna/vacuum.pin` and
+  `test/test_rmf_antenna_field.py`. With the plasma removed, a winding inside a perfectly
+  conducting cylinder produces a uniform transverse field `B_rmf (1 - exp(-t/rise))` rotating at
+  ω, in closed form. The test checks all three of magnitude, uniformity and rotation rate
+  against it, at 5%, 6% and 10%; those tolerances are set by the O((ωb/c)² ) ≈ 1% quasi-static
+  correction and by the coarse mesh, not chosen to fit. In a first, longer-running variant of
+  this case the late frames came out at 0.3–2% on magnitude, 0.7–3% on uniformity and 2% on
+  rotation rate. This is the Phase 2 test applied to Phase 1's geometry, and it is what makes
+  the antenna trustworthy in the deck where nothing is exact.
+- **The antenna power** — `scripts/rmf_antenna_power.py`, which evaluates
+  P = −∫E·J over the winding from a run's output and the deck's own antenna parameters. This
+  is the second of the two numbers the literature is built on, and it exists only because the
+  drive is a current: a prescribed edge field has no power. It is post-processing rather than an
+  in-solver diagnostic because Apollo's area integrals are not observable — `WxNodalDG2dMethod`
+  reduces them into `_AgregateAreaIntegral` and passes that to boundary conditions only, never
+  logging them and never writing them out. The script cross-checks itself against the solver:
+  it re-derives the antenna current amplitude and gets 16534.8 A/m, the figure the solver
+  prints at setup. It reports a cycle average only when the frames span a whole RMF period, and
+  says so otherwise — most of the instantaneous power is reactive.
+- **Unit tests** — `test/cxx/test_rmf_antenna.cc`. The strongest of them inverts the class:
+  sample `J_z` from `src()`, extract its m = 1 Fourier component shell by shell, superpose the
+  shell fields analytically, and check the result equals the requested `B_rmf`. It agrees to
+  2.6e-11, along a path that shares no arithmetic with `setup()` or `src()`.
+
+**The finding: the vacuum annulus cannot be meshed.** The plan this section replaces proposed
+the physically right structure — plasma disc r < a, vacuum annulus a < r < b, coils, conserver at
+b — with the annulus carried as a very-low-density two-fluid region, on the grounds that Apollo's
+density and pressure floors already support one. They do not support one *this* tenuous, and no
+choice of edge width or annulus density escapes the problem.
+
+Apollo solves the full two-fluid system with explicit charge separation, so the Debye length has
+to be resolved. At the column's density,
+
+    λ_D = √(ε₀ k T_e / (n e²)) = 4.1e-4 m
+
+already only about half a cell — and that is with the deck's **reduced speed of light**, which
+rescales ε₀ upward by 10⁴ and so inflates λ_D by a factor of 100 over its physical value of
+4.1e-6 m. Worse, λ_D ∝ 1/√n, so it grows in exactly the region that has to be tenuous.
+Transparency to the antenna needs the collisionless skin depth c/ω_pe = 5.3e-4/√f to exceed the
+gap between column and winding; that requires f ≲ 1e-4, at which λ_D = 41 mm against the 1.7 mm
+cells the annulus had in those trials — under-resolved by a factor of 24. Runs at f = 1e-4 and f = 1e-5 diverge at the column edge
+after a few tens to a few hundred steps, with or without the antenna running, and a run that
+survived would not be resolving the charge separation anyway. The two requirements pull the same
+knob in opposite directions: the largest contrast that keeps λ_D under a cell is about 20×, four
+orders of magnitude short of what transparency needs.
+
+Note that this is *not* an artefact that a finer mesh fixes — refining the mesh tightens the
+constraint, since λ_D has to be resolved by the cell.
+
+**What was built instead.** The plasma fills the domain out to the conducting wall and the
+antenna is embedded in it. That keeps everything Phase 1 was for — the drive is a current, the
+field everywhere is an outcome, the plasma screens it, the antenna is loaded, and the absorbed
+power is the ∫E·J over the winding — and gives up only the vacuum gap. Whether the field reaches
+r < 0.03 is now a result of the run rather than a boundary condition, which is the point. It is
+also not an unreasonable machine: RMF thrusters run with plasma filling the tube.
+
+**What a short run shows.** The transverse field peaks at the winding and falls two decades
+within a few millimetres on both sides — the non-penetrated skin state, which is what to expect
+at t ≪ one RMF period. The peak field at the winding is about 11× below the free-space drive the
+same current would produce, which is the plasma loading the antenna: precisely the effect the
+edge-driven boundary condition forbids by construction. Whether it penetrates over tens of
+periods is Phase 3.
+
+Two resolution caveats before anyone quotes a number from it. The collisionless skin depth,
+c/ω_pe = 0.53 mm, is *below* the 0.9–1.5 mm cells, so the screening layer is only marginally
+represented; and the resistive skin depth δ = 1.26 mm — the length RMF penetration theory is
+written in terms of, through λ = r_s/δ — is resolved at about 1.4 cells. Both want refining
+before a threshold is quoted.
+
+**What would restore the vacuum gap**, in increasing order of work: the true speed of light (a
+hundredfold smaller time step, and λ_D back to 4 µm — still 200× below the cell, so this alone
+is not enough either); a working slope limiter; or a quasi-neutral or Hall formulation that does
+not carry charge separation at all. The third is the real answer and is the same recommendation
+the NIMROD work implies ("the Hall term is a zeroth order effect").
+
+**Bugs found and fixed on the way.** None of these are Phase 1 features; all were blocking it.
+
+1. **Every RMF boundary condition dereferenced a null pointer.** `WxTuAliabadiLimiter::applyBc`
+   passes no area integrals, and all five of `twoFluidSimplifiedRMFBC`, `twoFluidRMFBC`,
+   `twoFluidRMFHarmonicsBC`, `twoFluidRMFAntennaBC` and `twoFluidOMFBC` read `AreaInts[15]`
+   unguarded. Enabling the limiter on any RMF deck segfaulted on the first step.
+2. **A heap buffer overflow in the DG geometry, present in every run.**
+   `wxNodalDGgeometry2D` allocated `_ETETF` with `_Ktotal` rows while indexing it by local cell
+   id up to `_kLocalInt - 1`. `_Ktotal` counts only the cells with three vertices *and* is an
+   `MPI_Allreduce` **sum across ranks**, so on more than one rank it is the global element count
+   rather than a local size at all. On the shipped `rmf_frc` mesh the stratum holds 7984 cells
+   and `_Ktotal` is 7792: the last 192 rows were past the end of the pointer array.
+3. **Degenerate cells in the height-0 stratum.** 192 of those 7984 "cells" are not triangles.
+   The DG scheme tolerates them; the limiter asked them for their normals and stopped with
+   "Edge length of 0 found in element 7792". `wxNodalDGgeometry2D::isTriangle()` now reports
+   which cells are real.
+4. **`maxwellRMFSrc` leaked stale source values across the whole plasma interior.**
+   `WxHyperbolicSrc::compSource` keeps `_outValues` as a member, never clears it, and does
+   `sfull[idx] += _outValues[i]`. `ApRMFSrc::src` wrote its three outputs only inside
+   `if (r > _r0)`, so every point inside r₀ — the entire column of the `heavyIons` deck, whose
+   r₀ = 0.025 sits inside its plasma radius of 0.030 — had the previous quadrature point's values
+   added to E_z, B_x and B_y. Fixed; the class is also now documented as *not* an antenna (it has
+   no current and cannot be loaded) and superseded by `maxwellRMFAntenna`.
+
+**Still broken: the slope limiter.** With those three fixes `tuAliabadiLimiter` runs instead of
+crashing, but still produces NaN energy after a few tens of steps — on the shipped `rmf_frc` deck
+as much as on the new one. The remaining fault is in its own numerics and was not chased down.
+This matters beyond this example: it is the only limiter in the tree, so no Apollo case can
+currently carry a steep front.
 
 ### Phase 2 — characteristic-consistent boundary injection (with Phase 1)
 
@@ -414,11 +517,21 @@ tolerance is discretisation error. Add it to `test/`.
 
 ### What can be compared today
 
-Without Phase 1 the example demonstrates that a two-fluid model with these parameters reverses
-the field when a uniform rotating field is imposed at its edge; it cannot say at what antenna
-current or power that happens, nor where the penetration threshold is, because the quantity the
-threshold is defined in terms of is pinned by the boundary condition. Those are the two numbers
-the literature is built on.
+With the antenna deck, the field the plasma sees is an outcome and the antenna current is an
+input, so the two numbers the RMF literature is built on — the penetration threshold in B_ω and
+the absorbed antenna power — are now *measurable* from a run rather than pinned by a boundary
+condition. That is the door Phase 1 opens; walking through it is Phase 3.
+
+Two caveats on any comparison made through that door. There is no vacuum gap between plasma and
+winding (see Phase 1), so the antenna is more heavily loaded than a real one and the threshold
+will not be the experiment's number. And the geometry is r-θ, so nothing about finite antenna
+length, end-shorting or thrust follows.
+
+The original edge-driven deck, `rmf_frc/frc2d.pin`, is unchanged and remains what it was: a
+demonstration that a two-fluid model with these parameters reverses the field when a uniform
+rotating field is imposed at its edge. Both decks are worth keeping — they differ in exactly one
+thing, and the difference is the physics.
+
 
 ---
 

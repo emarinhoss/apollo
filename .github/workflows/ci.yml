@@ -108,18 +108,23 @@ jobs:
 
       # These need the built objects, so they belong here rather than in the
       # toolchain-free job above.
-      - name: Unit tests (friction sources, RMF boundary condition)
+      - name: Unit tests (friction sources, RMF boundary and antenna)
         env:
           PETSC_DIR: /usr/lib/petsc
         run: make -C test/cxx
 
       # The verification tests skip themselves without numpy or a binary, which
       # is why running them in the python-only job above was silently a no-op.
-      - name: Verification tests (isentropic vortex vs the analytic solution)
+      # Each runs the solver against a case with an exact answer: the isentropic
+      # vortex for the Euler operator, and the RMF antenna in vacuum for the
+      # Maxwell operator plus the antenna source.
+      - name: Verification tests (exact solutions)
         run: |
           python -m pip install numpy
           APOLLO_BIN=src/build-opt/apollo \
             python -m unittest discover -s test -p 'test_vortex*' -v
+          APOLLO_BIN=src/build-opt/apollo \
+            python -m unittest discover -s test -p 'test_rmf_antenna_field*' -v
 
       - name: Solver smoke tests
         run: test/run_examples.sh -b src/build-opt/apollo

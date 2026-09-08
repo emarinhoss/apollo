@@ -26,11 +26,13 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     // Count only triangular cells (cells with 3 vertices)
     // This filters out any 1D line elements that may have been imported
     PetscInt triangleCount = 0;
+    _isTriangle.assign(eEndInterior - eStart, 0);
     for (PetscInt c = eStart; c < eEndInterior; c++) {
         PetscInt coneSize;
         DMPlexGetConeSize(_dm, c, &coneSize);
         if (coneSize == 3) {  // Triangle has 3 vertices
             triangleCount++;
+            _isTriangle[c - eStart] = 1;
         }
     }
 
@@ -96,7 +98,18 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
 
     /* find element to element connections */
     _EtoV   = alloc_2d_c<int>(_kLocalInt,3);
-    _ETETF  = alloc_2d_c<int>(_Ktotal,2*_NfE);
+    // _kLocalInt, not _Ktotal. _ETETF is indexed by LOCAL cell id - by
+    // _ETETF[cells[0]] and _ETETF[elem1[kk]] in FacePair2d below, and by
+    // ElementTOElementANDFace(K) from the schemes - and those ids run over the
+    // whole height-0 stratum, the same range every other array here is sized
+    // for. _Ktotal is neither: it counts only the cells with three vertices,
+    // and it is an MPI_Allreduce SUM, so on more than one rank it is the global
+    // element count rather than a local size at all. On the shipped rmf_frc
+    // mesh the stratum holds 7984 cells and _Ktotal is 7792 (both measured
+    // under gdb), so the last 192 rows were past the end of the pointer array
+    // - a heap overflow on every run, which surfaced as a segfault only once
+    // the slope limiter read far enough past it to leave the mapped page.
+    _ETETF  = alloc_2d_c<int>(_kLocalInt,2*_NfE);
     FacePair2d(_dm);
     debStrm << "** done -- Creating face-to-face connections. **" << std::endl;
 
@@ -154,7 +167,7 @@ wxNodalDGgeometry2D<REAL>::~wxNodalDGgeometry2D()
     free_2d_c(_xcoord, _kLocalInt, _NpE);
     free_2d_c(_ycoord, _kLocalInt, _NpE);
     free_2d_c(_EtoV, _kLocalInt, 3);
-    free_2d_c(_ETETF, _Ktotal, 2*_NfE);
+    free_2d_c(_ETETF, _kLocalInt, 2*_NfE);
     MatDestroy(&_IVand);
 }
 
@@ -378,7 +391,9 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     }
 
     // Make all values -1. Only the faces not at physical boundaries are changed.
-    for(unsigned k1=0; k1<_Ktotal; k1++)
+    // Over _kLocalInt, matching the allocation: the tail rows were previously
+    // both unallocated and uninitialised.
+    for(unsigned k1=0; k1<_kLocalInt; k1++)
         for(unsigned f1=0; f1<2*_NfE; f1++)
         {
             _ETETF[k1][f1] = -1;

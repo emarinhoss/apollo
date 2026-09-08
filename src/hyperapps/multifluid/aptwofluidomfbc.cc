@@ -53,7 +53,18 @@ APTwoFluidOMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
     REAL psi= q[17];
 
     // Area integral \int B_z \cdot dA
-    REAL intBzda = AreaInts[15];
+    // The slope limiter (tuAliabadiLimiter) calls boundary conditions to build
+    // ghost states, and passes no area integrals - WxTuAliabadiLimiter::applyBc
+    // hands on the NULL it was given. Every RMF boundary condition in this
+    // directory read AreaInts[15] unguarded, so enabling the limiter on any
+    // deck that uses one segfaulted on the first step. That is why `Limiter`
+    // is commented out in the shipped rmf_frc deck.
+    //
+    // Falling back to the unperturbed flux pi a^2 B_axial is the right answer
+    // here: the limiter only needs a ghost state to measure a slope against,
+    // and the flux-conserver correction is a global quantity that does not
+    // change which cells need limiting.
+    REAL intBzda = AreaInts ? AreaInts[15] : 0.0;
     if(intBzda==0.0)
         intBzda = _pi*_a*_a*_baxial;
 

@@ -121,6 +121,10 @@ WxCreator< WxpointCurrentSrc<double>, WxHyperbolicSrc<double> > __pcsrc_d("point
 //WxCreator< ApRMFSrc<float>, WxHyperbolicSrc<float> > __aprmfsrc_f("maxwellRMFSrc");
 WxCreator< ApRMFSrc<double>, WxHyperbolicSrc<double> > __aprmfsrc_d("maxwellRMFSrc");
 
+#include "maxwell/aprmfantennasrc.h"
+//WxCreator< ApRMFAntennaSrc<float>, WxHyperbolicSrc<float> > __aprmfant_f("maxwellRMFAntenna");
+WxCreator< ApRMFAntennaSrc<double>, WxHyperbolicSrc<double> > __aprmfant_d("maxwellRMFAntenna");
+
 /**
  * Multifluid sources, initializations, boundary conditions, and more.
  */

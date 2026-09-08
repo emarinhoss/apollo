@@ -43,6 +43,13 @@ if [[ ! -x "$APOLLO" ]]; then
   exit 2
 fi
 
+# Absolute, always. Each case runs in its own scratch directory (the meshes a
+# deck names are looked up relative to the working directory), so a relative
+# path from -b or APOLLO_BIN would be resolved against that instead of against
+# the caller's directory - the check above passes, and then every case fails
+# with "No such file or directory". The CI workflow passes exactly such a path.
+APOLLO="$(cd "$(dirname "$APOLLO")" && pwd)/$(basename "$APOLLO")"
+
 if [[ $# -gt 0 ]]; then
   wanted=("$@")
   selected=()

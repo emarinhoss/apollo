@@ -95,7 +95,41 @@ not.)
 
 ---
 
-## 2. `Numerical_Flux = Wave` aborts
+## 2. The only slope limiter produces NaN energy
+
+`tuAliabadiLimiter` (`src/hyperapps/multifluid/aptualiabadilimiter.cc`) is the
+only slope limiter in the tree, and it does not work. It is commented out in the
+one deck that references it (`examples/unstructuredDG/multifluid/rmf_frc/frc2d.pin`,
+`#Limiter = [twoFluidLimiter]`), which is presumably why this has gone unnoticed.
+
+Three defects that stopped it before it could take a step have been fixed:
+
+- it calls boundary conditions with a null `AreaInts`, and every RMF boundary
+  condition dereferenced it;
+- `wxNodalDGgeometry2D` sized `_ETETF` by `_Ktotal` while indexing it by local
+  cell id — a heap overflow present in every run, not only limited ones;
+- 192 of the 7984 cells in the height-0 stratum of the shipped `rmf_frc` mesh
+  are not triangles, and the limiter asked them for their normals.
+
+What remains is in the limiter's own numerics: it now runs for a few tens of
+steps and then stops with `*** NaN energy in Euler limiter ***`, on the shipped
+`rmf_frc` deck as much as on the antenna deck beside it.
+
+```repro
+cd $(mktemp -d) && cp $REPO/examples/unstructuredDG/multifluid/rmf_frc/{*.pin,*.msh} .
+sed -i 's/^TEND = 2.e-6.*/TEND = 4.e-9/;s/^     #Limiter/     Limiter/' frc2d.pin
+PYTHONPATH=$REPO/scripts python3 $REPO/scripts/wxinpparse.py -i frc2d.pin
+$REPO/src/build-opt/apollo -i frc2d.inp | tail -3
+```
+
+This matters well beyond that example. Without a limiter no Apollo case can
+carry a steep front, which is the direct reason the RMF antenna deck has no
+vacuum region around its plasma column — see
+`docs/rmf-frc-model-assessment.md`, Phase 1.
+
+---
+
+## 3. `Numerical_Flux = Wave` aborts
 
 `WxEulerEqn::applyWavePropagationFluxes` (`src/hyperapps/euler/wxeulereqn.cc`)
 forms the jump as `df[m] = qM[m] - qP[m]` and then calls
@@ -111,7 +145,7 @@ already written to cover it.
 
 ---
 
-## 3. Roughly two thirds of `src/lib` is not built
+## 4. Roughly two thirds of `src/lib` is not built
 
 A transitive include closure from the 89 sources the SConscripts actually
 compile reaches 222 files. **129 of the 188 files in `src/lib` are in none of
@@ -120,7 +154,7 @@ them.** Among the unreachable:
 | Group | Files | Note |
 | --- | --- | --- |
 | NDG++ value types | `Vec_Type.h`, `Mat_COL.h`, `VecObj_Type.h`, `MatObj_Type.h`, `ArrayGen.h`, `ArrayMacros.h`, `Region1D/2D.h`, `MappedRegion1D/2D.h`, `Index.h`, `Registry_Type.h`, … | Cannot link even if included: `umERROR`, `umWARNING`, `gVecData` are declared and never defined |
-| HDF5 I/O | `wxhdf5io.cc/.h`, `wxhdf5iotmpl.*`, `wxhdf5traits.*`, `wxiobase.cc` | Why there is no checkpointing (§4) |
+| HDF5 I/O | `wxhdf5io.cc/.h`, `wxhdf5iotmpl.*`, `wxhdf5traits.*`, `wxiobase.cc` | Why there is no checkpointing (§5) |
 | FEM geometry | `wxfemgeometry.*`, `wxfemquadrature.*`, `wxfemshapefuncs.h`, `wx3dfemgeom.*` | |
 | Box/grid machinery | `wxbox*.cc/h`, `wxgridbox.*`, `wxgridrange.*`, `wxsplitbox.*` | |
 | Dependency graph | `wmdependencygraph.*`, `wmnametree.*`, `wmindexer.*` | |
@@ -170,17 +204,17 @@ PY
 
 ---
 
-## 4. There is no checkpoint/restart
+## 5. There is no checkpoint/restart
 
 `--restart` now fails with a message rather than being silently ignored, but the
 feature itself does not exist: the load path in `apolloMain()` is commented out,
-and the HDF5 I/O layer that would back it is in the unreachable set above (§3).
+and the HDF5 I/O layer that would back it is in the unreachable set above (§4).
 For a code that runs multi-day fusion simulations this is the largest missing
 capability.
 
 ---
 
-## 5. Error paths bypass MPI
+## 6. Error paths bypass MPI
 
 67 `exit()`/`abort()` calls remain in `src/`, against 4 `MPI_Abort`. Calling
 `exit()` from one rank leaves its peers blocked in whatever collective they were
@@ -193,7 +227,7 @@ throw a `WxExcept` and let it reach that handler.
 
 ---
 
-## 6. PETSc return codes are discarded
+## 7. PETSc return codes are discarded
 
 555 PETSc calls, 63 `CHKERRQ`. A failing `DMPlexCreateFromFile`, `VecGetArray`
 or `MatAssemblyEnd` is not noticed, and execution continues with an object that
@@ -207,7 +241,7 @@ codebase, so it wants to be its own change.
 
 ---
 
-## 7. Deprecated PETSc APIs
+## 8. Deprecated PETSc APIs
 
 `src/subsolvers/wxpetsctimestepping.h` calls `TSSetDuration`,
 `TSSetInitialTimeStep` and `TSGetTimeStepNumber`, all deprecated since PETSc 3.8
@@ -217,7 +251,7 @@ codebase, so it wants to be its own change.
 
 ---
 
-## 8. Build warnings
+## 9. Build warnings
 
 A clean `scons build-opt` emits 786 warnings (down from 821 at the start of the
 review; the uninitialized-variable reports specifically went from 35 to 5).
@@ -226,10 +260,10 @@ review; the uninitialized-variable reports specifically went from 35 to 5).
 | --- | --- | --- |
 | `-Wsign-compare` | 185 | `unsigned` loop counters against `int` bounds; mostly benign, individually cheap to fix |
 | `-Wmisleading-indentation` | 175 | Worth reading each one: indentation that lies about control flow is how a guard silently stops guarding |
-| `-Wdeprecated-declarations` | 151 | §7, plus `std::auto_ptr` in the vendored muParser |
+| `-Wdeprecated-declarations` | 151 | §8, plus `std::auto_ptr` in the vendored muParser |
 | `-Wunused-variable` | 93 | |
 | `-Wreorder` | 72 | Member initialiser lists that do not match declaration order — currently harmless, a real bug the moment one member's initialiser reads another |
-| `-Woverloaded-virtual` | 47 | A derived `init()` hiding the base's `init(PetscReal, Vec)`. §9 |
+| `-Woverloaded-virtual` | 47 | A derived `init()` hiding the base's `init(PetscReal, Vec)`. §10 |
 | `-Wmaybe-uninitialized` | 5 | |
 | `-Wformat-security` | 4 | `sprintf(dst, variable)` in the CR module; a `%` in the data is a crash |
 
@@ -237,7 +271,7 @@ review; the uninitialized-variable reports specifically went from 35 to 5).
 
 ---
 
-## 9. `init()` signature mismatches hide the base virtual
+## 10. `init()` signature mismatches hide the base virtual
 
 `WxObject::init(PetscReal, Vec)` is virtual; `ApFVM2dScheme::init()` and
 `ApDomainDecompCheck::init()` declare a no-argument `init()`, which hides rather
@@ -248,7 +282,7 @@ trap that `override` exists to catch, and the codebase uses it nowhere.
 
 ---
 
-## 10. Duplicated and uncertain post-processing scripts
+## 11. Duplicated and uncertain post-processing scripts
 
 Several files in `scripts/` are near-duplicates with no indication of which is
 canonical: `wxdata.py` / `wxdata_3949.py`, `wxunsdgdata.py` / `wxunsdgdata2.py`,

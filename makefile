@@ -29,7 +29,7 @@ help:
 	@echo ""
 	@echo "  make test             run every test (python + unit + solver examples)"
 	@echo "  make test-python      python tooling tests only (no compiler needed)"
-	@echo "  make test-unit        C++ unit tests (source terms, boundary conditions)"
+	@echo "  make test-unit        C++ unit tests (source terms, boundary conditions, antenna)"
 	@echo "  make test-examples    run the solver against its bundled examples"
 	@echo ""
 	@echo "  make clean            remove build products"

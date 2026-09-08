@@ -74,6 +74,26 @@ class wxNodalDGgeometry2D
         return _ycoord[K][N];
     }
 
+/**
+ * Is local cell K an actual triangle?
+ *
+ * The height-0 stratum of the DMPlex this class is built from is not all
+ * triangles: on the shipped rmf_frc mesh it holds 7984 cells of which 7792
+ * have three vertices and the remaining 192 are degenerate. (192 is also
+ * exactly the number of boundary line elements in that .msh, and 211 against
+ * 11989 triangles in the antenna deck's - the correspondence holds for every
+ * mesh checked, though the path by which those facets end up in the cell
+ * stratum has not been traced through the reader.) Anything that walks cells
+ * and asks for their
+ * geometry has to skip those, or it reads zero-length edges. The nodal DG
+ * scheme tolerates them because its per-cell work is harmless on a degenerate
+ * cell; the slope limiter does not, and used to stop with
+ * "Edge length of 0 found in element 7792".
+ */
+    bool isTriangle(unsigned K) const {
+        return K < _isTriangle.size() && _isTriangle[K] != 0;
+    }
+
 /** Return Face to Face connnectivity */
     void ElementTOElementANDFace(unsigned K, int *ftf){
         for(unsigned ff=0; ff<6; ff++)
@@ -166,6 +186,7 @@ class wxNodalDGgeometry2D
                   // elmement K2's face number F2
     int _Ktotal; // total number of element in the entire domain
     int _Klocal, _kLocalInt; // number of elements in this processor
+    std::vector<char> _isTriangle; // per local cell, see isTriangle()
     int _Vlocal; // number of nodes in this processor
     REAL **_xcoord; // node x-coordinates
     REAL **_ycoord; // node y-coordinates

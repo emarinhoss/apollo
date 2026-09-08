@@ -43,6 +43,7 @@ CORE_OBJS := $(BUILD)/lib/wxcryptset.o $(BUILD)/lib/wxcryptsetlexer.o \
 # Per-test extras. Kept minimal on purpose: a link error should point at the
 # code under test rather than drag in the whole solver.
 test_friction_sources_OBJS := $(BUILD)/hyper/wxhyperbolicsrc.o
+test_rmf_antenna_OBJS      := $(BUILD)/hyper/wxhyperbolicsrc.o
 
 # The boundary-condition classes define their methods in .cc files with explicit
 # template instantiation, so the object is needed even though the class is
@@ -52,7 +53,7 @@ test_rmf_boundary_OBJS := $(BUILD)/solvers/wxgridbc.o \
                           $(BUILD)/subsolvers/apsubsolver.o \
                           $(BUILD)/hyperapps/multifluid/aptwofluidsimplifiedrmfbc.o
 
-TESTS := test_friction_sources test_rmf_boundary
+TESTS := test_friction_sources test_rmf_boundary test_rmf_antenna
 BINS  := $(addprefix $(CURDIR)/,$(TESTS))
 
 .PHONY: all run clean check-build

@@ -544,14 +544,19 @@ is canonical.
 [docs/known-issues.md](docs/known-issues.md) records defects that are confirmed
 but not fixed, with the evidence and a way to reproduce each. Read it before
 trusting a result from the multifluid module, before using
-`Numerical_Flux = Wave`, or before assuming a run can be restarted.
+`Numerical_Flux = Wave`, before enabling a slope limiter, or before assuming a
+run can be restarted.
 
 [docs/rmf-frc-model-assessment.md](docs/rmf-frc-model-assessment.md) assesses the
 `multifluid/rmf_frc` example against the RMF current-drive literature: what is
 right (the model class, the regime, the formation scenario, the flux conserver),
-what is not (the RMF is imposed at the plasma edge rather than at the antenna, so
-the plasma cannot screen it; the friction sources do not conserve energy), and a
-phased plan with a verification for each step.
+what is not, and a phased plan with a verification for each step. Two phases of
+that plan are done — the friction energetics, and moving the RMF drive from the
+plasma edge to an antenna current so that the plasma can screen and load it
+(`examples/unstructuredDG/multifluid/rmf_frc/antenna/`, verified against a closed
+form by `test/test_rmf_antenna_field.py`). The assessment also records why that
+deck has no vacuum region around its plasma column, which is a limit of the
+model rather than a choice.
 
 ## Documentation
 

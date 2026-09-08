@@ -114,6 +114,11 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
 
     for(int eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        // Not every cell in the stratum is a triangle; see
+        // wxNodalDGgeometry2D::isTriangle. Asking a degenerate one for its
+        // normals gives a zero-length edge and stops the run.
+        if (!geom->isTriangle(eNum)) continue;
+
         // Cell centers
         REAL xc[4]={0,0,0,0}, yc[4]={0,0,0,0};
         // weights for face gradients
@@ -319,6 +324,7 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
 //        bool update = false;
+        if (!geom->isTriangle(eNum)) continue;
 
         // get neighbors ids
         geom->ElementTOElementANDFace(eNum,connect);
