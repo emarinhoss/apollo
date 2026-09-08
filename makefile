@@ -18,7 +18,7 @@ SCONSFLAGS  ?=
 # Passed straight through to SCons, e.g. `make opt ARGS="arch=x86-64-v2 openmp=yes"`
 ARGS ?=
 
-.PHONY: help all opt debug both test test-python test-examples clean distclean deps-ubuntu
+.PHONY: help all opt debug both test test-python test-unit test-examples clean distclean deps-ubuntu
 
 help:
 	@echo "Apollo - make targets"
@@ -27,8 +27,9 @@ help:
 	@echo "  make debug            build the debug solver     -> $(SRCDIR)/build-debug/apollo"
 	@echo "  make both             build both variants"
 	@echo ""
-	@echo "  make test             run every test (python + solver examples)"
+	@echo "  make test             run every test (python + unit + solver examples)"
 	@echo "  make test-python      python tooling tests only (no compiler needed)"
+	@echo "  make test-unit        C++ unit tests (source terms, boundary conditions)"
 	@echo "  make test-examples    run the solver against its bundled examples"
 	@echo ""
 	@echo "  make clean            remove build products"
@@ -50,10 +51,13 @@ debug:
 
 both: opt debug
 
-test: test-python test-examples
+test: test-python test-unit test-examples
 
 test-python:
 	$(PYTHON) -m unittest discover -s test -v
+
+test-unit:
+	$(MAKE) -C test/cxx
 
 test-examples:
 	test/run_examples.sh
@@ -63,6 +67,7 @@ clean:
 	rm -rf $(SRCDIR)/build-opt $(SRCDIR)/build-debug
 
 distclean: clean
+	$(MAKE) -C test/cxx clean || true
 	rm -rf $(SRCDIR)/.sconf_temp $(SRCDIR)/.sconsign.dblite $(SRCDIR)/config.log
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 	find examples -name '*.inp' -o -name '*_temp1' -o -name '*_temp2' | xargs -r rm -f

@@ -24,7 +24,7 @@ DIVE_SPEED = 1.0
 Bomega = 50.e-4   # T, rmf B-field
 Baxial = 60.e-4   # T, bias B-field
 omega  = 7.95e5   # Hz, rmf frequency
-PHASE  = 0. 	  # rads
+PHASE  = 0. 	  # rads, offset in the RMF rotation (see heavyIons/frc2d.pin)
 RISE   = 3.0e-8   # sec
 
 ETA    = 0.5e-5	  # Ohm-m
@@ -98,14 +98,24 @@ OUT  = 10
          p0  = Pe
          Tt  = Temp
          Bz  = Baxial
-         rds = 0.02
-         beta= 8.e3
 
-         progn = ["r = sqrt(x*x+y*y)", \
-                  "gaus = exp(-beta*r*r)", \
-                  "mval = exp(-beta*rds*rds)", \
-                  "value = if(r>rds,gaus/mval,1.)", \
-                  "rhoe = num_dens*me", \
+         # The initial column is UNIFORM: constant density, temperature and
+         # axial field, which is the formation problem of the RMF literature
+         # (Milroy, Phys. Plasmas 7, 4135 (2000); Guo et al., Phys. Plasmas 9,
+         # 185 (2002)) - the RMF drives the current that reverses the bias
+         # field.
+         #
+         # A Gaussian density profile used to be computed here and then not
+         # used: `value` appeared in no exprList entry, and r/gaus/mval/rds/beta
+         # existed only to feed it. To switch it on, restore the four lines
+         # below and multiply rhoe and rhoi by `value`.
+         #
+         #   rds = 0.02
+         #   beta= 8.e3
+         #   ... "r = sqrt(x*x+y*y)", "gaus = exp(-beta*r*r)",
+         #       "mval = exp(-beta*rds*rds)", "value = if(r>rds,gaus/mval,1.)"
+
+         progn = ["rhoe = num_dens*me", \
                   "rhoi = num_dens*mi", \
                   "energy= p0/gm1"]
 

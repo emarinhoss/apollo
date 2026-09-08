@@ -295,21 +295,55 @@ instabilities." The price is 73,000 steps for 2 μs.
 
 Ordered so that each step has a verification and the early ones are cheap.
 
-### Phase 0 — correctness fixes with tests (days)
+### Phase 0 — correctness fixes with tests — **DONE**
 
-1. **Friction energy terms.** In all four sources set
-   `s_e = +(R·u_i) − Q_Δ` and `s_i = −(R·u_i) + Q_Δ` (keeping the z-components where the
-   source is 3-D). Add a test that integrates a uniform two-fluid box with a relative drift and
-   no fields and checks total energy is conserved to round-off while electron thermal energy
-   rises by ηJ².
-2. **Braginskii Q_Δ mass ratio** in `braginskiiFriction` and `MomentumXfer2D`: `3*_me/_mi`.
-   Cross-check against `constantResistivity`'s form with ν_ei = η n e²/m_e.
-3. **E_z at the boundary**: replace the θ-less expression with E_z = x Ḃ_y − y Ḃ_x evaluated from
-   the same B_t(t), ω, φ. Exact for the vacuum part of the field; no new parameters.
-4. **`twoFluidRMFAntennaBC`**: read `B_axial` in `setup()`.
-5. **Document the slotted-flux-conserver assumption** in the deck and the BC header, and the
-   0.5·B_ω vs B_ω discrepancy between `twoFluidRMFBC` and the simplified BC (pick one).
-6. Fix the "hydrogen" comment in the xenon deck; delete or use the dead Gaussian profile.
+Implemented; see `test/cxx/` for the tests and the git history for the changes.
+The items below are kept for the record, each annotated with what was done.
+
+#### The items
+
+1. **Friction energy terms** — done, all four sources. `s_e = +R·u_i − Q_Δ`,
+   `s_i = −R·u_i + Q_Δ`. `constantResistivity` additionally had a three-dimensional friction
+   with a two-dimensional work term, which broke conservation on its own; its work term is now
+   3-D too. `test/cxx/test_friction_sources.cc` configures each real class from a real deck
+   fragment and checks: the ion momentum source is exactly −R; the two energy sources sum to
+   zero; each equals the closed form; the frictional heat −R·w is non-negative (which holds
+   even with the anisotropic cross term, since that term does no work); and, for the isotropic
+   law where it can be computed independently, that −R·w equals ηJ². 31 checks.
+2. **Braginskii Q_Δ mass ratio** — done. Both now use `3*_me/_mi`. The cross-check
+   confirmed `constantResistivity`'s `(3/m_i) n² η e²` reduces exactly to `3 (m_e/m_i) n ν_ei`
+   under η = m_e ν_ei/(n e²), so that form was always right; and that the `nue` these two
+   classes compute is an electron–ion collision frequency (within 1.4× of the NRL value at the
+   deck's conditions), so the substitution is like-for-like. Tested by mass-ratio scaling
+   (quadrupling m_i must quarter Q_Δ) and by a physical bound that an inverted ratio overshoots
+   by ~10⁶.
+3. **E_z at the boundary** — done. Now `E_z = x Ḃ_y − y Ḃ_x`, computed from the same
+   B_x(t), B_y(t) the boundary imposes, so it stays consistent with whatever field convention
+   is used. `test/cxx/test_rmf_boundary.cc` checks both Faraday identities by central
+   differences against the shipped class (agreement to 1e-10), and that E_z now varies around
+   the boundary circle where the old form was axisymmetric.
+
+   **Also found and fixed while here:** `phase` was applied to only one of the two transverse
+   components, so it changed the *polarisation* rather than the phase. At `PHASE = PI/2` — the
+   value in the heavyIons deck — the applied field was linearly polarised along a fixed axis
+   with a magnitude swinging between 0 and √2·B_ω: an oscillating field, not a rotating one,
+   and a different experiment (Apollo has `twoFluidOMFBC` for that). The phase is now applied
+   to both components. `PHASE = 0`, the hydrogen deck, is unaffected. The test checks the
+   applied field has constant magnitude over a period and sweeps exactly one full turn, at
+   both phases.
+4. **`twoFluidRMFAntennaBC`** — done; `B_axial` is read in `setup()`, so its flux-conserver
+   expression no longer runs on an uninitialised member.
+5. **Documentation** — done, in the header of `aptwofluidsimplifiedrmfbc.h`: what the BC
+   imposes, the three assumptions (edge-prescribed field, slotted flux conserver,
+   over-specified hyperbolic boundary), and what each sibling BC actually applies. The
+   "0.5·B_ω discrepancy" turned out not to be one: `twoFluidRMFBC` imposes an *azimuthal
+   oscillating* field, not a uniform transverse rotating one, so the two are not alternative
+   spellings of the same drive. The simplified BC is the only one of the group that imposes
+   the classical RMF.
+6. **Decks** — done. The heavy-ion deck says xenon. The dead Gaussian profile (`value` was
+   computed and never referenced by any `exprList` entry) is removed from both decks, with a
+   comment recording that the initial column is deliberately uniform — the literature's
+   formation problem — and how to switch a profile back on.
 
 ### Phase 1 — put the drive at the antenna, not the plasma edge (weeks)
 

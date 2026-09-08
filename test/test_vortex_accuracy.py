@@ -50,8 +50,10 @@ except ImportError:
 
 
 def apollo_binary():
+    # Absolute, always: each case runs in its own scratch directory, so a
+    # relative APOLLO_BIN would be resolved against that instead of the repo.
     if os.environ.get('APOLLO_BIN'):
-        return os.environ['APOLLO_BIN']
+        return os.path.abspath(os.environ['APOLLO_BIN'])
     for variant in ('build-opt', 'build-debug'):
         path = os.path.join(REPO, 'src', variant, 'apollo')
         if os.path.isfile(path) and os.access(path, os.X_OK):

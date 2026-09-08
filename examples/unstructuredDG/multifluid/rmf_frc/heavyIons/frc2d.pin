@@ -3,7 +3,8 @@ import math
 PI = math.pi
 
 MP = 1.67e-27 # [kg] ion mass
-MI = 131*MP # hydrogen
+MI = 131*MP # xenon (A = 131); the RMF thruster literature runs xenon and argon
+#MI = MP # hydrogen
 #MI = 39.981*1.6605390402e-27 # Argon
 mass_ratio = 1836
 ME = MP/mass_ratio
@@ -23,6 +24,13 @@ DIVE_SPEED = 1.0
 Bomega = 50.e-4   # T, rmf B-field
 Baxial = 60.e-4   # T, bias B-field
 omega  = 5.5e5     # Hz, rmf frequency
+# PHASE offsets where in its rotation the RMF starts. It used to be applied to
+# only one of the two transverse components, which changed the POLARISATION
+# rather than the phase: at PI/2 the field became linearly polarised along a
+# fixed axis with a magnitude swinging between 0 and sqrt(2)*Bomega - an
+# oscillating field, not a rotating one, and a different experiment (Apollo has
+# twoFluidOMFBC for that). The boundary condition now applies it to both
+# components, so this is a genuine rotation offset and the drive stays circular.
 PHASE  = PI/2. 	  # rads
 RISE   = 3.0e-8   # sec
 
@@ -96,14 +104,10 @@ OUT  = 10
          p0  = Pe
          Tt  = Temp
          Bz  = Baxial
-         rds = 0.02
-         beta= 8.e3
 
-         progn = ["r = sqrt(x*x+y*y)", \
-                  "gaus = exp(-beta*r*r)", \
-                  "mval = exp(-beta*rds*rds)", \
-                  "value = if(r>rds,gaus/mval,1.)", \
-                  "rhoe = num_dens*me", \
+         # Uniform initial column; see the note in ../frc2d.pin about the
+         # Gaussian profile that used to be computed here and never used.
+         progn = ["rhoe = num_dens*me", \
                   "rhoi = num_dens*mi", \
                   "energy= p0/gm1"]
 

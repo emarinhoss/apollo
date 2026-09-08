@@ -9,6 +9,9 @@ WxTwoFluidRMFAntennaBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   WxGridBC<REAL>::setup(wxc, dm);
 
   REAL freq = wxc.template get<REAL>("frequency");
+  // _baxial is used by the flux-conserver expression in applyBC() and was
+  // never read here, so that expression ran on an uninitialised member.
+  _baxial = wxc.template get<REAL>("B_axial");
   _B0 = wxc.template get<REAL>("B_rmf");
   _phase = wxc.template get<REAL>("phase");
   _rise = wxc.template get<REAL>("rise_time");

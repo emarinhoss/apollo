@@ -29,8 +29,6 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
 {
     REAL x = xc[1];
     REAL y = xc[2];
-    REAL r = sqrt(x*x+y*y);
-    REAL theta = atan(y/x);
 
     // electrons
     qBC[0] = q[0];
@@ -65,18 +63,49 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     qBC[11] = enorm*nx[1] + etang*nx[0];
 
     // B-field
-    // RMF
+    //
+    // The applied RMF: a spatially uniform transverse field of constant
+    // magnitude B_t(t), rotating at _omega. _phase offsets the rotation.
+    //
+    // The phase used to be applied to the cosine component only, which does not
+    // rotate the field - it changes its polarisation. At _phase = pi/2 (the
+    // heavyIons deck) the two components became -B_t sin(wt) and +B_t sin(wt):
+    // a linearly polarised field along a fixed axis whose magnitude swings
+    // between 0 and sqrt(2) B_t, i.e. an oscillating field, not a rotating one.
+    // That is a different experiment, with its own boundary condition
+    // (twoFluidOMFBC). Applying the phase to both components makes it an
+    // offset in the rotation, as the name says, and leaves _phase = 0 - the
+    // frc2d.pin deck - bit-identical.
     REAL t = xc[0]; // current time
-    REAL Bt = _B0*(1.-exp(-t/_rise));
+    REAL envelope = 1. - exp(-t/_rise);
+    REAL Bt = _B0*envelope;
+    REAL dBt = _B0*exp(-t/_rise)/_rise;   // d(B_t)/dt
 
-    REAL Br = Bt*sin(_omega*t);
-    REAL Bc = Bt*cos(_omega*t+_phase);
+    REAL ph = _omega*t + _phase;
+    REAL Bx = -Bt*sin(ph);
+    REAL By = -Bt*cos(ph);
 
-    REAL Ez = r*(_B0*(-exp(-t/_rise))/_rise*cos(_omega*t)-Bt*_omega*sin(_omega*t+_phase));
+    // Time derivatives of the applied field, for Faraday's law below.
+    REAL dBx = -dBt*sin(ph) - Bt*_omega*cos(ph);
+    REAL dBy = -dBt*cos(ph) + Bt*_omega*sin(ph);
+
+    // The axial electric field induced by that rotating transverse field.
+    //
+    // For E = E_z zhat and a spatially uniform B_perp(t), Faraday's law
+    // dB/dt = -curl E gives dE_z/dy = -dB_x/dt and dE_z/dx = +dB_y/dt, so
+    //
+    //     E_z = x dB_y/dt - y dB_x/dt
+    //
+    // which rotates with the field. The previous expression was
+    // r*(...cos(wt) - B_t w sin(wt+phase)): the correct radial amplitude with
+    // the azimuthal dependence dropped, so it satisfied neither component of
+    // Faraday's law. E_z drives the oscillating axial currents that produce the
+    // azimuthal torque, so its angular structure is the torque's structure.
+    REAL Ez = x*dBy - y*dBx;
 
     qBC[12] = Ez;
-    qBC[13] =-Br;
-    qBC[14] =-Bc;
+    qBC[13] = Bx;
+    qBC[14] = By;
 
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
 //    REAL AA = -intBzda/(_b*_b-_a*_a)/_pi;
