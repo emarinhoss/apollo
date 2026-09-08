@@ -166,14 +166,16 @@ class TestRMFAntennaField(unittest.TestCase):
         here - and nothing damps that, there being no plasma. Measured on the
         shipped deck, the error in |B| against the closed form runs:
 
-            t/RISE   0.25   0.5    0.75   1.0    1.25   1.5    1.75   2.0
-            |B| err  9.8%   6.5%   6.2%   4.9%   1.6%   0.2%   0.9%   1.9%
-            spread   3.8%   9.6%   6.0%   1.8%   3.1%   0.7%   3.1%   1.8%
+            t/RISE  0.25  0.5   0.75  1.0   1.25  1.5   1.75  2.0   2.5   3.0
+            |B| err  9.8   6.5   6.2   4.9   1.6   0.2   0.9   1.9   0.4   0.3  %
+            spread   3.8   9.6   6.0   1.8   3.1   0.7   3.1   1.8   3.0   0.9  %
 
         so everything from 1.5 rise times on sits well inside the tolerances
-        below, and everything before it does not. This is a property of the
-        physics rather than a frame count, so it is written as one - shortening
-        or lengthening the deck moves the window with it.
+        below, and everything before it does not. Over that window the field
+        also turns 0.7491 rad against omega*dt = 0.7493, a rotation-rate error
+        of 0.03%. This is a property of the physics rather than a frame count,
+        so it is written as one - shortening or lengthening the deck moves the
+        window with it.
         """
         settled = [f for f in cls.interior if f[0] >= cls.SETTLE * RISE]
         assert len(settled) >= 4, (

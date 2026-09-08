@@ -9,67 +9,7 @@ Fixed issues are not listed; see the git history.
 
 ---
 
-## 1. Multifluid collisional–radiative source terms
-
-### 1.1 The electron–ion thermal equilibration mass ratio looks inverted
-
-`src/hyperapps/multifluid/wxbraginskiifrictionsrc.h:209` and
-`src/hyperapps/multifluid/ap2dmomentumxfer.h:193`, identically:
-
-```cpp
-REAL Q_delta = 3*_mi/_me*ne*nue*(Pe/ne-Pi/ni);
-```
-
-Braginskii's electron–ion energy equilibration is
-
-> Q_Δ = 3 (m_e / m_i) n_e ν_e (T_e − T_i)
-
-i.e. the coefficient is `3*m_e/m_i`. As written the ratio is inverted, which for
-hydrogen is a factor of (m_i/m_e)² ≈ 3.4 × 10⁶ — equilibration would be
-effectively instantaneous instead of the slowest process in the system.
-
-**Not changed here** because this module has no test coverage and no reference
-solution in the repository, so a change could not be validated. Before changing
-it, check the coefficient against the resistivity-form siblings in the same
-directory (which carry an additional 1/0.51) and confirm the intended
-normalisation of `nue`.
-
-### 1.2 The friction energy terms do not conserve energy (error ∝ ion velocity)
-
-All four friction sources (`constantResistivity`, `anisotropicResistivity`,
-`braginskiiFriction`, `MomentumXfer2D`) share the same energy terms. With
-`q[0..4]` the electron fluid, `q[5..9]` the ion fluid, `u = ue - ui`, and
-`R = -alpha*u` the friction on electrons:
-
-```cpp
-s[3] = -(Rux*ui+Ruy*vi+Ruz*wi)-Q_delta;   // electron energy
-s[7] = Q_delta;                            // ion energy
-```
-
-For total-energy variables the sources are `s_e = R·u_e + Q_e` and
-`s_i = -R·u_i + Q_i`, with `Q_e + Q_i = -R·(u_e - u_i) = alpha|u|²` the frictional
-heat, which Braginskii deposits in the electrons (`Q_e = alpha|u|² - Q_delta`,
-`Q_i = Q_delta`). Substituting: `s_e = +R·u_i - Q_delta`, `s_i = -R·u_i + Q_delta`,
-summing to zero. So the code has the right structure, the wrong sign on the
-electron work term, and no ion work term; total energy acquires a spurious source
-`-R·u_i`.
-
-An earlier version of this note said Ohmic heating was absent altogether. That
-was wrong for a total-energy formulation: with ions at rest the code and the
-correct form agree (both `-Q_delta`), because friction thermalises the electron
-drift *within* the electron fluid — the `alpha|u|²` heating is exactly the
-kinetic energy the momentum source removes. The error is proportional to `u_i`:
-negligible on the 2 μs `rmf_frc` runs (ion gyroperiod 11 μs), and growing as the
-ions spin up, which the RMF literature says they do quickly.
-
-**Fix** (proposed in `docs/rmf-frc-model-assessment.md`, Phase 0): in all four
-files set `s[3] = +(Rux*ui+Ruy*vi+Ruz*wi) - Q_delta` and
-`s[7] = -(Rux*ui+Ruy*vi+Ruz*wi) + Q_delta`, and add a test that a uniform box
-with a relative drift and no fields conserves total energy to round-off.
-**Not changed here** because the module has no test to protect the change; the
-test should land with it.
-
-### 1.3 The bundled collisional–radiative example does not run
+## 1. The bundled collisional–radiative example does not run
 
 ```
 cd examples/unstructuredDG/multifluid/collisionalRadiative
@@ -95,10 +35,13 @@ not.)
 
 ---
 
-## 2. The only slope limiter produces NaN energy
+## 2. The two-fluid slope limiter produces NaN energy
 
 `tuAliabadiLimiter` (`src/hyperapps/multifluid/aptualiabadilimiter.cc`) is the
-only slope limiter in the tree, and it does not work. It is commented out in the
+only slope limiter that handles the **two-fluid** system, and it does not work.
+(`eulerLimiterHW`, `WxHestavenWarburtonEulerLimiter`, limits the five-component
+Euler state and is enabled in several shipped Euler decks; it cannot be applied
+to the eighteen-component multifluid state.) It is commented out in the
 one deck that references it (`examples/unstructuredDG/multifluid/rmf_frc/frc2d.pin`,
 `#Limiter = [twoFluidLimiter]`), which is presumably why this has gone unnoticed.
 
@@ -108,23 +51,26 @@ Three defects that stopped it before it could take a step have been fixed:
   condition dereferenced it;
 - `wxNodalDGgeometry2D` sized `_ETETF` by `_Ktotal` while indexing it by local
   cell id — a heap overflow present in every run, not only limited ones;
-- 192 of the 7984 cells in the height-0 stratum of the shipped `rmf_frc` mesh
-  are not triangles, and the limiter asked them for their normals.
+- the height-0 stratum contains more than the mesh's cells: `createMesh` calls
+  `DMPlexConstructGhostCells`, which appends one ghost cell per boundary facet
+  (192 of them on the shipped `rmf_frc` mesh, taking 7792 to 7984), and the
+  limiter asked those for their normals.
 
 What remains is in the limiter's own numerics: it now runs for a few tens of
 steps and then stops with `*** NaN energy in Euler limiter ***`, on the shipped
 `rmf_frc` deck as much as on the antenna deck beside it.
 
 ```repro
+REPO=$(git rev-parse --show-toplevel)
 cd $(mktemp -d) && cp $REPO/examples/unstructuredDG/multifluid/rmf_frc/{*.pin,*.msh} .
 sed -i 's/^TEND = 2.e-6.*/TEND = 4.e-9/;s/^     #Limiter/     Limiter/' frc2d.pin
 PYTHONPATH=$REPO/scripts python3 $REPO/scripts/wxinpparse.py -i frc2d.pin
 $REPO/src/build-opt/apollo -i frc2d.inp | tail -3
 ```
 
-This matters well beyond that example. Without a limiter no Apollo case can
-carry a steep front, which is the direct reason the RMF antenna deck has no
-vacuum region around its plasma column — see
+This matters beyond that example: with it broken, no **multifluid** case can be
+limited at all, which is part of why the RMF antenna deck cannot carry a plasma
+edge and so has no vacuum region around its column — see
 `docs/rmf-frc-model-assessment.md`, Phase 1.
 
 ---

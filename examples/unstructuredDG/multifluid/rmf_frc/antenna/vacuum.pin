@@ -51,11 +51,14 @@ PHASE  = 0.        # rads
 # would show up as scatter in a test that has no other error source.
 #
 # The number that matters is the ramp against the CAVITY PERIOD, not against the
-# crossing time: the lowest TM mode of a conducting cylinder of radius b sits at
-# about 2.405 c/b = 1.44e8 rad/s here, a 44 ns period. A 50 ns ramp is one cavity
-# period and rings the domain at the 10% level - measured, by trying it - which
-# is above the tolerances in test/test_rmf_antenna_field.py. 100 ns is a bit over
-# two periods and settles to about 1%. The test then only looks at t >= 2*RISE.
+# crossing time. The relevant mode is the lowest the drive can actually excite:
+# the source is J_z ~ cos(theta - omega t - phase), pure m = 1, and the cavity is
+# axisymmetric, so the m = 0 mode (j_01 = 2.405) has zero overlap with it and the
+# first one that rings is m = 1, j_11 = 3.8317, at 3.8317 c/b = 2.30e8 rad/s -
+# a 27 ns period. A 50 ns ramp is under two of those and rings the domain at the
+# 10% level, measured by trying it, which is above the tolerances in
+# test/test_rmf_antenna_field.py. 100 ns is 3.7 periods and settles to about 1%.
+# The test then only looks at t >= 1.5*RISE.
 RISE   = 1.0e-7
 
 COIL_R      = 0.036

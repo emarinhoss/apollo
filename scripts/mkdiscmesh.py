@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate a graded triangular disc mesh in gmsh 2.2 ASCII format.
 
-Apollo's mesh reader (src/lib/wxpreadgmshgrid.h) accepts only gmsh ASCII 2.2,
-and the repository ships .msh files with no .geo alongside them, so there is no
-way to reproduce or vary a mesh without a generator. This is that generator.
+Apollo's mesh reader (src/lib/wxpreadgmshgrid.h) accepts only gmsh ASCII 2.2.
+Some examples ship a .geo beside their .msh (euler/backwardFacingStep does); the
+multifluid rmf_frc discs do not, so there was no way to reproduce or vary one.
+This is that generator.
 
 It exists for the RMF-FRC problem, which needs a disc whose interior is meshed
 at the plasma resolution out to the plasma radius and coarsely beyond it, with

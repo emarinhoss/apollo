@@ -241,9 +241,10 @@ error is proportional to u_i, so it is negligible on this 2 μs run (ion gyroper
 grows as the ions spin up — which the literature says they do, quickly. Any run long enough to
 reach the torque–friction balance carries it.
 
-Separately: `braginskiiFriction` and `MomentumXfer2D` compute Q_Δ with 3·(m_i/m_e), where the
-Braginskii coefficient is 3·(m_e/m_i) — see `docs/known-issues.md` §1.1. `constantResistivity`,
-the source this deck actually uses, has the right mass scaling.
+Separately, `braginskiiFriction` and `MomentumXfer2D` computed Q_Δ with 3·(m_i/m_e) where the
+Braginskii coefficient is 3·(m_e/m_i) — an overstatement by (m_i/m_e)², about 3.4e6 for hydrogen.
+`constantResistivity`, the source this deck actually uses, always had the right mass scaling.
+Both were corrected in Phase 0 and are covered by `test/cxx/test_friction_sources.cc`.
 
 ### 3.7 Resistivity — constant η, no feedback (limitation)
 
@@ -362,8 +363,9 @@ out not to be representable in this model, and the reason is quantitative and wo
   existed. It zeroes *both* tangential components of E, so by Faraday's law the axial flux it
   encloses is conserved exactly. That replaces the area-integral feedback of §3.5 with a local
   condition that needs no assumption about how the expelled flux distributes itself.
-- **A mesh generator** — `scripts/mkdiscmesh.py`. The repository shipped `.msh` files with no
-  `.geo`, so the domain could not be changed at all. It writes graded polar-triangulated discs
+- **A mesh generator** — `scripts/mkdiscmesh.py`. The `rmf_frc` meshes ship with no `.geo`
+  alongside them (unlike, say, `euler/backwardFacingStep`), so their domain could not be changed
+  at all. It writes graded polar-triangulated discs
   in the gmsh 2.2 ASCII subset the reader accepts, with a node ring placed exactly on a chosen
   radius. Extending the domain from r = 0.03 to r = 0.05 costs 1.54× the cells (11 989 triangles
   against `optimizedCircle2.msh`'s 7 792) and *nothing* in time step: dt is set by the smallest
@@ -375,10 +377,11 @@ out not to be representable in this model, and the reason is quantitative and wo
   ω, in closed form. The test checks all three of magnitude, uniformity and rotation rate
   against it, at 5%, 6% and 10%; those tolerances are set by the O((ωb/c)²) ≈ 1% quasi-static
   correction and by the coarse mesh, not chosen to fit. Measured on the shipped deck, the error
-  in |B| against the closed form falls from 9.8% a quarter of a rise time in to 0.2–1.9% from
-  1.5 rise times on, and the field's variation across the interior from 3.8% to 0.7–3.1%. The
-  test looks only at t ≥ 1.5·RISE; the transient before that is the conducting cylinder's own
-  undamped modes, which nothing absorbs when there is no plasma. This is the Phase 2 test
+  in |B| against the closed form falls from 9.8% a quarter of a rise time in to 0.1–1.9% over
+  the seven frames from 1.5 rise times on, the field's variation across the interior from 3.8%
+  to 0.6–3.1%, and the rotation rate over that window matches ω to 0.03%. The test looks only at
+  t ≥ 1.5·RISE; the transient before that is the conducting cylinder's own undamped modes, which
+  nothing absorbs when there is no plasma. This is the Phase 2 test
   applied to Phase 1's geometry, and it is what makes the antenna trustworthy in the deck where
   nothing is exact.
 - **The antenna power** — `scripts/rmf_antenna_power.py`, which evaluates
@@ -423,9 +426,11 @@ only one in the tree is broken (below).
 Two things are worth stating precisely, because the obvious intuitions about them are backwards:
 
 - **The reduced speed of light helps here, it does not hurt.** Rescaling ε₀ up by 10⁴ raises λ_D
-  by 100 and lowers ω_pe by 100. At the true speed of light λ_D would be 4.07e-6 m — 1/200 of a
-  cell — and the plasma period 1.1e-11 s, below the time step. The reduced c is what makes the
-  *uniform* deck viable at all.
+  by 100: at the true speed of light λ_D would be 4.07e-6 m, about 1/200 of a cell, and the mesh
+  would have to shrink by that factor to resolve it. The plasma *period* is a different matter
+  and does not improve — dt is CFL-limited by c, so raising c by 100 shortens the step by 100
+  too and the period stays at about 31 steps either way. It is the Debye length, whose yardstick
+  is the fixed mesh, that the reduced c rescues.
 - **A tenuous region is better resolved, not worse.** λ_D ∝ 1/√n, so the annulus would be the
   best-resolved part of the domain: at 1e-4 of the column density λ_D is 41 mm against 1.6 mm
   cells. The barrier is not the annulus; it is the gradient between it and the column, which
@@ -476,23 +481,30 @@ before a threshold is quoted.
    `MPI_Allreduce` **sum across ranks**, so on more than one rank it is the global element count
    rather than a local size at all. On the shipped `rmf_frc` mesh the stratum holds 7984 cells
    and `_Ktotal` is 7792: the last 192 rows were past the end of the pointer array.
-3. **Degenerate cells in the height-0 stratum.** 192 of those 7984 "cells" are not triangles.
-   The DG scheme tolerates them; the limiter asked them for their normals and stopped with
-   "Edge length of 0 found in element 7792". `wxNodalDGgeometry2D::isTriangle()` now reports
-   which cells are real.
-4. **`maxwellRMFSrc` leaked stale source values across the whole plasma interior.**
+3. **Ghost cells in the height-0 stratum.** `ApSolver::createMesh` calls
+   `DMPlexConstructGhostCells`, which appends one ghost cell per boundary facet — the whole of
+   the 7984-against-7792 discrepancy, and matching on every mesh checked (3929 triangles + 157
+   boundary lines = 4086 for `vacuumDisc.msh`, 11 989 + 211 = 12 200 for `disc.msh`). They have
+   no geometry, so the DG scheme tolerates them but the limiter asked them for their normals and
+   stopped with "Edge length of 0 found in element 7792".
+   `wxNodalDGgeometry2D::isRealCell()` now reports which cells are real.
+4. **`maxwellRMFSrc` would leak stale source values across the whole plasma interior.**
    `WxHyperbolicSrc::compSource` keeps `_outValues` as a member, never clears it, and does
    `sfull[idx] += _outValues[i]`. `ApRMFSrc::src` wrote its three outputs only inside
-   `if (r > _r0)`, so every point inside r₀ — the entire column of the `heavyIons` deck, whose
-   r₀ = 0.025 sits inside its plasma radius of 0.030 — had the previous quadrature point's values
-   added to E_z, B_x and B_y. Fixed; the class is also now documented as *not* an antenna (it has
-   no current and cannot be loaded) and superseded by `maxwellRMFAntenna`.
+   `if (r > _r0)`, so every point inside r₀ would receive the previous quadrature point's values
+   in E_z, B_x and B_y. **Latent, not active:** the `heavyIons` deck is the only one carrying an
+   `RMFsrc` block and it is commented out of that deck's `Sources` list, and
+   `WxHyperbolicSrcSet::setup` instantiates only what `Sources` names — so the class is
+   constructed by no shipped deck and nothing was ever corrupted. Fixed anyway, since Phase 1
+   builds on this file; the class is also now documented as *not* an antenna (it has no current
+   and cannot be loaded) and superseded by `maxwellRMFAntenna`.
 
-**Still broken: the slope limiter.** With those three fixes `tuAliabadiLimiter` runs instead of
-crashing, but still produces NaN energy after a few tens of steps — on the shipped `rmf_frc` deck
-as much as on the new one. The remaining fault is in its own numerics and was not chased down.
-This matters beyond this example: it is the only limiter in the tree, so no Apollo case can
-currently carry a steep front.
+**Still broken: the two-fluid slope limiter.** With those three fixes `tuAliabadiLimiter` runs
+instead of crashing, but still produces NaN energy after a few tens of steps — on the shipped
+`rmf_frc` deck as much as on the new one. The remaining fault is in its own numerics and was not
+chased down. It is the only limiter that handles the eighteen-component two-fluid state
+(`eulerLimiterHW` limits the five-component Euler state and is enabled in several shipped Euler
+decks), so with it broken no multifluid case can be limited at all.
 
 ### Phase 2 — characteristic-consistent boundary injection (with Phase 1)
 

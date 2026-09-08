@@ -137,10 +137,13 @@ Pe = n_dens*BOLTZ*Temp
 # Two things worth stating precisely, because the obvious intuitions are
 # backwards:
 #
-#   - The reduced speed of light HELPS. Rescaling eps0 up by 1e4 raises lambda_D
-#     by 100 and lowers omega_pe by 100. At the true c, lambda_D would be
-#     4.07e-6 m - a two-hundredth of a cell - and the plasma period would be
-#     below the time step. The reduced c is what makes the uniform deck viable.
+#   - The reduced speed of light HELPS, through the Debye length. Rescaling
+#     eps0 up by 1e4 raises lambda_D by 100; at the true c it would be 4.07e-6 m,
+#     a two-hundredth of a cell, and the mesh would have to shrink by that factor
+#     to resolve it. The plasma PERIOD is not helped - dt is CFL-limited by c, so
+#     raising c by 100 shortens the step by 100 and the period stays at about 31
+#     steps either way. It is lambda_D, measured against a fixed mesh, that the
+#     reduced c rescues.
 #   - A TENUOUS REGION IS BETTER RESOLVED, not worse: lambda_D goes as
 #     1/sqrt(n), so an annulus at 1e-4 of the column density would have
 #     lambda_D = 41 mm against 1.6 mm cells, the best-resolved part of the
@@ -180,7 +183,9 @@ Pe = n_dens*BOLTZ*Temp
 # penetration theory is written in terms of (lambda = r_s/delta), is resolved at
 # about 1.4 cells - also marginal. Refine before quoting a penetration threshold.
 #
-# THE LIMITER. tuAliabadiLimiter is the only slope limiter in the tree and it
+# THE LIMITER. tuAliabadiLimiter is the only slope limiter that handles the
+# two-fluid state - eulerLimiterHW limits the five-component Euler state and is
+# enabled in several shipped Euler decks, but cannot be applied here - and it
 # still produces NaN energy after a few tens of steps, on this deck and on
 # ../frc2d.pin alike. Three defects that stopped it before it could even run
 # were fixed alongside this deck (a null AreaInts dereference in every RMF
@@ -399,12 +404,12 @@ OUT  = 10
        boltz = BOLTZ
        resistivity = ETA
 
-       # Without these the source ABORTS the run the first time it sees a
-       # non-positive pressure or density, which the tenuous annulus produces
-       # readily: there the total energy is dominated by the kinetic term, so
-       # p = (gamma-1)(E - rho v^2/2) is a difference of nearly equal numbers.
-       # With them set, the source clamps instead, matching what the equation
-       # objects above already do to the state itself.
+       # Without these, constantResistivity ABORTS the run the first time it
+       # sees a non-positive pressure or density rather than clamping - and
+       # p = (gamma-1)(E - rho v^2/2) is a difference of nearly equal numbers
+       # wherever the flow is fast, so a transient overshoot is enough. With
+       # them set it clamps instead, matching what the equation objects above
+       # already do to the state itself. ../frc2d.pin leaves them commented out.
        elcMinPressure = ELC_MIN_PRES
        ionMinPressure = ION_MIN_PRES
        elcMinDensity = ELC_MIN_DENS

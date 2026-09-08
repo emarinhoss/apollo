@@ -64,9 +64,10 @@
  *     conductor_radius   optional; radius of the perfectly conducting return
  *                        path. Omit for free space.
  *
- * and the amplitude K is solved for. `total_current` in the setup log is the
- * peak current per coil, integral of J_z over half the winding, which is the
- * number to compare against an experiment.
+ * and the amplitude K is solved for. The setup log reports the current it
+ * arrived at, as "peak current per coil" - the integral of J_z over the half of
+ * the winding where the cosine is positive, which is the number to compare
+ * against an experiment.
  *
  * ROTATION
  *
@@ -191,8 +192,9 @@ class ApRMFAntennaSrc : public WxHyperbolicSrc<REAL>
       // Always write s[0]. WxHyperbolicSrc::compSource keeps _outValues as a
       // member and does sfull[idx] += _outValues[i] without clearing it, so a
       // src() that returns early leaves the PREVIOUS quadrature point's value
-      // in place and adds it here. (ApRMFSrc in aprmfsrc.h has exactly that
-      // defect.) An early return is never safe in this interface.
+      // in place and adds it here. ApRMFSrc in aprmfsrc.h had exactly that
+      // defect until it was fixed alongside this class. An early return is
+      // never safe in this interface.
       s[0] = 0.0;
 
       if (r < _rmin || r > _rmax)
