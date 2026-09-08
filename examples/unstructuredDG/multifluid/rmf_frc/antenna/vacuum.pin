@@ -48,10 +48,15 @@ PHASE  = 0.        # rads
 # Longer than the physics deck's 30 ns on purpose. The cavity crossing time is
 # b/c = 17 ns, so a faster ramp rings the domain at its own resonances - which
 # are undamped here, there being no plasma to absorb them - and the ringing
-# would show up as scatter in a test that has no other error source. Three
-# crossing times is enough for the ringing to stay under the tolerances in
-# test/test_rmf_antenna_field.py, and keeps the run short enough for CI.
-RISE   = 5.0e-8
+# would show up as scatter in a test that has no other error source.
+#
+# The number that matters is the ramp against the CAVITY PERIOD, not against the
+# crossing time: the lowest TM mode of a conducting cylinder of radius b sits at
+# about 2.405 c/b = 1.44e8 rad/s here, a 44 ns period. A 50 ns ramp is one cavity
+# period and rings the domain at the 10% level - measured, by trying it - which
+# is above the tolerances in test/test_rmf_antenna_field.py. 100 ns is a bit over
+# two periods and settles to about 1%. The test then only looks at t >= 2*RISE.
+RISE   = 1.0e-7
 
 COIL_R      = 0.036
 COIL_W      = 0.005
@@ -62,7 +67,7 @@ WALL_RADIUS = 0.050
 RHO0 = 1.e-20
 P0   = 1.e-20
 
-TEND = 1.5e-7
+TEND = 3.0e-7
 OUT  = 12
 
 <warpx>

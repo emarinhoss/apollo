@@ -75,23 +75,28 @@ class wxNodalDGgeometry2D
     }
 
 /**
- * Is local cell K an actual triangle?
+ * Is local cell K a real cell of the mesh, rather than a PETSc ghost cell?
  *
- * The height-0 stratum of the DMPlex this class is built from is not all
- * triangles: on the shipped rmf_frc mesh it holds 7984 cells of which 7792
- * have three vertices and the remaining 192 are degenerate. (192 is also
- * exactly the number of boundary line elements in that .msh, and 211 against
- * 11989 triangles in the antenna deck's - the correspondence holds for every
- * mesh checked, though the path by which those facets end up in the cell
- * stratum has not been traced through the reader.) Anything that walks cells
- * and asks for their
- * geometry has to skip those, or it reads zero-length edges. The nodal DG
- * scheme tolerates them because its per-cell work is harmless on a degenerate
- * cell; the slope limiter does not, and used to stop with
- * "Edge length of 0 found in element 7792".
+ * ApSolver::createMesh calls DMPlexConstructGhostCells (solvers/apsolver.cc),
+ * which appends one ghost cell per boundary facet to the height-0 stratum. On
+ * the shipped rmf_frc mesh that turns 7792 cells into 7984, and on the antenna
+ * example's vacuumDisc.msh 3929 into 4086 - in both cases exactly the number of
+ * boundary lines in the .msh. Ghost cells have no geometry of their own, so
+ * anything that walks the stratum asking cells for normals or areas has to skip
+ * them, or it reads zero-length edges.
+ *
+ * The nodal DG scheme tolerates them because its per-cell work is harmless on
+ * one; the slope limiter did not, and stopped with "Edge length of 0 found in
+ * element 7792". Note that a cell being a ghost is not the same as its data
+ * being meaningless - ghost cells carry the exterior state and must still be
+ * written when a pass writes the whole vector.
+ *
+ * Implemented by cone size rather than by DMPlexGetGhostCellStratum so that it
+ * holds for any cell the DM reports without three vertices, whatever produced
+ * it.
  */
-    bool isTriangle(unsigned K) const {
-        return K < _isTriangle.size() && _isTriangle[K] != 0;
+    bool isRealCell(unsigned K) const {
+        return K < _isRealCell.size() && _isRealCell[K] != 0;
     }
 
 /** Return Face to Face connnectivity */
@@ -186,7 +191,7 @@ class wxNodalDGgeometry2D
                   // elmement K2's face number F2
     int _Ktotal; // total number of element in the entire domain
     int _Klocal, _kLocalInt; // number of elements in this processor
-    std::vector<char> _isTriangle; // per local cell, see isTriangle()
+    std::vector<char> _isRealCell; // per local cell, see isRealCell()
     int _Vlocal; // number of nodes in this processor
     REAL **_xcoord; // node x-coordinates
     REAL **_ycoord; // node y-coordinates

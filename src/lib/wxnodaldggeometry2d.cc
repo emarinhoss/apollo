@@ -26,13 +26,13 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     // Count only triangular cells (cells with 3 vertices)
     // This filters out any 1D line elements that may have been imported
     PetscInt triangleCount = 0;
-    _isTriangle.assign(eEndInterior - eStart, 0);
+    _isRealCell.assign(eEndInterior - eStart, 0);
     for (PetscInt c = eStart; c < eEndInterior; c++) {
         PetscInt coneSize;
         DMPlexGetConeSize(_dm, c, &coneSize);
         if (coneSize == 3) {  // Triangle has 3 vertices
             triangleCount++;
-            _isTriangle[c - eStart] = 1;
+            _isRealCell[c - eStart] = 1;
         }
     }
 
@@ -104,11 +104,13 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     // whole height-0 stratum, the same range every other array here is sized
     // for. _Ktotal is neither: it counts only the cells with three vertices,
     // and it is an MPI_Allreduce SUM, so on more than one rank it is the global
-    // element count rather than a local size at all. On the shipped rmf_frc
-    // mesh the stratum holds 7984 cells and _Ktotal is 7792 (both measured
-    // under gdb), so the last 192 rows were past the end of the pointer array
-    // - a heap overflow on every run, which surfaced as a segfault only once
-    // the slope limiter read far enough past it to leave the mapped page.
+    // element count rather than a local size at all. The stratum also holds the
+    // ghost cells DMPlexConstructGhostCells appends, one per boundary facet,
+    // which _Ktotal's cone-size filter excludes: on the shipped rmf_frc mesh
+    // the stratum is 7984 cells against _Ktotal 7792, so the last 192 rows were
+    // past the end of the pointer array - a heap overflow on every run, which
+    // surfaced as a segfault only once the slope limiter read far enough past
+    // it to leave the mapped page.
     _ETETF  = alloc_2d_c<int>(_kLocalInt,2*_NfE);
     FacePair2d(_dm);
     debStrm << "** done -- Creating face-to-face connections. **" << std::endl;

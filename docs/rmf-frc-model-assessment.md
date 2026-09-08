@@ -393,30 +393,46 @@ out not to be representable in this model, and the reason is quantitative and wo
   shell fields analytically, and check the result equals the requested `B_rmf`. It agrees to
   2.6e-11, along a path that shares no arithmetic with `setup()` or `src()`.
 
-**The finding: the vacuum annulus cannot be meshed.** The plan this section replaces proposed
-the physically right structure — plasma disc r < a, vacuum annulus a < r < b, coils, conserver at
-b — with the annulus carried as a very-low-density two-fluid region, on the grounds that Apollo's
-density and pressure floors already support one. They do not support one *this* tenuous, and no
-choice of edge width or annulus density escapes the problem.
+**The finding: the plasma–vacuum interface cannot be carried, so there is no annulus.** The plan
+this section replaces proposed the physically right structure — plasma disc r < a, vacuum annulus
+a < r < b, coils, conserver at b — with the annulus as a very-low-density two-fluid region, on
+the grounds that Apollo's density and pressure floors already support one. The floors are not
+the problem. The *edge* is.
 
-Apollo solves the full two-fluid system with explicit charge separation, so the Debye length has
-to be resolved. At the column's density,
+Apollo carries explicit charge separation, so the electron dynamics have two scales that must be
+resolved. At the column's density, and with the deck's numbers:
 
-    λ_D = √(ε₀ k T_e / (n e²)) = 4.1e-4 m
+| | value | against the mesh / step |
+|---|---|---|
+| Debye length λ_D = √(ε₀ k T_e / n e²) | 4.07e-4 m | 0.40–0.45 of a cell |
+| plasma period 2π/ω_pe, ω_pe = 5.64e9 rad/s | 1.11e-9 s | 31 time steps |
 
-already only about half a cell — and that is with the deck's **reduced speed of light**, which
-rescales ε₀ upward by 10⁴ and so inflates λ_D by a factor of 100 over its physical value of
-4.1e-6 m. Worse, λ_D ∝ 1/√n, so it grows in exactly the region that has to be tenuous.
-Transparency to the antenna needs the collisionless skin depth c/ω_pe = 5.3e-4/√f to exceed the
-gap between column and winding; that requires f ≲ 1e-4, at which λ_D = 41 mm against the 1.7 mm
-cells the annulus had in those trials — under-resolved by a factor of 24. Runs at f = 1e-4 and f = 1e-5 diverge at the column edge
-after a few tens to a few hundred steps, with or without the antenna running, and a run that
-survived would not be resolving the charge separation anyway. The two requirements pull the same
-knob in opposite directions: the largest contrast that keeps λ_D under a cell is about 20×, four
-orders of magnitude short of what transparency needs.
+Both are marginal, and the shipped deck gets away with them only because its state is uniform:
+nothing excites either mode. A density ramp at the column edge excites exactly them, and the
+electron fluid there runs away — the runs diverge at the ramp, at r ≈ 0.035, with electron
+speeds reaching 7e7 m/s and the pressure going negative, with or without the antenna running.
+A hard step fails on the first residual evaluation; a 1.5 mm tanh ramp lasts about 30 steps; a
+3 mm ramp about 150; a 5 mm ramp survived at least 244 before it was stopped. Widening the ramp
+buys steps, not stability, and it cannot be widened far — past a few millimetres the "column
+edge" is the whole gap to the winding. There is no slope limiter to fall back on, because the
+only one in the tree is broken (below).
 
-Note that this is *not* an artefact that a finer mesh fixes — refining the mesh tightens the
-constraint, since λ_D has to be resolved by the cell.
+Two things are worth stating precisely, because the obvious intuitions about them are backwards:
+
+- **The reduced speed of light helps here, it does not hurt.** Rescaling ε₀ up by 10⁴ raises λ_D
+  by 100 and lowers ω_pe by 100. At the true speed of light λ_D would be 4.07e-6 m — 1/200 of a
+  cell — and the plasma period 1.1e-11 s, below the time step. The reduced c is what makes the
+  *uniform* deck viable at all.
+- **A tenuous region is better resolved, not worse.** λ_D ∝ 1/√n, so the annulus would be the
+  best-resolved part of the domain: at 1e-4 of the column density λ_D is 41 mm against 1.6 mm
+  cells. The barrier is not the annulus; it is the gradient between it and the column, which
+  necessarily passes through the column's own under-resolved density.
+
+For completeness, the transparency requirement the annulus would have had to meet: the
+collisionless skin depth c/ω_pe = 5.32e-4/√f must exceed the 3.5 mm from the column edge to the
+inner edge of the winding, which needs f < 2.3e-2 — or f < 2.3e-4 for a comfortable tenfold
+margin. That is easily satisfiable and was never the binding constraint. (c/ω_pe is independent
+of the c rescaling: c²/ω_pe² = m_e/(μ₀ n e²), in which neither c nor ε₀ appears.)
 
 **What was built instead.** The plasma fills the domain out to the conducting wall and the
 antenna is embedded in it. That keeps everything Phase 1 was for — the drive is a current, the
@@ -424,6 +440,13 @@ field everywhere is an outcome, the plasma screens it, the antenna is loaded, an
 power is the ∫E·J over the winding — and gives up only the vacuum gap. Whether the field reaches
 r < 0.03 is now a result of the run rather than a boundary condition, which is the point. It is
 also not an unreasonable machine: RMF thrusters run with plasma filling the tube.
+
+**What would restore the vacuum gap**, in increasing order of work: a working slope limiter; a
+finer mesh in the column, which is what actually buys Debye resolution (λ_D there is fixed by the
+plasma, so the cell has to come down to meet it — roughly a factor of three, at a factor of nine
+in cells and three in time step); or a quasi-neutral or Hall formulation that does not carry
+charge separation at all. The third is the real answer and is what the NIMROD work implies when
+it says "the Hall term is a zeroth order effect".
 
 **What a short run shows.** The transverse field peaks at the winding and falls two decades
 within a few millimetres on both sides — the non-penetrated skin state, which is what to expect
@@ -437,12 +460,6 @@ c/ω_pe = 0.53 mm, is *below* the 0.9–1.5 mm cells, so the screening layer is 
 represented; and the resistive skin depth δ = 1.26 mm — the length RMF penetration theory is
 written in terms of, through λ = r_s/δ — is resolved at about 1.4 cells. Both want refining
 before a threshold is quoted.
-
-**What would restore the vacuum gap**, in increasing order of work: the true speed of light (a
-hundredfold smaller time step, and λ_D back to 4 µm — still 200× below the cell, so this alone
-is not enough either); a working slope limiter; or a quasi-neutral or Hall formulation that does
-not carry charge separation at all. The third is the real answer and is the same recommendation
-the NIMROD work implies ("the Hall term is a zeroth order effect").
 
 **Bugs found and fixed on the way.** None of these are Phase 1 features; all were blocking it.
 
@@ -488,6 +505,10 @@ tolerance is discretisation error. Add it to `test/`.
 
 ### Phase 3 — validate against the literature (weeks, mostly compute)
 
+0. **Which way the drive turns.** Confirm, over tens of RMF periods, that the driven B_z on
+   axis moves *against* the bias field, for each of the two decks. The antenna deck rotates
+   counter-clockwise and the edge-driven deck clockwise (see above); with the same +60 G bias
+   they cannot both be forming an FRC. Everything below assumes this is settled.
 1. **Penetration threshold.** At fixed γ and λ, scan B_ω and locate the transition between
    skin-depth-limited (interior B⊥ ≈ 0, current in a layer of thickness δ) and penetrated
    (near-synchronous rotation) states. Compare with the Hugrass–Grimm 1981 threshold and
@@ -528,9 +549,20 @@ will not be the experiment's number. And the geometry is r-θ, so nothing about 
 length, end-shorting or thrust follows.
 
 The original edge-driven deck, `rmf_frc/frc2d.pin`, is unchanged and remains what it was: a
-demonstration that a two-fluid model with these parameters reverses the field when a uniform
-rotating field is imposed at its edge. Both decks are worth keeping — they differ in exactly one
-thing, and the difference is the physics.
+demonstration of what a two-fluid model with these parameters does when a uniform rotating field
+is imposed at its edge. Both decks are worth keeping.
+
+They differ in **two** things, not one, and the second was not intended. The antenna's current
+goes as cos(θ − ωt − φ), whose field turns counter-clockwise; `twoFluidSimplifiedRMFBC` writes
+B = (−B_t sin(ωt+φ), −B_t cos(ωt+φ)), which turns clockwise. In the synchronous limit the
+electrons are dragged in the sense of the rotation, so J_θ = −e n u_θ takes the opposite sign to
+it: a counter-clockwise RMF drives J_θ < 0, whose axial field opposes a +ẑ bias — field reversal
+— while a clockwise one reinforces it. The antenna deck turns counter-clockwise for that reason.
+If the argument holds, the shipped deck's pairing of a clockwise drive with a +60 G bias is the
+wrong way round for formation. It is an analytic expectation only: over the fraction of a period
+a short run covers, the driven ΔB_z is about 2e-6 of the bias and oscillates in sign, so it
+settles nothing. **Confirming it is the first thing Phase 3 should do**, before any threshold
+scan, because the sign decides whether the scan is measuring formation or its opposite.
 
 
 ---

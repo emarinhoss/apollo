@@ -90,6 +90,14 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
     // get local values of the global vector in into locX
     DMGlobalToLocalBegin(_dm, qk, INSERT_VALUES, local_in);
     DMGlobalToLocalEnd(_dm, qk, INSERT_VALUES, local_in);
+
+    // Seed the output with the input. DMGetLocalVector leaves contents
+    // undefined and the whole of local_out is INSERT_VALUES'd into the solution
+    // at the end, so any cell the loops below do not write would otherwise
+    // inject whatever was in that memory. The loops skip the ghost cells
+    // DMPlexConstructGhostCells appends (they have no geometry to limit), and
+    // this is what leaves them holding the unlimited state instead of garbage.
+    VecCopy(local_in, local_out);
     VecGetArrayRead(local_in, &u);
 
     // get average vectors and matrices
@@ -114,10 +122,12 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
 
     for(int eNum=kStart; eNum<kEndInterior; eNum++)
     {
-        // Not every cell in the stratum is a triangle; see
-        // wxNodalDGgeometry2D::isTriangle. Asking a degenerate one for its
-        // normals gives a zero-length edge and stops the run.
-        if (!geom->isTriangle(eNum)) continue;
+        // The stratum includes PETSc ghost cells; see
+        // wxNodalDGgeometry2D::isRealCell. Asking one for its normals gives a
+        // zero-length edge and stops the run. Nothing is written for them in
+        // this pass - it only fills cellAVEcons/cellAVEprim and the gradient
+        // arrays, which the second pass reads only for real cells.
+        if (!geom->isRealCell(eNum)) continue;
 
         // Cell centers
         REAL xc[4]={0,0,0,0}, yc[4]={0,0,0,0};
@@ -324,7 +334,10 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
 //        bool update = false;
-        if (!geom->isTriangle(eNum)) continue;
+        // Ghost cells are seeded from local_in before the loop, so skipping
+        // them here leaves them holding the unlimited state rather than
+        // whatever DMGetLocalVector happened to hand back.
+        if (!geom->isRealCell(eNum)) continue;
 
         // get neighbors ids
         geom->ElementTOElementANDFace(eNum,connect);

@@ -47,6 +47,8 @@ void check(bool ok, const std::string& what, const std::string& detail = "")
 }
 
 // Parameters of examples/unstructuredDG/multifluid/rmf_frc/antenna/frc2d.pin.
+// Keep these in step with that deck: they are what makes this a test of the
+// shipped configuration rather than of an arbitrary one.
 const double MU0     = M_PI*4.0e-7;
 const double LIGHT   = 3.0e6;
 const double EPS0    = 1.0/(MU0*LIGHT*LIGHT);
@@ -54,9 +56,9 @@ const double B_RMF   = 50.0e-4;
 const double FREQ    = 7.95e5;
 const double OMEGA   = 2.0*M_PI*FREQ;
 const double RISE    = 3.0e-8;
-const double COIL_R  = 0.040;
-const double COIL_W  = 0.008;
-const double WALL_R  = 0.060;
+const double COIL_R  = 0.036;
+const double COIL_W  = 0.005;
+const double WALL_R  = 0.050;
 
 /** setup() is public on WxHyperbolicSrc, but OutRange etc. must be present. */
 ApRMFAntennaSrc<double>* makeSrc(double phase, bool withConductor)
@@ -80,7 +82,7 @@ ApRMFAntennaSrc<double>* makeSrc(double phase, bool withConductor)
         "%s"
         "</ant>\n</top>\n",
         FREQ, B_RMF, phase, RISE, COIL_R, COIL_W, EPS0, MU0,
-        withConductor ? "  conductor_radius = 6.00000000000000000e-02\n" : "");
+        withConductor ? "  conductor_radius = 5.00000000000000000e-02\n" : "");
     std::istringstream stream(deck);
     static WxCryptSet* held = NULL;
     delete held;
@@ -219,14 +221,17 @@ void testPhaseIsAnOffset()
     check(std::fabs(m0 - m1)/m0 < 1e-9,
           "phase leaves the magnitude alone (it is not a polarisation change)", detail);
 
-    // Advancing the phase by p is the same as turning the clock back by p/omega,
-    // so the field lags by exactly p.
+    // J_z goes as cos(theta - omega t - phase), so advancing the phase is the
+    // same as advancing the clock: the field LEADS by exactly +phase. (It is
+    // the other way round in the sibling boundary condition, which writes
+    // cos(omega t + phase) - see the note on handedness in the antenna deck.)
     double d = std::atan2(by1, bx1) - std::atan2(by0, bx0);
     while (d >  M_PI) d -= 2*M_PI;
     while (d < -M_PI) d += 2*M_PI;
-    std::snprintf(detail, sizeof detail, "rotated by %.9f rad, phase is %.9f", d, -phase);
-    check(std::fabs(std::fabs(d) - phase) < 1e-9,
-          "phase rotates the field by exactly that angle", detail);
+    std::snprintf(detail, sizeof detail,
+                  "field leads by %+.9f rad, phase is %+.9f", d, phase);
+    check(std::fabs(d - phase) < 1e-9,
+          "phase advances the field by exactly that angle", detail);
 }
 
 /** Everything outside the winding must be written as an explicit zero. */
@@ -240,8 +245,14 @@ void testNoSourceOutsideTheWinding()
     // returned early would show up here as that value rather than as zero.
     // This is the defect ApRMFSrc (maxwellRMFSrc) has: WxHyperbolicSrc keeps
     // _outValues between calls and adds it to the state unconditionally.
+    // Derived from the winding, not written down: a hard-coded list silently
+    // moves INSIDE the winding when the deck's radii change, and then this
+    // check fails for a reason that has nothing to do with the code under test.
+    const double rIn  = COIL_R - 0.5*COIL_W;
+    const double rOut = COIL_R + 0.5*COIL_W;
     double worst = 0.0;
-    const double rs[] = {0.0, 0.005, 0.020, 0.030, 0.0355, 0.0445, 0.050, 0.059};
+    const double rs[] = {0.0, 0.2*rIn, 0.6*rIn, 0.95*rIn,
+                         1.05*rOut, 0.5*(rOut + WALL_R), WALL_R};
     for (unsigned i = 0; i < sizeof rs/sizeof rs[0]; ++i)
         for (int k = 0; k < 16; ++k) {
             const double th = 2.0*M_PI*k/16;

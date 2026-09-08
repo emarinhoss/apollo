@@ -2,11 +2,35 @@
 #
 # RMF-FRC formation, driven by an ANTENNA rather than by the plasma edge.
 #
-# This is the same physical problem as ../frc2d.pin - a uniform hydrogen column
+# This is nearly the same physical problem as ../frc2d.pin - a uniform hydrogen column
 # in a uniform axial bias field, with a rotating magnetic field applied to drive
 # the azimuthal current that reverses the bias and forms an FRC - but the RMF is
 # produced by an antenna current inside the domain instead of being written onto
 # the plasma edge as a boundary condition.
+#
+# WHICH WAY IT TURNS - a real difference from ../frc2d.pin, not just a
+# difference in where the drive is applied.
+#
+# This antenna's current goes as cos(theta - omega t - PHASE), whose transverse
+# field points at an angle omega t + PHASE - pi/2: COUNTER-CLOCKWISE, and PHASE
+# advances it. twoFluidSimplifiedRMFBC, which ../frc2d.pin uses, writes
+# B = (-Bt sin(omega t + phase), -Bt cos(omega t + phase)), whose angle
+# DECREASES: clockwise, with phase retarding it. The two decks therefore drive
+# in opposite senses.
+#
+# That is not cosmetic. In the synchronous limit the electrons are dragged round
+# in the sense of the rotation, so J_theta = -e n u_theta has the OPPOSITE sign
+# to it. A counter-clockwise RMF drives J_theta < 0, whose axial field opposes a
+# +z bias - which is field reversal, the thing an FRC formation deck is for. A
+# clockwise RMF with the same +60 G bias reinforces it instead. This deck turns
+# counter-clockwise for that reason.
+#
+# CAUTION: that is an analytic expectation, not something confirmed here. The
+# driven change in B_z over the fraction of an RMF period a short run covers is
+# about 2e-6 of the bias and oscillates in sign, so it does not settle the
+# question; confirming it needs the tens-of-periods runs of Phase 3 in
+# docs/rmf-frc-model-assessment.md. If it holds, ../frc2d.pin's combination of a
+# clockwise drive and a positive bias is the wrong way round.
 #
 # WHY THAT MATTERS. In ../frc2d.pin the transverse field at r = a is prescribed.
 # The plasma is then forbidden from screening it: the RMF the plasma sees is the
@@ -89,39 +113,52 @@ Pe = n_dens*BOLTZ*Temp
 #
 # The obvious way to build this problem is a plasma column of radius RAD_PLASMA
 # with vacuum between it and the antenna, and that is what Phase 1 of
-# docs/rmf-frc-model-assessment.md proposed. It cannot be done in this model,
-# and the reason is worth writing down.
+# docs/rmf-frc-model-assessment.md proposed. What blocks it is not the vacuum -
+# it is the EDGE between the two.
 #
-# Apollo solves the full two-fluid system with explicit charge separation, so
-# the Debye length has to be resolved or the electron and ion fluids separate
-# on the grid scale and the run diverges. With this deck's numbers,
+# Apollo carries explicit charge separation, so the electron dynamics have two
+# scales that have to be resolved. At the column's density:
 #
-#     lambda_D = sqrt(eps0 k Te / (n e^2)) = 4.1e-4 m
+#     Debye length  lambda_D = sqrt(eps0 k Te/(n e^2)) = 4.07e-4 m
+#                              = 0.40-0.45 of a cell
+#     plasma period 2 pi/omega_pe, omega_pe = 5.64e9 rad/s
+#                              = 1.11e-9 s = 31 time steps
 #
-# at the column density - already only about half a cell. The deck runs c at
-# c/100 and rescales eps0 to match, which multiplies lambda_D by 100: the real
-# value is 4.1e-6 m. And lambda_D grows as 1/sqrt(n), so a tenuous annulus makes
-# it worse in exactly the region that has to be tenuous. Transparency to the
-# antenna needs the collisionless skin depth c/omega_pe = 5.3e-4/sqrt(f) to
-# exceed the 6 mm gap, i.e. f below about 1e-4; at f = 1e-4, lambda_D is 41 mm
-# against a 1.7 mm cell, under-resolved by a factor of 24. Runs at f = 1e-4 and
-# f = 1e-5 diverge after a few tens to a few hundred steps, at the column edge,
-# with or without the antenna running - and a run that survived would not be
-# resolving the charge separation anyway.
+# Both are marginal. ../frc2d.pin gets away with them because its state is
+# uniform and nothing excites either mode. A density ramp at the column edge
+# excites exactly them: the runs diverge at the ramp, near r = 0.035, with
+# electron speeds reaching 7e7 m/s and the pressure going negative, with or
+# without the antenna running. A hard step fails on the first residual
+# evaluation; a 1.5 mm tanh ramp lasts about 30 steps, a 3 mm ramp about 150, a
+# 5 mm ramp at least 244. Widening the ramp buys steps, not stability, and past
+# a few millimetres the "edge" is the whole gap to the winding.
 #
-# There is no setting of the edge width or the annulus density that escapes
-# this: the two requirements pull the same knob in opposite directions. What
-# would fix it is the true speed of light (a hundredfold smaller time step), a
-# working slope limiter (see below), or a quasi-neutral or Hall formulation that
-# does not carry charge separation at all.
+# Two things worth stating precisely, because the obvious intuitions are
+# backwards:
+#
+#   - The reduced speed of light HELPS. Rescaling eps0 up by 1e4 raises lambda_D
+#     by 100 and lowers omega_pe by 100. At the true c, lambda_D would be
+#     4.07e-6 m - a two-hundredth of a cell - and the plasma period would be
+#     below the time step. The reduced c is what makes the uniform deck viable.
+#   - A TENUOUS REGION IS BETTER RESOLVED, not worse: lambda_D goes as
+#     1/sqrt(n), so an annulus at 1e-4 of the column density would have
+#     lambda_D = 41 mm against 1.6 mm cells, the best-resolved part of the
+#     domain. Transparency was never the binding constraint either - the
+#     collisionless skin depth c/omega_pe = 5.3e-4/sqrt(f) only has to exceed
+#     the 3.5 mm from the column edge to the winding, which needs f < 2.3e-2.
 #
 # So the plasma fills the domain out to the conducting wall and the antenna is
-# embedded in it. That keeps everything Phase 1 is actually for - the drive is a
-# current, the field everywhere is an outcome, the plasma screens it, and the
-# antenna is loaded - and gives up only the vacuum gap. It is also not an
-# unreasonable machine: RMF thrusters run with plasma filling the tube. Whether
-# the field reaches r < RAD_PLASMA is now a result of the run rather than a
-# boundary condition, which is the whole point.
+# embedded in it. That keeps everything Phase 1 is for - the drive is a current,
+# the field everywhere is an outcome, the plasma screens it, and the antenna is
+# loaded - and gives up only the vacuum gap. It is also not an unreasonable
+# machine: RMF thrusters run with plasma filling the tube. Whether the field
+# reaches r < RAD_PLASMA is now a result of the run rather than a boundary
+# condition, which is the whole point.
+#
+# What would restore the gap: a working slope limiter (see below); a finer mesh
+# in the COLUMN, which is where the Debye length is under-resolved, at about
+# three times the resolution for nine times the cells; or a quasi-neutral or
+# Hall formulation that does not carry charge separation at all.
 #
 # THE ABSORBED POWER, the other number the RMF literature is built on, follows
 # from a run because the drive is a current:
@@ -158,7 +195,13 @@ ION_MIN_PRES = MIN_PRES
 ELC_MIN_DENS = ME*MIN_DENS_FRAC*n_dens
 ION_MIN_DENS = MI*MIN_DENS_FRAC*n_dens
 
-TIME = 2.*PI/omega # seconds, one RMF period
+# One RMF period. `omega` is a FREQUENCY in Hz, not an angular frequency -
+# ApRMFAntennaSrc::setup and every RMF boundary condition do
+# _omega = 2*pi*frequency - so the period is 1/omega. ../frc2d.pin has
+# TIME = 2*PI/omega here, which is 2*pi times too large; the variable is unused
+# in both decks, so nothing computes wrongly from it, but it will mislead
+# anyone sizing a run by it.
+TIME = 1./omega # seconds, one RMF period = 1.258e-6 s
 TEND = 2.e-6 # seconds
 OUT  = 10
 

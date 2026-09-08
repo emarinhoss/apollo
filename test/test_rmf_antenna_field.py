@@ -70,9 +70,9 @@ def apollo_binary():
 
 # Must match vacuum.pin. Duplicated rather than parsed: a test that reads its
 # expectations out of the file under test cannot fail when that file is wrong.
-B_RMF, FREQ, RISE = 50.0e-4, 7.95e5, 5.0e-8
+B_RMF, FREQ, RISE = 50.0e-4, 7.95e5, 1.0e-7
 COIL_R, COIL_W = 0.036, 0.005
-TEND, NOUT = 1.5e-7, 12
+TEND, NOUT = 3.0e-7, 12
 OMEGA = 2.0 * math.pi * FREQ
 
 # The eighteen-component two-fluid state, laid out node-major in the .vtu cell
@@ -154,12 +154,28 @@ class TestRMFAntennaField(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
+    @classmethod
+    def settled(cls):
+        """Frames at t >= 2*RISE.
+
+        The closed form is the steady rotating solution. Switching the antenna
+        on also rings the conducting cylinder at its own modes - about 44 ns
+        here - and nothing damps that, there being no plasma. Two rise times in,
+        the envelope is at 86% and the ringing is down to about a percent; one
+        rise time in it is still at ten, which is what the deck's RISE is chosen
+        against. This is a property of the physics, not a frame count, so it is
+        expressed as one.
+        """
+        settled = [f for f in cls.interior if f[0] >= 2.0 * RISE]
+        assert len(settled) >= 4, (
+            f'only {len(settled)} frames at t >= 2*RISE; the deck needs a longer '
+            f'TEND or more outputs for this test to mean anything')
+        return settled
+
     def test_magnitude_matches_the_closed_form(self):
         """|B| inside the winding must be B_rmf times the switch-on envelope."""
-        # Skip the first third: the ramp is still driving a transient that the
-        # closed form, which is the steady rotating solution, does not describe.
         checked = 0
-        for t, bx, by, mask in self.interior[len(self.interior) // 3:]:
+        for t, bx, by, mask in self.settled():
             expected = B_RMF * (1.0 - math.exp(-t / RISE))
             got = float(np.mean(np.hypot(bx[mask], by[mask])))
             self.assertLess(
@@ -170,7 +186,7 @@ class TestRMFAntennaField(unittest.TestCase):
 
     def test_field_is_uniform(self):
         """The winding is m = 1, so the field it encloses has no structure."""
-        for t, bx, by, mask in self.interior[len(self.interior) // 3:]:
+        for t, bx, by, mask in self.settled():
             mag = np.hypot(bx[mask], by[mask])
             spread = float(np.std(mag) / np.mean(mag))
             self.assertLess(
@@ -180,7 +196,7 @@ class TestRMFAntennaField(unittest.TestCase):
 
     def test_field_rotates_at_the_drive_frequency(self):
         """Rotating, not oscillating, and at omega rather than some fraction."""
-        late = self.interior[len(self.interior) // 3:]
+        late = self.settled()
         angles, times = [], []
         for t, bx, by, mask in late:
             angles.append(math.atan2(float(np.mean(by[mask])),
