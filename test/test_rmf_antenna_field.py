@@ -162,8 +162,10 @@ class TestRMFAntennaField(unittest.TestCase):
         """Frames at t >= 1.5*RISE.
 
         The closed form is the steady rotating solution. Switching the antenna
-        on also rings the conducting cylinder at its own modes - about 44 ns
-        here - and nothing damps that, there being no plasma. Measured on the
+        on also rings the conducting cylinder at its own modes - the lowest one
+        the m = 1 drive can excite is j_11 = 3.8317, a 27 ns period; see the
+        note in vacuum.pin - and nothing damps that, there being no plasma.
+        Measured on the
         shipped deck, the error in |B| against the closed form runs:
 
             t/RISE  0.25  0.5   0.75  1.0   1.25  1.5   1.75  2.0   2.5   3.0
