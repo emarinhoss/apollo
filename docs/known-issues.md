@@ -34,26 +34,40 @@ it, check the coefficient against the resistivity-form siblings in the same
 directory (which carry an additional 1/0.51) and confirm the intended
 normalisation of `nue`.
 
-### 1.2 The frictional work term names the wrong species, and Ohmic heating is absent
+### 1.2 The friction energy terms do not conserve energy (error ∝ ion velocity)
 
-Same two files, immediately below. With `q[0..4]` the electron fluid, `q[5..9]`
-the ion fluid, `u = ue - ui`, and `R = -alpha*u` the friction on electrons:
+All four friction sources (`constantResistivity`, `anisotropicResistivity`,
+`braginskiiFriction`, `MomentumXfer2D`) share the same energy terms. With
+`q[0..4]` the electron fluid, `q[5..9]` the ion fluid, `u = ue - ui`, and
+`R = -alpha*u` the friction on electrons:
 
 ```cpp
 s[3] = -(Rux*ui+Ruy*vi+Ruz*wi)-Q_delta;   // electron energy
 s[7] = Q_delta;                            // ion energy
 ```
 
-The electron total-energy source should carry the work done on the *electron*
-fluid, `+R·u_e`; it instead carries `-R·u_i`. The ion equation carries no work
-term at all. Nothing supplies the frictional (Ohmic) heating `alpha*|u|²` that
-must appear for the two total-energy sources plus the exchange terms to sum to
-zero.
+For total-energy variables the sources are `s_e = R·u_e + Q_e` and
+`s_i = -R·u_i + Q_i`, with `Q_e + Q_i = -R·(u_e - u_i) = alpha|u|²` the frictional
+heat, which Braginskii deposits in the electrons (`Q_e = alpha|u|² - Q_delta`,
+`Q_i = Q_delta`). Substituting: `s_e = +R·u_i - Q_delta`, `s_i = -R·u_i + Q_delta`,
+summing to zero. So the code has the right structure, the wrong sign on the
+electron work term, and no ion work term; total energy acquires a spurious source
+`-R·u_i`.
 
-**Not changed here** for the same reason as 1.1, compounded: the correct split
-of the dissipated energy between species depends on which closure this module
-intends, and getting the sign convention wrong would move the error somewhere
-less visible rather than remove it.
+An earlier version of this note said Ohmic heating was absent altogether. That
+was wrong for a total-energy formulation: with ions at rest the code and the
+correct form agree (both `-Q_delta`), because friction thermalises the electron
+drift *within* the electron fluid — the `alpha|u|²` heating is exactly the
+kinetic energy the momentum source removes. The error is proportional to `u_i`:
+negligible on the 2 μs `rmf_frc` runs (ion gyroperiod 11 μs), and growing as the
+ions spin up, which the RMF literature says they do quickly.
+
+**Fix** (proposed in `docs/rmf-frc-model-assessment.md`, Phase 0): in all four
+files set `s[3] = +(Rux*ui+Ruy*vi+Ruz*wi) - Q_delta` and
+`s[7] = -(Rux*ui+Ruy*vi+Ruz*wi) + Q_delta`, and add a test that a uniform box
+with a relative drift and no fields conserves total energy to round-off.
+**Not changed here** because the module has no test to protect the change; the
+test should land with it.
 
 ### 1.3 The bundled collisional–radiative example does not run
 
