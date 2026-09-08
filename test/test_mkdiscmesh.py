@@ -8,17 +8,15 @@ somewhere other than the plasma edge.
 
 Two kinds of thing are checked here. One is that the output is a mesh:
 counter-clockwise triangles, no inversions, an area that converges to pi R^2, a
-closed boundary. The other is that it is a mesh Apollo's reader will accept -
-src/lib/wxpreadgmshgrid.h is strict in ways the format is not, and a file that
-violates any of them is rejected at load time with a message that does not say
-which rule was broken:
+closed boundary. The other is that it is well-formed gmsh 2.2 ASCII - the exact
+header line, dense one-based numbering, facets before cells, two tags per
+element.
 
-  * the header line must be exactly "2.2 0 8";
-  * node numbers must be 1..N in order and element numbers 1..M in order, each
-    checked against the loop index;
-  * facets must all precede cells, because the reader infers the topological
-    dimension by scanning for the highest one and then indexes cells as
-    (element index - number of facets).
+Apollo loads meshes with PETSc's DMPlexCreateGmsh, which accepts looser files
+than that; the stricter shape is what gmsh itself writes, and is also what the
+hand-written reader in src/lib/wxpreadgmshgrid.h requires, though nothing calls
+that reader. Holding to it costs nothing and keeps a generated mesh
+indistinguishable from a gmsh-written one.
 
 The generator's own report already counts inverted triangles and prints the
 area; these tests exist so that a regression fails the build rather than a run.
@@ -183,8 +181,8 @@ class TestMeshIsValid(unittest.TestCase):
         self.assertGreater(worst, 0.4, f'worst triangle quality is {worst:.4f}')
 
 
-class TestReaderConstraints(unittest.TestCase):
-    """Requirements src/lib/wxpreadgmshgrid.h imposes beyond the format."""
+class TestWellFormedGmsh(unittest.TestCase):
+    """The file is gmsh 2.2 ASCII as gmsh itself would write it."""
 
     @classmethod
     def setUpClass(cls):
@@ -198,7 +196,7 @@ class TestReaderConstraints(unittest.TestCase):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def test_header(self):
-        """The reader fscanfs "2.2 %d %d" and rejects any other file type."""
+        """Version 2.2, ASCII (0), sizeof(double) - the shipped meshes' header."""
         self.assertEqual(self.mesh.header, '2.2 0 8')
 
     def test_node_numbering_is_one_based_and_dense(self):
@@ -208,7 +206,7 @@ class TestReaderConstraints(unittest.TestCase):
         self.assertEqual(self.mesh.elem_ids, list(range(1, len(self.mesh.elem_ids) + 1)))
 
     def test_facets_precede_cells(self):
-        """Lines first, then triangles: the reader indexes cells off the count."""
+        """Lines first, then triangles, as gmsh writes them."""
         kinds = self.mesh.kinds
         first_triangle = kinds.index(2)
         self.assertNotIn(1, kinds[first_triangle:],
@@ -219,8 +217,8 @@ class TestReaderConstraints(unittest.TestCase):
             self.assertEqual(len(tags), 2)
 
     def test_boundary_tag_selects_the_first_boundary_condition(self):
-        """Physical tag 1 becomes Face Sets value 1, and
-        WxNodalDG2dMethod::applyBc looks up boundaryConditions[tag-1]."""
+        """Physical tag 1 reaches the DMPlex as Face Sets value 1, which
+        WxNodalDG2dMethod::applyBc turns into boundaryConditions[0]."""
         line_tags = {t[0] for k, t in zip(self.mesh.kinds, self.mesh.tags) if k == 1}
         self.assertEqual(line_tags, {1})
 
@@ -231,7 +229,7 @@ class TestReaderConstraints(unittest.TestCase):
                 self.assertTrue(1 <= v <= n, f'vertex {v} outside 1..{n}')
 
     def test_region_tag_marks_the_two_regions(self):
-        """--region-tag is for other tools; Apollo's reader drops cell tags."""
+        """--region-tag is for other tools; nothing Apollo reads uses cell tags."""
         mesh = Mesh(generate(self.tmp, 'tagged.msh', outer=0.04, ring=0.02,
                              h_inner=2.0e-3, h_outer=4.0e-3, region_tag=True))
         tags = {t[0] for k, t in zip(mesh.kinds, mesh.tags) if k == 2}

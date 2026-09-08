@@ -146,11 +146,19 @@ void testFieldRotates(double phase, const char* label)
                   mn, mx, (mx - mn) / mx);
     check((mx - mn) / mx < 1e-13, "magnitude is constant over an RMF period", detail);
 
+    // SIGNED. This boundary condition writes
+    //     B = (-Bt sin(omega t + phase), -Bt cos(omega t + phase))
+    // whose angle DECREASES: it turns clockwise, and its phase retards the
+    // rotation. The antenna source (maxwellRMFAntenna) turns the other way -
+    // see the handedness note in the antenna deck, and note that the sense
+    // relative to the bias field is what decides whether an RMF reverses it or
+    // reinforces it. Pinned here so that a change to either drive shows up as
+    // a failure rather than as a silently different experiment.
     std::snprintf(detail, sizeof detail,
-                  "swept %.4f rad in one period (want +-2*pi = %.4f)",
-                  sweep, 2*M_PI);
-    check(std::fabs(std::fabs(sweep) - 2*M_PI) < 1e-6,
-          "direction sweeps exactly one full turn", detail);
+                  "swept %+.4f rad in one period (want -2*pi = %+.4f)",
+                  sweep, -2*M_PI);
+    check(std::fabs(sweep + 2*M_PI) < 1e-6,
+          "direction sweeps one full turn clockwise", detail);
 
     std::snprintf(detail, sizeof detail, "|B| = %.6e, B_rmf = %.6e", mx, B_RMF);
     check(std::fabs(mx - B_RMF) / B_RMF < 1e-6,

@@ -190,10 +190,18 @@ void testRotation()
                   mn, mx, (mx - mn)/mx);
     check((mx - mn)/mx < 1e-6, "magnitude is constant over a period", detail);
 
-    std::snprintf(detail, sizeof detail, "swept %.6f rad (want 2*pi = %.6f)",
-                  std::fabs(sweep), 2*M_PI);
-    check(std::fabs(std::fabs(sweep) - 2*M_PI) < 1e-6,
-          "direction sweeps exactly one full turn", detail);
+    // SIGNED, not |sweep|. Which way the field turns is the one physically
+    // decisive property of an RMF drive: electrons are dragged round in the
+    // sense of the rotation, so J_theta = -e n u_theta takes the opposite sign
+    // to it, and that decides whether the driven axial field opposes the bias
+    // (formation) or reinforces it. cos(theta - omega t - phase) turns
+    // counter-clockwise, so the sweep must be +2*pi. Checking |sweep| would let
+    // a sign flip through, and the sibling boundary condition turns the other
+    // way - see the note on handedness in the antenna deck.
+    std::snprintf(detail, sizeof detail, "swept %+.6f rad (want +2*pi = %+.6f)",
+                  sweep, 2*M_PI);
+    check(std::fabs(sweep - 2*M_PI) < 1e-6,
+          "direction sweeps one full turn counter-clockwise", detail);
     delete a;
 }
 
@@ -243,8 +251,9 @@ void testNoSourceOutsideTheWinding()
 
     // currentAt() seeds s[0] with -12345 before every call, so a src() that
     // returned early would show up here as that value rather than as zero.
-    // This is the defect ApRMFSrc (maxwellRMFSrc) has: WxHyperbolicSrc keeps
-    // _outValues between calls and adds it to the state unconditionally.
+    // ApRMFSrc (maxwellRMFSrc) had exactly that defect until it was fixed
+    // alongside this class: WxHyperbolicSrc keeps _outValues between calls and
+    // adds it to the state unconditionally, so an early return is never safe.
     // Derived from the winding, not written down: a hard-coded list silently
     // moves INSIDE the winding when the deck's radii change, and then this
     // check fails for a reason that has nothing to do with the code under test.
@@ -319,6 +328,40 @@ void testConductorScreening()
           "the wall costs the antenna 1/(1 - r_c^2/b^2) in current", detail);
 }
 
+/**
+ * The switch-on envelope must be 1 - exp(-t/rise_time).
+ *
+ * Every other check here samples at t = 40*rise, where the envelope is 1 to
+ * within 4e-18 - so without this one the class could ignore rise_time entirely
+ * and still pass, and the only cover would be the Python field test, which
+ * needs a built solver and a multi-minute run.
+ */
+void testSwitchOn()
+{
+    std::printf("\nswitch-on envelope\n");
+    ApRMFAntennaSrc<double>* a = makeSrc(0.0, true);
+
+    const double omega = 2.0*M_PI*FREQ;
+    double worst = 0.0;
+    for (int k = 1; k <= 8; ++k) {
+        const double t = 0.5*k*RISE;
+        // The current at a fixed point carries both the envelope and the
+        // rotation; divide the rotation out of each sample and take the ratio
+        // against a saturated one, leaving the envelope alone.
+        const double j    = currentAt(*a, COIL_R, 0.0, t)/std::cos(-omega*t);
+        const double jSat = currentAt(*a, COIL_R, 0.0, 40.0*RISE)
+                            /std::cos(-omega*40.0*RISE);
+        worst = std::max(worst, std::fabs(j/jSat - (1.0 - std::exp(-t/RISE))));
+    }
+
+    char detail[256];
+    std::snprintf(detail, sizeof detail,
+                  "largest departure from 1 - exp(-t/rise) over t = 0.5 to 4 "
+                  "rise times: %.3e", worst);
+    check(worst < 1e-12, "the current ramps as 1 - exp(-t/rise_time)", detail);
+    delete a;
+}
+
 } // namespace
 
 int main()
@@ -326,6 +369,7 @@ int main()
     std::printf("RMF antenna source\n");
     std::printf("==================\n");
 
+    testSwitchOn();
     testAmplitude(true,  "inside a conducting wall");
     testAmplitude(false, "in free space");
     testRotation();

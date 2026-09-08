@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Generate a graded triangular disc mesh in gmsh 2.2 ASCII format.
 
-Apollo's mesh reader (src/lib/wxpreadgmshgrid.h) accepts only gmsh ASCII 2.2.
 Some examples ship a .geo beside their .msh (euler/backwardFacingStep does); the
 multifluid rmf_frc discs do not, so there was no way to reproduce or vary one.
 This is that generator.
@@ -21,22 +20,30 @@ gives near-equilateral triangles, a spacing that follows h(r), and - unlike a
 Delaunay triangulation of scattered points - exact control over where nodes
 land, which is what makes the conforming ring possible.
 
-Requirements the reader imposes, all honoured below:
+The output is what gmsh itself writes for a 2.2 ASCII mesh, and deliberately
+nothing looser:
 
-  - the header must be exactly "2.2 0 8" (ASCII, sizeof(double));
-  - node numbers must be 1..N in order, element numbers 1..M in order;
-  - facets (2-node lines, type 1) must all precede cells (3-node triangles,
-    type 2): the reader infers the topological dimension by scanning for the
-    highest one and indexes cells as (element index - number of facets);
+  - the header line is exactly "2.2 0 8" (ASCII, sizeof(double));
+  - node numbers run 1..N in order, element numbers 1..M in order;
+  - facets (2-node lines, type 1) all precede cells (3-node triangles, type 2);
   - every element carries two tags, (physical, geometrical).
 
-The physical tag on a boundary line becomes the "Face Sets" label value in the
-DMPlex, and WxNodalDG2dMethod::applyBc looks up boundaryConditions[tag-1], so
-tag 1 selects the first entry of the deck's boundaryConditions list, tag 2 the
-second. Physical tags on triangles are discarded by the reader, so a two-region
-mesh cannot be distinguished by cell tag - regions have to be told apart
-geometrically, by radius, in the initial condition and in the source terms.
-The --region-tag option still writes a tag per region, for other tools.
+Apollo loads meshes with PETSc's DMPlexCreateGmsh (src/solvers/apsolver.cc),
+which is more permissive than that - it reads 4.1 and binary too. There is also
+a hand-written reader in src/lib/wxpreadgmshgrid.h that requires exactly the
+above, but nothing calls it; it is one of the unreachable files in src/lib that
+docs/known-issues.md records. Writing to the stricter shape costs nothing and
+keeps the meshes loadable by either.
+
+Physical tags on boundary lines reach the DMPlex as the "Face Sets" label, which
+wxNodalDGgeometry2D reads and WxNodalDG2dMethod::applyBc turns into
+boundaryConditions[tag-1] - so tag 1 selects the first entry of the deck's
+boundaryConditions list, tag 2 the second. (Confirmed by running: the antenna
+example's single tag-1 boundary picks up its one BC.) Cell tags do not survive
+into anything Apollo reads, so a two-region mesh cannot be told apart by cell
+tag - regions have to be distinguished geometrically, by radius, in the initial
+condition and in the source terms. The --region-tag option still writes a tag
+per region, for other tools.
 """
 
 import argparse

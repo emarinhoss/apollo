@@ -222,17 +222,26 @@ class TestRMFAntennaField(unittest.TestCase):
             while d < -math.pi:
                 d += 2 * math.pi
             swept += d
+        # SIGNED, not |swept|. Which way the field turns is the physically
+        # decisive property: electrons are dragged in the sense of the rotation,
+        # so J_theta = -e n u_theta takes the opposite sign to it, and that
+        # decides whether the driven axial field opposes the bias (formation) or
+        # reinforces it. The antenna's cos(theta - omega t - phase) turns
+        # counter-clockwise, so the sweep is positive; twoFluidSimplifiedRMFBC
+        # turns the other way. Comparing magnitudes would let a flip through.
         expected = OMEGA * (times[-1] - times[0])
         self.assertLess(
-            abs(abs(swept) - expected) / expected, 0.10,
-            f'field swept {abs(swept):.4f} rad over {times[-1] - times[0]:.3e} s; '
-            f'omega*dt = {expected:.4f} rad')
+            abs(swept - expected) / expected, 0.10,
+            f'field swept {swept:+.4f} rad over {times[-1] - times[0]:.3e} s; '
+            f'omega*dt = {expected:+.4f} rad (sign included: the antenna turns '
+            f'counter-clockwise)')
         # An oscillating field would sweep nothing on average. Expressed
         # relative to the expected sweep so that shortening the deck cannot
         # quietly turn this into a tautology, or into a guaranteed failure.
-        self.assertGreater(abs(swept), 0.5 * expected,
-                           f'field swept only {abs(swept):.4f} rad against an '
-                           f'expected {expected:.4f}; this is not a rotating drive')
+        self.assertGreater(swept, 0.5 * expected,
+                           f'field swept only {swept:+.4f} rad against an '
+                           f'expected {expected:+.4f}; this is not a rotating '
+                           f'drive, or it is turning the wrong way')
 
 
 if __name__ == '__main__':

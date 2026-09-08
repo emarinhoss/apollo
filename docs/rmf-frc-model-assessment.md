@@ -366,7 +366,7 @@ out not to be representable in this model, and the reason is quantitative and wo
 - **A mesh generator** — `scripts/mkdiscmesh.py`. The `rmf_frc` meshes ship with no `.geo`
   alongside them (unlike, say, `euler/backwardFacingStep`), so their domain could not be changed
   at all. It writes graded polar-triangulated discs
-  in the gmsh 2.2 ASCII subset the reader accepts, with a node ring placed exactly on a chosen
+  in gmsh 2.2 ASCII as gmsh itself writes it, with a node ring placed exactly on a chosen
   radius. Extending the domain from r = 0.03 to r = 0.05 costs 1.54× the cells (11 989 triangles
   against `optimizedCircle2.msh`'s 7 792) and *nothing* in time step: dt is set by the smallest
   cell, which is still in the plasma, and is in fact larger on the new mesh — 3.57e-11 s against
