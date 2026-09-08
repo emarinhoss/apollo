@@ -373,11 +373,14 @@ out not to be representable in this model, and the reason is quantitative and wo
   `test/test_rmf_antenna_field.py`. With the plasma removed, a winding inside a perfectly
   conducting cylinder produces a uniform transverse field `B_rmf (1 - exp(-t/rise))` rotating at
   ω, in closed form. The test checks all three of magnitude, uniformity and rotation rate
-  against it, at 5%, 6% and 10%; those tolerances are set by the O((ωb/c)² ) ≈ 1% quasi-static
-  correction and by the coarse mesh, not chosen to fit. In a first, longer-running variant of
-  this case the late frames came out at 0.3–2% on magnitude, 0.7–3% on uniformity and 2% on
-  rotation rate. This is the Phase 2 test applied to Phase 1's geometry, and it is what makes
-  the antenna trustworthy in the deck where nothing is exact.
+  against it, at 5%, 6% and 10%; those tolerances are set by the O((ωb/c)²) ≈ 1% quasi-static
+  correction and by the coarse mesh, not chosen to fit. Measured on the shipped deck, the error
+  in |B| against the closed form falls from 9.8% a quarter of a rise time in to 0.2–1.9% from
+  1.5 rise times on, and the field's variation across the interior from 3.8% to 0.7–3.1%. The
+  test looks only at t ≥ 1.5·RISE; the transient before that is the conducting cylinder's own
+  undamped modes, which nothing absorbs when there is no plasma. This is the Phase 2 test
+  applied to Phase 1's geometry, and it is what makes the antenna trustworthy in the deck where
+  nothing is exact.
 - **The antenna power** — `scripts/rmf_antenna_power.py`, which evaluates
   P = −∫E·J over the winding from a run's output and the deck's own antenna parameters. This
   is the second of the two numbers the literature is built on, and it exists only because the
@@ -448,9 +451,9 @@ in cells and three in time step); or a quasi-neutral or Hall formulation that do
 charge separation at all. The third is the real answer and is what the NIMROD work implies when
 it says "the Hall term is a zeroth order effect".
 
-**What a short run shows.** The transverse field peaks at the winding and falls two decades
-within a few millimetres on both sides — the non-penetrated skin state, which is what to expect
-at t ≪ one RMF period. The peak field at the winding is about 11× below the free-space drive the
+**What a short run shows.** The transverse field peaks at the winding (2.9e-4 T at t = 3e-8 s)
+and falls about two and a half decades over the centimetre on either side of it — the
+non-penetrated skin state, which is what to expect at t ≪ one RMF period. The peak field at the winding is about 11× below the free-space drive the
 same current would produce, which is the plasma loading the antenna: precisely the effect the
 edge-driven boundary condition forbids by construction. Whether it penetrates over tens of
 periods is Phase 3.

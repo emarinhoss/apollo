@@ -2,11 +2,20 @@
 #
 # RMF-FRC formation, driven by an ANTENNA rather than by the plasma edge.
 #
-# This is nearly the same physical problem as ../frc2d.pin - a uniform hydrogen column
-# in a uniform axial bias field, with a rotating magnetic field applied to drive
-# the azimuthal current that reverses the bias and forms an FRC - but the RMF is
+# Nearly the same physical problem as ../frc2d.pin - a uniform hydrogen column
+# in a uniform axial bias field, with a rotating magnetic field driving the
+# azimuthal current that reverses the bias and forms an FRC - but the RMF is
 # produced by an antenna current inside the domain instead of being written onto
-# the plasma edge as a boundary condition.
+# the plasma edge as a boundary condition. "Nearly", because the two decks also
+# turn opposite ways; see below.
+#
+# WHY THAT MATTERS. In ../frc2d.pin the transverse field at r = a is prescribed.
+# The plasma is then forbidden from screening it: the RMF the plasma sees is the
+# vacuum field by construction, the antenna cannot be loaded, and neither the
+# penetration threshold in B_omega nor the absorbed power - the two numbers the
+# RMF literature is built on - can be read off a run. Here the antenna drives a
+# current and the field everywhere, the plasma edge included, is an OUTCOME.
+# See docs/rmf-frc-model-assessment.md.
 #
 # WHICH WAY IT TURNS - a real difference from ../frc2d.pin, not just a
 # difference in where the drive is applied.
@@ -31,14 +40,6 @@
 # question; confirming it needs the tens-of-periods runs of Phase 3 in
 # docs/rmf-frc-model-assessment.md. If it holds, ../frc2d.pin's combination of a
 # clockwise drive and a positive bias is the wrong way round.
-#
-# WHY THAT MATTERS. In ../frc2d.pin the transverse field at r = a is prescribed.
-# The plasma is then forbidden from screening it: the RMF the plasma sees is the
-# vacuum field by construction, the antenna cannot be loaded, and neither the
-# penetration threshold in B_omega nor the absorbed power - the two numbers the
-# RMF literature is built on - can be read off a run. Here the antenna drives a
-# current and the field everywhere, the plasma edge included, is an OUTCOME.
-# See docs/rmf-frc-model-assessment.md.
 #
 # GEOMETRY
 #
@@ -172,8 +173,9 @@ Pe = n_dens*BOLTZ*Temp
 # WHAT THIS DECK RESOLVES, AND WHAT IT DOES NOT. The screening layer the plasma
 # puts around the winding is set by the collisionless skin depth
 # c/omega_pe = 5.3e-4 m, which is BELOW the 0.9-1.5 mm cells: a short run shows
-# the transverse field peaking at the winding and falling two decades within a
-# few millimetres, but that layer is only marginally represented. The resistive
+# the transverse field peaking at the winding and falling about two and a half
+# decades over the centimetre either side, but that layer is only marginally
+# represented. The resistive
 # skin depth delta = sqrt(2 eta/(mu0 omega)) = 1.26 mm, which is the length RMF
 # penetration theory is written in terms of (lambda = r_s/delta), is resolved at
 # about 1.4 cells - also marginal. Refine before quoting a penetration threshold.
