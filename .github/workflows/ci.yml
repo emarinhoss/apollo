@@ -23,17 +23,31 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install linters
-        run: python -m pip install --upgrade pip pyflakes
+      # numpy is not a linter: the Phase 3 diagnostics tests
+      # (test_rmf_diagnostics.py, test_rmf_scan.py) check the post-processing
+      # against closed forms and need no solver, so they belong in this fast
+      # gate - but they skip themselves without numpy, and a test that skips is
+      # a test that is not running.
+      - name: Install linters and numpy
+        run: python -m pip install --upgrade pip pyflakes numpy
 
       - name: Byte-compile every Python file
         run: |
           python -m compileall -q scripts src/buildconf src/this_host_config.py test
 
-      # Discovery also finds test/test_vortex_accuracy.py, which skips here:
-      # it needs a built solver. It is run in the build job below.
+      # Discovery also finds test_vortex_accuracy.py, test_rmf_antenna_field.py
+      # and test_rmf_bc_field.py, which skip here: they need a built solver and
+      # are run in the build job below.
       - name: Regression tests
         run: python -m unittest discover -s test -v
+
+      # Belt and braces: `discover` reports success when it finds nothing, so a
+      # renamed file would silently take these with it. Naming them makes that a
+      # failure instead.
+      - name: Phase 3 diagnostics and cost model
+        run: |
+          python test/test_rmf_diagnostics.py -v
+          python test/test_rmf_scan.py -v
 
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.

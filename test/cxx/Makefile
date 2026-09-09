@@ -55,8 +55,12 @@ test_rmf_boundary_OBJS := $(BUILD)/solvers/wxgridbc.o \
                           $(BUILD)/subsolvers/apsubsolver.o \
                           $(BUILD)/hyperapps/multifluid/aptwofluidsimplifiedrmfbc.o
 
+# Both drives at once: this one compares them against each other.
+test_rmf_rotation_sense_OBJS := $(BUILD)/hyper/wxhyperbolicsrc.o \
+                                $(test_rmf_boundary_OBJS)
+
 TESTS := test_friction_sources test_rmf_boundary test_rmf_antenna \
-         test_maxwell_characteristics
+         test_maxwell_characteristics test_rmf_rotation_sense
 BINS  := $(addprefix $(CURDIR)/,$(TESTS))
 
 .PHONY: all run clean check-build
