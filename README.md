@@ -550,13 +550,18 @@ run can be restarted.
 [docs/rmf-frc-model-assessment.md](docs/rmf-frc-model-assessment.md) assesses the
 `multifluid/rmf_frc` example against the RMF current-drive literature: what is
 right (the model class, the regime, the formation scenario, the flux conserver),
-what is not, and a phased plan with a verification for each step. Two phases of
-that plan are done — the friction energetics, and moving the RMF drive from the
+what is not, and a phased plan with a verification for each step. Three phases
+of that plan are done — the friction energetics; moving the RMF drive from the
 plasma edge to an antenna current so that the plasma can screen and load it
 (`examples/unstructuredDG/multifluid/rmf_frc/antenna/`, verified against a closed
-form by `test/test_rmf_antenna_field.py`). The assessment also records why that
-deck has no vacuum region around its plasma column, which is a limit of the
-model rather than a choice.
+form by `test/test_rmf_antenna_field.py`); and characteristic-consistent
+injection at the edge-driven boundary, which imposes only the incoming Riemann
+invariants and takes the outgoing ones from the interior
+(`src/hyperapps/maxwell/apmaxwellcharacteristics.h`, opt-in per deck via `c0`).
+The assessment also records why the antenna deck has no vacuum region around its
+plasma column, which is a limit of the model rather than a choice, and why the
+two decks turn in opposite senses — which is not a limit, and is the first thing
+Phase 3 should settle.
 
 ## Documentation
 

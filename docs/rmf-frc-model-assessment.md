@@ -592,10 +592,57 @@ would need a rotation around it anyway. See `docs/known-issues.md`.
 - `examples/unstructuredDG/multifluid/rmf_frc/vacuum.pin` with `test/test_rmf_bc_field.py` is the
   plasma-free run the plan asked for, and it is new coverage rather than a formality: nothing
   previously checked at solver level that `twoFluidSimplifiedRMFBC` applies the field it says it
-  applies. Both Phase 0 defects in that class — the phase applied to one Cartesian component
-  only, and an induced E_z satisfying neither component of Faraday's law — would have failed it.
-  It checks magnitude, uniformity and rotation *sense* (this boundary condition turns clockwise;
-  the antenna turns the other way).
+  applies. It checks magnitude, uniformity, the angular structure of the induced E_z, and rotation
+  *sense* (this boundary condition turns clockwise; the antenna turns the other way).
+
+  This entry originally claimed that both Phase 0 defects in that class — the phase applied to one
+  Cartesian component only, and an induced E_z satisfying neither component of Faraday's law —
+  would have failed it. That was written before it was checked, and checking it showed it was
+  false: each defect was reintroduced into the boundary condition, the deck was re-run, and all
+  three checks passed both times. Neither near-miss was fixable by tightening a tolerance.
+
+  - The phase defect is not detectable at `PHASE = 0` **in principle**. `cos(ωt + φ)` with φ = 0
+    and `cos(ωt)` are the same expression; 0 of 300001 field samples differed by a bit. The deck
+    now sets `PHASE = PI/2`.
+  - The E_z defect moves |B| by 0.24%, against a 5% tolerance that cannot be taken below the
+    deck's own 0.25% quasi-static error (see *On "exactly"* below). What it does change is the
+    *shape* of E_z: dropping the azimuthal dependence leaves E_z a function of r alone. The test
+    now asserts angular structure directly — std(E_z)/mean(|E_z|) > 0.3 in a band at mid-radius.
+    The threshold is not fitted: an m = 1 field gives π/(2√2) = 1.11 there (1.115 measured, the
+    excess being the r-dependence across the band) and the defective one gives 0.013, so 0.3 sits
+    3.7× below the first and 23× above the second.
+
+  Both defects were then rebuilt into the boundary condition and the deck re-run against the
+  updated test — the step that was skipped the first time. The phase defect now fails the rotation
+  check (the field sweeps +0.0000 rad where −0.4496 is expected: a linearly polarised field does
+  not turn) and the magnitude check (38.5% error against 5%). The E_z defect fails the new angular
+  check at 0.013 against a threshold of 0.30. Neither is a near miss.
+
+  `test/cxx/test_rmf_boundary.cc` catches both as well, at unit level and in seconds rather than
+  minutes, which is where a defect of this kind should be caught; the deck-level run is what
+  checks that the field reaches the interior of an actual solve.
+
+**What the deck-level tests cost, and what that bought.** Both vacuum runs are in CI on every
+push, so their parameters answer to wall-clock as well as to physics. `vacuum.pin` was 35 minutes
+when first written, which is not a price a push-triggered check can carry; it is now 4.6 minutes.
+Three changes, none of which spends a margin the test depends on:
+
+| | before | after | why it is safe |
+|---|---|---|---|
+| `RISE` | 1.0e-7 s | 6.0e-8 s | 3.7 periods of the j₁₁ cavity mode rather than 6.1 — the ratio the antenna deck was already validated at |
+| `TEND` | 3.0e-7 s | 1.8e-7 s | still 3·RISE, so `settled()` still keeps 7 frames past 1.5·RISE |
+| mesh h | 1.2e-3 m | 1.8e-3 m | 1815 triangles, minimum quality 0.6875 |
+
+Measured over the seven frames of the settled window afterwards: magnitude error 0.19% worst
+against a 5% tolerance, uniformity 0.17% against 6%, rotation 0.25% against 10%, and the E_z
+ratio 1.115 against a floor of 0.30. The ringing the window exists to exclude is real and large —
+17% and 11% at t = 15 ns — so the window, not the tolerances, is what the shorter ramp had to be
+checked against, and it was.
+
+The antenna deck was left at 21 minutes. The same cavity argument pins its ramp at a larger radius
+(b = 0.05 m, a 27 ns period, a 100 ns ramp), so `RISE` is not free there; its remaining knob is the
+mesh, and its tightest margin — uniformity at 3.1% against 6% — is the one a coarser mesh would
+eat first. Trimming it is a measurement, not an argument, and has not been made.
 
 **On "exactly".** The plan said a plasma-free run "must reproduce the applied field exactly". It
 cannot, and the reason bounds the tolerance rather than being a defect: a spatially uniform

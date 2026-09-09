@@ -70,7 +70,16 @@ check-build:
 	  echo "       or point this at another variant:  make -C test/cxx BUILD=$(SRC)/build-debug"; \
 	  exit 2; }
 
-$(CURDIR)/%: %.cc | check-build
+# The objects are PREREQUISITES, not just link arguments. They were only
+# arguments, so editing a boundary condition's .cc and re-running make relinked
+# nothing and the tests ran against a stale binary - which is how a deliberately
+# broken twoFluidSimplifiedRMFBC once reported 14 of 14 checks passing.
+#
+# .SECONDEXPANSION is what lets $$*_OBJS be looked up per target: automatic
+# variables are not available in a pattern rule's prerequisites on the first
+# pass. The static pattern form pins the stem to the test names.
+.SECONDEXPANSION:
+$(BINS): $(CURDIR)/%: %.cc $(CORE_OBJS) $$($$*_OBJS) | check-build
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(CORE_OBJS) $($*_OBJS) -o $@ $(LDFLAGS) $(LDLIBS)
 
 -include $(addsuffix .d,$(TESTS))

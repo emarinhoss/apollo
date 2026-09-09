@@ -8,8 +8,21 @@
 # that the field inside the domain is then the field the deck asked for - and
 # two defects in that class (the phase applied to one component only, and an
 # induced E_z that satisfied neither component of Faraday's law) went unnoticed
-# until they were found by reading it. This is the run that would have caught
-# them.
+# until they were found by reading it.
+#
+# This run catches both, but only because it was built to. That claim was made
+# before it was checked, and when checked it was false: reintroducing each
+# defect and running this deck left every check passing. The phase defect is
+# invisible at PHASE = 0 - the two expressions are identical there - and the
+# E_z defect moves |B| by 0.24% against a 5% tolerance, which is the size of the
+# deck's own quasi-static error and so cannot be separated by tightening it.
+# PHASE is therefore PI/2 below, and test_rmf_bc_field.py checks the ANGULAR
+# STRUCTURE of E_z rather than a magnitude. Both defects were then rebuilt and
+# re-run against the updated test - the step that was skipped the first time.
+# The phase defect fails the rotation check (0.0000 rad swept against -0.4496
+# expected) and the magnitude check (38.5% against 5%); the E_z defect fails the
+# angular check at 0.013 against a floor of 0.30, where the correct field gives
+# 1.115. test/cxx/test_rmf_boundary.cc catches them too, at unit level.
 #
 # Remove the plasma and every source that couples the fluids to the field, and
 # the answer is known: inside a domain whose edge carries a spatially uniform
@@ -31,7 +44,7 @@
 #
 # Mesh: uniform and coarse - there is no plasma to resolve.
 #
-#   python3 scripts/mkdiscmesh.py -o vacuumDisc.msh --outer 0.03 --h-inner 1.2e-3
+#   python3 scripts/mkdiscmesh.py -o vacuumDisc.msh --outer 0.03 --h-inner 1.8e-3
 #
 import math
 PI = math.pi
@@ -49,12 +62,22 @@ DIVE_SPEED = 1.0
 Bomega = 50.e-4   # T, the transverse field the boundary applies
 Baxial = 60.e-4   # T, bias field, held by the flux-conserver term
 omega  = 7.95e5   # Hz
-PHASE  = 0.       # rads
+# PI/2, not 0, and the choice is load-bearing. One of the two defects this run
+# is meant to guard against applied the phase to a single Cartesian component;
+# at PHASE = 0 the defective and correct expressions are the SAME expression -
+# adding +0.0 is bit-exact - so no run of this deck could ever tell them apart.
+# At PI/2 the defective form is linearly polarised, swinging |B| between 0 and
+# sqrt(2)*Bomega, which fails the magnitude check by a wide margin. Every
+# expectation in test/test_rmf_bc_field.py is phase-independent, so this costs
+# nothing.
+PHASE  = PI/2.    # rads
 # frc2d.pin uses 30 ns. The lowest cavity mode an m = 1 drive can excite in a
 # conducting circle of radius a is j_11 c/a = 3.8317*3.0e6/0.03 = 3.83e8 rad/s,
-# a 16 ns period, and nothing damps it with no plasma present. 100 ns is six of
-# those and the ringing falls below the test's tolerances; 30 ns does not.
-RISE   = 1.0e-7
+# a 16 ns period, and nothing damps it with no plasma present. 60 ns is 3.7 of
+# those - the same ratio the antenna deck was validated at - and the ringing
+# falls below the test's tolerances; 30 ns does not. Kept as short as that
+# ratio allows because this run is in CI on every push.
+RISE   = 6.0e-8
 
 RAD_PLASMA = 0.030
 RAD_fluxCo = 0.035
@@ -62,7 +85,7 @@ RAD_fluxCo = 0.035
 RHO0 = 1.e-20
 P0   = 1.e-20
 
-TEND = 3.e-7
+TEND = 1.8e-7
 OUT  = 12
 
 <warpx>
