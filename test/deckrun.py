@@ -64,12 +64,32 @@ def run(example_dir, pin_name, workdir, aux_files=(), binary=None, timeout=3600)
     run_ = subprocess.run([binary or apollo_binary(), '-i', inp],
                           cwd=case, capture_output=True, text=True, timeout=timeout)
     log = run_.stdout + run_.stderr
+
+    # Keep it. The solver's own vacuum_0.log holds only what it chooses to put
+    # there; everything that explains a failure - the exit path, MPI's
+    # complaints, the diagnostics below - arrives on stdout and stderr, which
+    # are captured here and would otherwise exist only inside the exception
+    # message, where a truncated console can hide them.
+    with open(os.path.join(case, 'solver.log'), 'w') as fh:
+        fh.write(log)
+
     if run_.returncode != 0:
-        raise RuntimeError(f'solver exited {run_.returncode}:\n{log[-2000:]}')
+        raise RuntimeError(f'solver exited {run_.returncode}:\n{excerpt(log)}')
     for bad in BAD:
         if bad in log:
-            raise RuntimeError(f'solver reported "{bad}":\n{log[-2000:]}')
+            raise RuntimeError(f'solver reported "{bad}":\n{excerpt(log)}')
     return case
+
+
+def excerpt(log, limit=2000):
+    """The tail of a solver log, with the per-step chatter removed.
+
+    A run of any length ends with thousands of "Simulation dt = ..." lines, so a
+    plain tail is all of them and none of the message that actually explains the
+    failure. Dropping them leaves the diagnostics.
+    """
+    kept = [ln for ln in log.splitlines() if 'Simulation dt' not in ln]
+    return '\n'.join(kept)[-limit:]
 
 
 def apollo_binary():
