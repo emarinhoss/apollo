@@ -68,6 +68,23 @@ RUNS = [
             ('edge-cleaning-off', [('DIVB_SPEED', 0.0), ('DIVE_SPEED', 0.0)]),
         ],
     ),
+    # The long gate. The short pair below spans 0.0040 RMF periods, which is
+    # 0.17 of this deck's RISE time (3.0e-8 s against a 1.2579e-6 s period): the
+    # entire measurement happens while the drive is still ramping up from zero
+    # and never reaches full amplitude. A 5% tolerance measured there cannot
+    # license a ten-period run, and the divergence it does show is linear -
+    # fitted at 3.02 of rms B_x per period, crossing 5% at 0.0125 periods, with
+    # a max residual of 2.3e-4. 0.25 periods is 10.5 x RISE and a quarter of a
+    # full cycle, which is where the question can actually be asked.
+    dict(
+        folder='00-divergence-gate',
+        deck=ANT_DECK, mesh=ANT_MESH,
+        periods=0.25, frames=20,
+        decks=[
+            ('antenna-long-cleaning-on', [('DIVB_SPEED', 1.0), ('DIVE_SPEED', 1.0)]),
+            ('antenna-long-cleaning-off', [('DIVB_SPEED', 0.0), ('DIVE_SPEED', 0.0)]),
+        ],
+    ),
     dict(
         folder='00-divergence-gate',
         deck=ANT_DECK, mesh=ANT_MESH,

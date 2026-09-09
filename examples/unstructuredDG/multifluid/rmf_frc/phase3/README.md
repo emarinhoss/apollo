@@ -14,7 +14,7 @@ that decides whether the others are worth their compute, and it takes a minute.
 
 | folder | what it answers | runs | wall clock, 1 rank |
 | --- | --- | --- | --- |
-| [`00-divergence-gate`](00-divergence-gate) | Is the answer a property of the plasma or of the divergence-cleaning scheme? | 3 | **6 min total** |
+| [`00-divergence-gate`](00-divergence-gate) | Is the answer a property of the plasma or of the divergence-cleaning scheme? | 6 | 8 min, then **3.5 h** |
 | [`01-c-sensitivity`](01-c-sensitivity) | Does the reduced speed of light being too low actually change anything? | 2 | 70 h + 160 h |
 | [`02-threshold-scan`](02-threshold-scan) | Where is the RMF penetration threshold? (items 1 and 3) | 9 | 35 h each, 13 days total |
 | [`03-formation`](03-formation) | Does the FRC formation sequence reproduce? (item 4) | 1 | 140 h |
@@ -41,7 +41,7 @@ afternoon.
 
 ## Before you start
 
-### 1. Run the gate. It takes a minute and it can save you a week.
+### 1. Run the gate, in two stages. The second one is the one that decides.
 
 `twoFluidSimplifiedRMFBC` writes the applied field into the ghost state at every
 boundary face, and the resulting jump in the normal component of **B** feeds the
@@ -49,11 +49,32 @@ divergence-cleaning potential ψ faster than it can be carried away. On the
 shipped edge-driven deck ψ passes 12× the electric field within 210 steps, and
 two runs differing in nothing but `DIVB_SPEED` end up 92% apart in B_x — over
 0.005 of one RMF period. See [`docs/known-issues.md`](../../../../../docs/known-issues.md)
-§13.
+§13. That is why **every long run here uses the antenna deck**.
 
-That is why **every long run here uses the antenna deck**, whose ψ/E stays near
-0.05. `00-divergence-gate` demonstrates both, so you can confirm it on your build
-rather than taking it from this file.
+**Stage 1, four runs, about eight minutes.** `edge-cleaning-{on,off}` and
+`antenna-cleaning-{on,off}`, compared in pairs. This catches gross failure — the
+edge deck fails at 92%, the antenna deck passes at 2.4% — and it is worth running
+first because it is nearly free.
+
+**It is not sufficient, and the reason is specific.** Those runs span 0.0040 RMF
+periods, which is **0.17 × RISE**: the drive ramps over 3.0e-8 s against a
+1.2579e-6 s period, so the entire measurement happens before the field reaches
+full amplitude. Worse, what it does measure is not flat. On the antenna deck the
+difference grows linearly across all six frames — 0.0143, 0.0159, 0.0180, 0.0203,
+0.0223, 0.0241 — fitting 3.02 of rms B_x per period with a maximum residual of
+2.3e-4, and crossing the 5% tolerance at 0.0125 periods. A pass at 0.004 periods
+says nothing about a run of ten.
+
+**Stage 2, two runs, about 1.7 h each.** `antenna-long-cleaning-{on,off}` span
+0.25 periods — 10.5 × RISE and a quarter of a full cycle — with 20 frames, which
+is enough to see whether that growth saturates or keeps going. **Run this before
+committing to anything in `01`, `02` or `03`.** Three and a half hours against
+the roughly three weeks those folders ask for.
+
+What to look for: the sensitivity column flattening well below 5% clears the
+antenna deck for long runs; continued linear growth means the campaign has a
+problem no choice of deck fixes, and that is worth knowing before day one rather
+than day thirteen.
 
 ### 2. Do not use MPI for a run whose output you intend to analyse.
 
