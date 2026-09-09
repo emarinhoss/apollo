@@ -542,6 +542,11 @@ real equation object:
 | 1.5, 1 | 1.7e-1 |
 | 1, 2 | 2.5e-1 |
 
+Confirmed at solver level, not only at the level of one flux evaluation: the shipped `frc2d.pin`
+run to t = 2e-8 (734 steps of the full two-fluid problem) with and without characteristic
+injection agrees to 5e-15 relative on B, 2e-12 on E and 7e-15 on the densities — roundoff
+accumulated over the run, and nothing more.
+
 So the defect is latent rather than active. It becomes real if a deck changes either cleaning
 speed, and it is real already in the slope limiter, which consumes the ghost state directly
 rather than through a Riemann solve.

@@ -147,8 +147,10 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     // lambda = max(c, chi c, gamma c); at chi = gamma = 1 every eigenvalue has
     // magnitude c, so that flux is exactly upwind and an upwind flux ignores
     // what the ghost says about outgoing characteristics. The two constructions
-    // then agree to roundoff - measured at 2.9e-16 relative. Away from
-    // chi = gamma = 1 they differ by tens of percent, and the slope limiter
+    // then agree to roundoff - measured at 2.9e-16 relative on a single flux
+    // evaluation, and 5e-15 on B after 734 steps of the shipped deck run both
+    // ways. Away from chi = gamma = 1 they differ by tens of percent, and the
+    // slope limiter
     // consumes the ghost state directly rather than through a Riemann solve,
     // where the outgoing part does matter.
     //
