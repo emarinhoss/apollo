@@ -68,8 +68,21 @@ MU0 = 4.0e-7 * math.pi
 GAMMA = 5.0 / 3.0
 
 # Measured on the 4-core container this was developed on: 731 steps of the
-# shipped deck on optimizedCircle2.msh (7792 triangles) in 339 s of wall clock.
-# Per triangle so it can be scaled to another mesh; override with --sec-per-step.
+# shipped deck on optimizedCircle2.msh (7792 triangles) in 339 s of wall clock,
+# with the machine otherwise idle. Per triangle so it can be scaled to another
+# mesh.
+#
+# TREAT THE STEP COUNT AS EXACT AND THE HOURS AS AN ORDER-OF-MAGNITUDE. The
+# timestep model below reproduces the solver's dt to six significant figures, so
+# the step count is exact; this constant is not. The same binary on the same
+# mesh measured 0.464 s/step idle, 0.569 under moderate load and 0.720 under
+# heavy load on the same afternoon - a spread of 79%. Use --sec-per-step to
+# substitute a number measured on the machine that will actually run the scan.
+#
+# There is no separate fixed-cost term because there is nothing to put in it:
+# timed directly, a 3-step run of this deck takes 2.6 s and a 41-step run 30 s,
+# which fits a setup cost of 0.4 s. Anything that looks like a large fixed cost
+# in a two-point fit is load variation between the two points.
 SECONDS_PER_STEP_PER_TRIANGLE = 339.0 / 731.0 / 7792.0
 
 

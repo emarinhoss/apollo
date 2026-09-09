@@ -45,7 +45,8 @@ ions are not.
 The penetration parameters are (form standard in this literature; the exact threshold curve
 is in Hugrass & Grimm 1981 and, empirically, Milroy 1999):
 
-- γ = ω_ce / ν_ei — how magnetised the electrons are against collisions;
+- γ = ω_ce / ν_ei — how magnetised the electrons are against collisions, with ω_ce taken in
+  the **rotating** field B_ω rather than the bias (see §3.2);
 - λ = r_s / δ, with δ = √(2η / μ₀ω) the classical skin depth — how many skin depths the plasma
   is wide;
 - penetration when γ is large compared with λ (order unity ratio); the Michigan thruster papers
@@ -142,8 +143,8 @@ a = 3 cm, η = 5 × 10⁻⁶ Ω m):
 | quantity | value | reading |
 | --- | --- | --- |
 | ω_ci, ω, ω_ce | 5.7 × 10⁵, 5.0 × 10⁶, 1.1 × 10⁹ rad/s | ω_ci ≪ ω ≪ ω_ce holds (×8.7, ×211) |
-| γ = ω_ce/ν_ei | 75 | ν_ei from η: 1.4 × 10⁷ s⁻¹ |
-| δ, λ = a/δ | 1.26 mm, 24 | γ/λ ≈ 3: penetration expected |
+| γ = ω_ce(B_ω)/ν_ei | 62.5 | ν_ei from η: 1.41 × 10⁷ s⁻¹ (see below) |
+| δ, λ = a/δ | 1.26 mm, 23.8 | γ/λ = 2.63: near the threshold, not far above it |
 | η | 5 × 10⁻⁶ Ω m | Spitzer at 30 eV, lnΛ = 10: ~3 × 10⁻⁶; plausible |
 | μ₀ n e ω a²/2 | 450 G | synchronous reversal would be 7.5× the bias: strong drive |
 | B_ω/B_bias | 0.83 | TCS-like ratio |
@@ -151,7 +152,17 @@ a = 3 cm, η = 5 × 10⁻⁶ Ω m):
 | ion gyroperiod | 11 μs | longer than the 2 μs run: ions barely respond |
 | run length | 1.6 RMF periods | rise time 30 ns ≪ period: an abrupt switch-on |
 
-Two remarks. β ≈ 50 against the bias field means the initial column is far from any
+**On γ.** This table first computed γ with the *bias* field, giving 75 and γ/λ ≈ 3.2. The RMF
+literature evaluates ω_ce in the **rotating** field B_ω — it is a measure of how magnetized the
+electrons are in the field that is driving them — so for this deck γ = 62.5 and γ/λ = 2.63. That
+is sourced only at abstract level (see the note at the top of this document; the full texts were
+not reachable), but it matters for Phase 3: the two values sit on either side of the O(1)
+coefficient in the threshold condition, so "far above threshold" and "near threshold" are the
+difference between them, and an item-1 scan has to be designed to bracket the transition rather
+than to confirm a side. The numeric coefficient in the Hugrass–Grimm and Milroy threshold could
+not be sourced at all and is deliberately not quoted here.
+
+Two further remarks. β ≈ 50 against the bias field means the initial column is far from any
 equilibrium with that field; that is normal for the formation problem, but the early
 transient is violent and the run is short enough that it is mostly transient. And 1.6 periods
 is too short to see the torque–friction balance the literature describes; this deck exercises
@@ -776,12 +787,19 @@ change to the plasma and `scripts/rmf_scan.py --speedup` says so rather than hid
 legitimate for items 1–3, which are governed by γ and λ, and not for item 4, which is about
 pressure balance.
 
-Measured on the container this was written on (7792 triangles, 0.46 s/step), one RMF period is
-46,000 steps and 5.9 hours:
+One RMF period is 45,965 steps. **The step counts are exact and the hours are not**: the timestep
+model reproduces the solver's dt to six significant figures, but the seconds-per-step constant is a
+property of the machine and its load. The same binary on the same mesh measured 0.464 s/step idle,
+0.569 under moderate load and 0.720 under heavy load in one afternoon — a spread of 79%. The table
+below uses the idle figure, 5.9 hours per period; read the days as an order of magnitude and pass
+`--sec-per-step` measured on the machine that will do the work. (There is no separate setup cost to
+subtract: timed directly, a 3-step run of this deck takes 2.6 s and a 41-step run 30 s, which fits
+a fixed cost of 0.4 s.)
 
 | item | run | as shipped | with `--speedup 3` |
 | --- | --- | --- | --- |
 | 1. threshold scan | 5 × B_ω, 5 periods | 6.2 days | 2.1 days |
+| 1. as it must actually be | 8 × B_ω, 5 periods | 9.9 days | 3.3 days |
 | 2. penetrated limit | 1 point, 10 periods | 2.5 days | 20 hours |
 | 3. skin-depth limit | 3 × B_ω, 5 periods | 3.7 days | 1.2 days |
 | 4. formation dynamics | 1 point, 20 periods | 4.9 days | not applicable (β) |
@@ -836,6 +854,15 @@ no key; it is now `known-issues` §12 and is pinned by a test.
    **instrumented and priced**: `penetration_fraction` measures the transition,
    `rmf_scan.py --param Bomega` runs the sweep. 6.2 days as shipped, 2.1 with `--speedup 3`.
    Not run.
+
+   Two things about its design, both from §3.2. First, with γ evaluated in B_ω the deck sits at
+   γ/λ = 2.63 — near the threshold rather than far above it — so the scan must **bracket** the
+   transition, not confirm a side of it. Second, the numeric coefficient in the Hugrass–Grimm and
+   Milroy conditions could not be sourced from this environment at all, and is not quoted anywhere
+   in this document. That is not fatal: a scan wide enough to bracket the transition *measures*
+   the coefficient instead of assuming it, which is the better experiment. It does mean the scan
+   has to span roughly B_ω = 10 to 150 G rather than the narrow range a known threshold would
+   allow. Eight points over that range at five periods is 9.9 days, or 3.3 with `--speedup 3`.
 2. **Penetrated limit.** Check the driven field reversal against μ₀ n e ω a²/2 · ζ with ζ
    measured from the simulation's electron rotation. — **instrumented**:
    `rotation_parameter` measures ζ(r) and `penetrated_limit_bz` integrates it, both verified
@@ -877,8 +904,8 @@ give up. None is free, and the identity λ_D·(c/v_Te) = c/ω_pe of §3.10 is wh
    either way.
 3. **Lower the density.** λ_D and c/ω_pe both go as n^(−1/2), so n = 10¹⁹ m⁻³ buys a factor of
    3.2 in the trade and makes c = 3 v_Te compatible with the present mesh. But with η fixed
-   ν_ei ∝ n, so γ = ω_ce/ν_ei goes from 75 to 750: a different point in the penetration diagram,
-   which is the thing being measured. Recovering γ needs η ×10, which moves δ and hence λ. The
+   ν_ei ∝ n, so γ goes from 62.5 to 625: a different point in the penetration diagram, which is
+   the thing being measured. Recovering γ needs η ×10, which moves δ and hence λ. The
    two literature parameters cannot both be held while n moves.
 4. **Change the model.** The constraint is a five-moment artefact: it exists because the electron
    fluid carries its own sound wave and the scheme is explicit. An implicit or sub-cycled electron

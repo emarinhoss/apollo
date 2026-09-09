@@ -160,7 +160,11 @@ class TestScaling(unittest.TestCase):
             nu_ei = p['n_dens'] * p['Q'] ** 2 * p['ETA'] / p['ME']
             w = 2.0 * math.pi * p['omega']
             return dict(
-                gamma=p['Q'] * 60e-4 / p['ME'] / nu_ei,
+                # omega_ce in the ROTATING field, which is the literature's
+                # convention (see the assessment, section 3.2). Only invariance
+                # is being checked here, so the choice does not change the
+                # verdict - but it should not read as if it did.
+                gamma=p['Q'] * 50e-4 / p['ME'] / nu_ei,
                 lam=p['RAD_PLASMA'] / math.sqrt(2 * p['ETA'] / (p['MU0'] * w)),
                 debye=math.sqrt(eps0 * p['Te'] * p['Q'] / (p['n_dens'] * p['Q'] ** 2)),
                 skin=p['LIGHT'] / math.sqrt(
