@@ -312,7 +312,7 @@ def skin_depth(eta, omega):
 # that a deck missing one of them fails at parse time with a list, rather than
 # with a KeyError three functions later.
 REQUIRED_DECK_KEYS = ('MU0', 'Q', 'ME', 'MI', 'omega', 'RAD_PLASMA',
-                      'Te', 'LIGHT', 'TEND', 'ETA', 'n_dens')
+                      'Te', 'LIGHT', 'TEND', 'ETA', 'n_dens', 'OUT')
 
 
 def deck_parameters_from_text(text, what='deck'):
@@ -352,12 +352,25 @@ def deck_parameters(path):
         return deck_parameters_from_text(fh.read(), what=path)
 
 
-def frame_time(index, params, n_frames):
-    """Output frames are equally spaced in time from 0 to TEND."""
-    tend = params.get('TEND')
-    if tend is None or n_frames < 2:
+def frame_time(index, params):
+    """The time of output frame `index`.
+
+    The solver writes one frame before the time loop and one per output
+    interval, so frame i of a complete run is at TEND*i/OUT
+    (src/solvers/apsolver.cc:186, 216).
+
+    Taken from the deck's OUT, NOT from how many frames happen to be present.
+    Dividing by the number of frames found is right only for a run that
+    finished, and an unfinished run is the normal case here: the solver has no
+    checkpoint/restart, so anything interrupted leaves a partial set of frames
+    that are still perfectly good to analyse. Timing them by their own count
+    would stretch them to fill TEND and silently misreport every time, the
+    cycle-average window included.
+    """
+    tend, out = params.get('TEND'), params.get('OUT')
+    if tend is None or not out:
         return float('nan')
-    return tend * index / (n_frames - 1)
+    return tend * index / out
 
 
 def analyse(frames, params, nbins=40):
@@ -427,7 +440,7 @@ def main(argv=None):
               for p in names]
 
     rows = analyse(frames, params)
-    times = [frame_time(r['index'], params, len(rows)) for r in rows]
+    times = [frame_time(r['index'], params) for r in rows]
 
     delta = skin_depth(params['ETA'], 2.0 * math.pi * params['omega'])
     print(f'RMF period {period:.4e} s; frames span '

@@ -340,5 +340,39 @@ class TestCycleAverage(unittest.TestCase):
         self.assertAlmostEqual(avg, 2.0 / math.pi, delta=0.02)
 
 
+@unittest.skipIf(rd is None, 'scripts/rmf_diagnostics.py did not import')
+class TestFrameTiming(unittest.TestCase):
+    """Frame times come from the deck's OUT, not from how many frames exist.
+
+    The solver has no checkpoint/restart, so a partial set of frames is the
+    normal thing to be handed. Timing them by their own count would stretch them
+    to fill TEND: the last frame of an interrupted run would be reported at the
+    end time it never reached, and every cycle average taken from it would be
+    over the wrong window.
+    """
+
+    PARAMS = {'TEND': 2.0e-6, 'OUT': 10}
+
+    def test_a_complete_run_is_evenly_spaced_to_TEND(self):
+        times = [rd.frame_time(i, self.PARAMS) for i in range(11)]
+        self.assertAlmostEqual(times[0], 0.0)
+        self.assertAlmostEqual(times[-1], 2.0e-6)
+        for a, b in zip(times, times[1:]):
+            self.assertAlmostEqual(b - a, 2.0e-7, places=15)
+
+    def test_a_partial_run_keeps_the_same_times(self):
+        """The killer case: four frames of a ten-frame run are still frames 0-3."""
+        full = [rd.frame_time(i, self.PARAMS) for i in range(11)]
+        partial = [rd.frame_time(i, self.PARAMS) for i in range(4)]
+        self.assertEqual(partial, full[:4])
+        self.assertAlmostEqual(partial[-1], 6.0e-7,
+                               msg='frame 3 of a TEND = 2e-6, OUT = 10 run is at '
+                                   '6e-7 s whether or not the run finished')
+
+    def test_a_deck_without_OUT_gives_nan_rather_than_a_wrong_time(self):
+        self.assertTrue(math.isnan(rd.frame_time(3, {'TEND': 1.0})))
+        self.assertTrue(math.isnan(rd.frame_time(3, {'TEND': 1.0, 'OUT': 0})))
+
+
 if __name__ == '__main__':
     unittest.main()
