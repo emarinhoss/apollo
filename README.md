@@ -562,15 +562,18 @@ Phase 3, the validation campaign against the literature, is partly done: the
 question of which way each drive turns is settled (`test/cxx/`, 15 checks), and
 the diagnostics and scan harness the remaining items need are built and verified
 against closed forms (`scripts/rmf_diagnostics.py`, `scripts/rmf_scan.py`). The
-comparisons themselves are not run, and the assessment says what each would cost
-— measured, not guessed. Its main finding is about the deck rather than the code:
-the reduced speed of light is 1.2% above the electron sound speed and below the
-fastest electron characteristic of the penetrated state the campaign exists to
-measure. Raising it trades away Debye resolution one for one — the product of
-the two is fixed by the density — and the deck is already under-resolved there.
-The assessment
-also records why the antenna deck has no vacuum region around its plasma column,
-which is a limit of the model rather than a choice.
+comparisons themselves are not run: the assessment says what each would cost —
+measured, not guessed — and records two findings that block them, both about the
+shipped decks rather than the code. The reduced speed of light is 1.2% above the
+electron sound speed and below the fastest electron characteristic of the
+penetrated state the campaign exists to measure; raising it trades away Debye
+resolution one for one, since the product of the two is fixed by the density, and
+the deck is already under-resolved there. And the edge-driven boundary condition
+drives the divergence-cleaning potential without bound, so within a few hundred
+steps its transverse field depends on a numerical parameter — the antenna deck
+does not do this. The assessment also records why the antenna deck has no vacuum
+region around its plasma column, which is a limit of the model rather than a
+choice.
 
 ## Documentation
 

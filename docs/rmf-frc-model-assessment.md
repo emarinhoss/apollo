@@ -752,7 +752,7 @@ B_perp has curl B = 0, so Ampère would need ∂E/∂t = 0 while the induced E_z
 rotating field is the quasi-static limit, good to O((ωa/c)²) — 0.25% at this deck's numbers. The
 same caveat applies to the Phase 1 antenna test and is stated there too.
 
-### Phase 3 — validate against the literature — **item 0 DONE; the rest is instrumented and priced, not run**
+### Phase 3 — validate against the literature — **item 0 DONE; the rest is instrumented, priced, and blocked**
 
 The plan called this "weeks, mostly compute". That was the optimistic reading. What follows is
 what Phase 3 established, what it built, and what each remaining item now costs — measured rather
@@ -779,10 +779,19 @@ shipped drive, measured from the classes rather than read off their source — t
 Fourier component of the current it emits, the boundary condition's from the direction of the
 field it writes.
 
-| drive | sense | rate | driven B_z at ζ = 1 | against a +60 G bias |
+| deck | drive | sense | driven B_z at ζ = 1 | against its +60 G bias |
 | --- | --- | --- | --- | --- |
-| `maxwellRMFAntenna` | counter-clockwise | exactly ω | −452 G | **opposes it: field reversal** |
-| `twoFluidSimplifiedRMFBC` | clockwise | exactly ω | +452 G | **reinforces it** |
+| `rmf_frc/antenna/frc2d.pin` | `maxwellRMFAntenna` | counter-clockwise | −452 G | **opposes it: field reversal** |
+| `rmf_frc/frc2d.pin` | `twoFluidSimplifiedRMFBC` | clockwise | +452 G | **reinforces it** |
+| `rmf_frc/heavyIons/frc2d.pin` | `twoFluidSimplifiedRMFBC` | clockwise | +452 G | **reinforces it** |
+
+All three carry B_ω = 50 G and B_bias = +60 G, so the pairing is the only thing that differs. Both
+edge-driven decks are the wrong way round, not just the hydrogen one; the xenon deck was not
+mentioned when this was first written. The minimal fix for either is one sign — set
+`Baxial = -60.e-4`, or reverse the drive — since (x, y, z) → (x, −y, −z) is a proper rotation
+carrying a clockwise drive with a +ẑ bias onto a counter-clockwise drive with a −ẑ one. Which of
+the two to change is a question about what the decks are meant to demonstrate, so neither has been
+changed here.
 
 Both are independent of `phase`, which is what "phase" is supposed to mean. The magnitude, 452 G,
 is the μ₀neωa²/2 of §3.2 recovered independently. The analytic expectation the assessment recorded
@@ -932,12 +941,43 @@ no key; it is now `known-issues` §12 and is pinned by a test.
    can say. — **not started**; the xenon deck has its own parameters and has not been priced.
 
 Items 1–4 are runnable in the sense that everything except the compute exists: the decks, the
-diagnostics, the harness, and a cost estimate good to five significant figures. What none of them
+diagnostics, the harness, and a cost estimate good to five significant figures. **Run them on the
+antenna deck**, for the reason in the section below: on the edge-driven deck the transverse field
+depends on the divergence-cleaning speed within a few hundred steps. What none of them
 can do until §3.10 is addressed is claim to describe a *penetrated* state, since in that state the
 model's electrons outrun its light. **That is the finding this phase should be read for**, and it
 belongs ahead of any of the comparisons: an item-1 threshold scan run today would produce a
 threshold, and the side of it that matters — the penetrated side — is the side the model cannot
 currently represent.
+
+#### A second blocker, found while looking for the first
+
+§3.10 is about whether the deck's physics is representable. This one is about whether its numerics
+hold still long enough to measure anything, and it lands on the edge-driven deck specifically.
+
+`twoFluidSimplifiedRMFBC` writes the applied transverse field into the ghost state at every
+boundary face, against whatever interior field the run has produced. The resulting jump in the
+normal component of **B** is what the divergence-cleaning potential ψ exists to carry away, and it
+is being fed faster than it can carry: measured over 210 steps of the shipped deck, rms|ψ|/rms|E|
+runs 0.38, 1.76, 3.51, 5.59, 8.84, 12.08, still rising linearly. ψ enters the induction equation in
+the slot **E** occupies, and two runs differing in nothing but `DIVB_SPEED` diverge to 92% of
+rms|B_x| over those same 210 steps — 0.005 of one RMF period.
+
+Three things follow for Phase 3, and the third is the useful one:
+
+- **Items 1–4 should be run on the antenna deck**, not the edge-driven one. Driving with a current
+  never writes a discontinuous **B** into a ghost state, and its ψ/E stays between 0.03 and 0.09
+  over the same 210 steps instead of reaching 12.
+- **B_z is the last quantity to notice**, which is why nothing caught this: over 210 steps the B_z
+  difference is 0.09% of the bias while B_x has diverged completely. Item 0's observable is the
+  most forgiving one in the problem.
+- **Phase 2's characteristic injection is not the remedy**, and this was tested rather than
+  assumed: `c0 = LIGHT` in the boundary condition reproduces the ψ/E figures above to four decimal
+  places, frame for frame. That is the expected answer for the reason Phase 2 recorded — at
+  χ = γ = 1 Lax–Friedrichs is exactly upwind, so the ghost's outgoing part cannot reach the flux.
+  The over-specification Phase 2 removed was real and is not what drives ψ here.
+
+`docs/known-issues.md` §13 carries the numbers and a repro.
 
 #### What would have to change first
 
