@@ -190,7 +190,7 @@ ghost state (B_x, B_y) = −B_t(t)(sin ωt, cos(ωt+φ)) — the **vacuum** rota
    wrong*, and Phase 2 below establishes why.
 
    `WxPHMaxwellEqn::DGnumericalFlux` is Lax–Friedrichs with λ = max(c, χc, γc). At χ = γ = 1 —
-   what every deck in this repository sets — every eigenvalue of the flux Jacobian has magnitude
+   what every deck using these conditions sets — every eigenvalue of the flux Jacobian has magnitude
    c, so |A| = cI and that flux *is* the exact upwind flux, not an average. An upwind flux takes
    the outgoing characteristics from the interior and ignores whatever the ghost says about
    them: algebraically it depends on the ghost only through (A − cI)q_ghost, and (A − cI)
@@ -528,7 +528,8 @@ exists now. **The premise does not hold in the shipped configuration**, and esta
 the more useful half of this phase.
 
 **The finding.** `WxPHMaxwellEqn::DGnumericalFlux` is Lax–Friedrichs with λ = max(c, χc, γc).
-At χ = γ = 1 — what every deck in this repository sets, as `DIVE_SPEED` and `DIVB_SPEED` — every
+At χ = γ = 1 — what every deck that uses these boundary conditions sets, as `DIVE_SPEED` and
+`DIVB_SPEED`; `maxwell/transverseMagnetic` sets neither and takes the 0.0 default — every
 eigenvalue of the flux Jacobian has magnitude c, so |A| = cI and that Lax–Friedrichs flux **is**
 the exact upwind flux. An upwind flux takes the outgoing characteristics from the interior and
 ignores what the ghost says about them; the flux depends on the ghost only through

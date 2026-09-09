@@ -38,6 +38,15 @@
  * characteristics are incoming - so the ghost state is the same for any
  * positive pair.
  *
+ * POSITIVE is a real requirement, not a formality. WxPHMaxwellEqn::setup
+ * defaults both to 0.0 when the deck's equation block omits them, and at zero
+ * the (E_n, phi) and (B_n, psi) pairs do not propagate at all: their
+ * eigenvalues are both zero, neither is incoming or outgoing, and splitting
+ * them by the sign of a speed that has none is meaningless. Nothing here can
+ * check that, because chi and gamma live in the equation block while the
+ * boundary condition that calls this reads its own. A deck that turns this on
+ * must set them; every deck that does turn it on sets both to 1.
+ *
  * THE GHOST STATE. Take the outgoing invariants from the interior and the
  * incoming ones from the prescribed field. Equivalently, and this is how it is
  * computed below because it is far better conditioned, add to the interior
@@ -47,13 +56,17 @@
  *   - when the prescribed field equals the interior state the ghost IS the
  *     interior state, i.e. this degenerates to the zero-gradient outflow
  *     condition (phmOpenBC), as a boundary injection should;
- *   - when the prescribed field carries only incoming characteristics it is
- *     passed through exactly.
+ *   - when the prescribed field carries only incoming characteristics AND the
+ *     interior state is zero, it is passed through exactly. Against a non-zero
+ *     interior it is not, and must not be: the ghost still carries that
+ *     interior's outgoing invariants, which is the whole point.
  *
  * A NOTE ON THE FLUX. WxPHMaxwellEqn::DGnumericalFlux is Lax-Friedrichs with
- * lambda = max(c, chi c, gamma c). When chi = gamma = 1 - what every deck in
- * this repository sets - every eigenvalue has magnitude c, so |A| = c I and
- * that Lax-Friedrichs flux IS the exact upwind flux. The construction below is
+ * lambda = max(c, chi c, gamma c). When chi = gamma = 1 - what every deck that
+ * uses these boundary conditions sets, though not literally every deck in the
+ * repository: examples/unstructuredDG/maxwell/transverseMagnetic sets neither
+ * and so gets the 0.0 default - every eigenvalue has magnitude c, so |A| = c I
+ * and that Lax-Friedrichs flux IS the exact upwind flux. The construction below is
  * then not merely consistent but exact. For chi or gamma other than 1 the flux
  * is more diffusive than upwind and the realised boundary is correspondingly
  * smeared; the ghost state is still the right one to supply.

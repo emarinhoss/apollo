@@ -205,13 +205,26 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
             if(connect[2*elem]<0)
             {
                 // face normal
-                REAL NX[2], XC[2];
+                REAL NX[2], XC[5];
 
                 // face normal
                 NX[0] = normals[3*elem]; NX[1] = normals[3*elem+1];
 
+                // Boundary conditions are handed (t, x, y, -, dt), the layout
+                // WxNodalDG2dMethod uses: they read xc[0] as the time and
+                // xc[1], xc[2] as the position. This used to declare XC[2] and
+                // fill it with (x, y), so every one of them took the node's
+                // x-coordinate for the time, its y-coordinate for x, and read
+                // xc[2] past the end of a two-element array. For an RMF
+                // boundary condition that meant an envelope evaluated at
+                // t = 0.03 s and a phase omega*t of about 1.5e5 radians -
+                // arbitrary - on top of the out-of-bounds read.
+                XC[0] = this->getCurrentTime();
+                XC[3] = 0.0;
+                XC[4] = 0.0;
+
                 // cell center coordinates
-                XC[0] = xc[elem+1]; XC[1] = yc[elem+1];
+                XC[1] = xc[elem+1]; XC[2] = yc[elem+1];
 
                 for(unsigned kk=0; kk<_meqn; kk++)
                     qCons[kk] = ConsAve[kk][0];
@@ -229,9 +242,9 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
                 // Apply BC to face nodes
                 for(unsigned nodes=0; nodes<NpF; nodes++)
                 {
-                    // node coordinates
-                    XC[0] = geom->Xcoordinate(eNum,faceIDs[elem*NpF+nodes]);
-                    XC[1] = geom->Ycoordinate(eNum,faceIDs[elem*NpF+nodes]);
+                    // node coordinates; XC[0] is still the time, set above
+                    XC[1] = geom->Xcoordinate(eNum,faceIDs[elem*NpF+nodes]);
+                    XC[2] = geom->Ycoordinate(eNum,faceIDs[elem*NpF+nodes]);
 
                     for(unsigned kk=0; kk<_meqn; kk++)
                         qCons[kk] = qIn[faceIDs[elem*NpF+nodes]*_meqn+kk];

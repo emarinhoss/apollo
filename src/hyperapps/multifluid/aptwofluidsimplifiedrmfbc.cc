@@ -1,5 +1,6 @@
 #include "aptwofluidsimplifiedrmfbc.h"
 #include "maxwell/apmaxwellcharacteristics.h"
+#include <wxlogger.h>
 #include <wxmath.h>
 
 template <typename REAL>
@@ -16,8 +17,20 @@ APTwoFluidSimplifiedRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _rise = wxc.template get<REAL>("rise_time");
 
   // Optional. Its presence turns on characteristic injection; see applyBC.
+  // It must be the same speed of light the <maxwell> equation block uses -
+  // nothing here can reach across to check that, since the two live in
+  // different deck blocks, and a mismatch splits the characteristics at the
+  // wrong wave speed without complaining.
   _characteristic = wxc.has("c0");
   _c0 = _characteristic ? wxc.template get<REAL>("c0") : 0.0;
+  if (_characteristic && _c0 <= 0.0)
+  {
+    // maxwellCharacteristicGhost divides by it in four places, so zero would
+    // fill the ghost state with infinities and the run would go on.
+    WxLogger::get("apollo-root.console")->
+      error("*** twoFluidSimplifiedRMFBC: c0 must be positive ***\n");
+    exit(1);
+  }
   _a = wxc.template get<REAL>("plasma_radius");
   _b = wxc.template get<REAL>("flux_conserver_radius");
 
@@ -142,8 +155,8 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     // src/hyperapps/maxwell/apmaxwellcharacteristics.h for the decomposition
     // and test/cxx/test_maxwell_characteristics.cc for its verification.
     //
-    // It makes NO DIFFERENCE at the cleaning speeds every deck in this
-    // repository sets. DGnumericalFlux is Lax-Friedrichs with
+    // It makes NO DIFFERENCE at the cleaning speeds every deck that uses this
+    // condition sets. DGnumericalFlux is Lax-Friedrichs with
     // lambda = max(c, chi c, gamma c); at chi = gamma = 1 every eigenvalue has
     // magnitude c, so that flux is exactly upwind and an upwind flux ignores
     // what the ghost says about outgoing characteristics. The two constructions
@@ -155,7 +168,10 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     // where the outgoing part does matter.
     //
     // Off unless the deck supplies c0, so that a deck which does not ask for
-    // this is untouched down to the last bit.
+    // this is untouched down to the last bit. A deck that does ask for it must
+    // also set chi and gamma positive in its Maxwell equation block - they
+    // default to 0.0, at which the cleaning characteristics have no speed and
+    // no sense in which either is incoming.
     if (_characteristic)
         maxwellCharacteristicGhost(nx, _c0, q + 10, qF, qBC + 10);
     else

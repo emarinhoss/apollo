@@ -612,6 +612,12 @@ WxNodalDG2dMethod<REAL>::applyLimiter(Vec Qin, Vec Qlimited)
 {
     // apply limiters
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _limiterSubSolvers.at(0));
+    // The limiter calls boundary conditions, which read the time out of the
+    // coordinate array it hands them. Nothing else sets its clock - the
+    // solver-sequence loop in ApSolver only does so for the subsolvers it steps
+    // - so without this the limiter's idea of the time is whatever it was
+    // constructed with.
+    ss->setCurrentTime(this->getCurrentTime());
     // cast this to the limiter and call step function
     dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,_cub,Qin,Qlimited);
 }

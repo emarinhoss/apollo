@@ -54,11 +54,22 @@ Three defects that stopped it before it could take a step have been fixed:
 - the height-0 stratum contains more than the mesh's cells: `createMesh` calls
   `DMPlexConstructGhostCells`, which appends one ghost cell per boundary facet
   (192 of them on the shipped `rmf_frc` mesh, taking 7792 to 7984), and the
-  limiter asked those for their normals.
+  limiter asked those for their normals;
+- it handed boundary conditions a two-element coordinate array. The DG scheme
+  passes `xc[5]` = (t, x, y, -, dt) and every boundary condition here reads
+  `xc[0]` as the time and `xc[1]`, `xc[2]` as the position; the limiter declared
+  `XC[2]` and filled it with (x, y). So on that path an RMF boundary condition
+  took the node's x-coordinate for the time - an envelope evaluated at t = 0.03 s
+  and a phase omega*t of about 1.5e5 radians - and read `xc[2]` past the end of
+  the array. Nothing else set the limiter's clock either, so
+  `WxNodalDG2dMethod::applyLimiter` now does before calling it.
 
-What remains is in the limiter's own numerics: it now runs for a few tens of
-steps and then stops with `*** NaN energy in Euler limiter ***`, on the shipped
-`rmf_frc` deck as much as on the antenna deck beside it.
+What remains is in the limiter's own numerics: it runs for a few tens of steps
+and then stops with `*** NaN energy in Euler limiter ***`, on the shipped
+`rmf_frc` deck as much as on the antenna deck beside it. The coordinate defect
+above looked like a promising explanation - a boundary condition fed a nonsense
+time returns a nonsense ghost state - but it is not the cause: with it fixed the
+run still stops at the same step 28.
 
 ```repro
 REPO=$(git rev-parse --show-toplevel)
