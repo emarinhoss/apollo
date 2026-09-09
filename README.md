@@ -558,10 +558,17 @@ form by `test/test_rmf_antenna_field.py`); and characteristic-consistent
 injection at the edge-driven boundary, which imposes only the incoming Riemann
 invariants and takes the outgoing ones from the interior
 (`src/hyperapps/maxwell/apmaxwellcharacteristics.h`, opt-in per deck via `c0`).
-The assessment also records why the antenna deck has no vacuum region around its
-plasma column, which is a limit of the model rather than a choice, and why the
-two decks turn in opposite senses — which is not a limit, and is the first thing
-Phase 3 should settle.
+Phase 3, the validation campaign against the literature, is partly done: the
+question of which way each drive turns is settled (`test/cxx/`, 15 checks), and
+the diagnostics and scan harness the remaining items need are built and verified
+against closed forms (`scripts/rmf_diagnostics.py`, `scripts/rmf_scan.py`). The
+comparisons themselves are not run, and the assessment says what each would cost
+— measured, not guessed. Its main finding is about the deck rather than the code:
+the reduced speed of light is 1.2% above the electron sound speed and below the
+fastest electron characteristic of the penetrated state the campaign exists to
+measure, and it cannot be raised without losing the Debye length. The assessment
+also records why the antenna deck has no vacuum region around its plasma column,
+which is a limit of the model rather than a choice.
 
 ## Documentation
 

@@ -182,6 +182,38 @@ class TestScaling(unittest.TestCase):
         self.assertAlmostEqual(beta(scaled) / beta(base), 1.0 / 9.0, places=9)
         self.assertIn('beta', note, 'the note must tell the user beta changed')
 
+    def test_every_written_number_is_a_float_literal(self):
+        """Apollo's parser types "1000000" as an integer and get<REAL> then throws.
+
+        The failure is std::bad_cast at setup, naming no key. This is not
+        hypothetical: the first deck this harness generated set LIGHT = 1.0e6,
+        wrote "LIGHT = 1000000", and the run aborted before its first step with
+        c0 = 1000000 in the generated .inp.
+        """
+        for v in (1.0e6, 3.0e5, 30.0, 2.0, 1e-3, 0.0, 5e-4, 1e20, 1.5):
+            text = rmf_scan.deck_number(v)
+            self.assertTrue('.' in text or 'e' in text,
+                            f'{v!r} was written as {text!r}, which the deck parser '
+                            f'would read as an integer')
+            self.assertEqual(float(text), float(v))
+
+    def test_speedup_writes_float_literals(self):
+        """The whole deck after a rewrite, not just the helper."""
+        new, _n = rmf_scan.apply_speedup(self.text, 3.0)
+        for name in ('Te', 'LIGHT'):
+            line = [l for l in new.splitlines() if l.startswith(name + ' ')][0]
+            value = line.split('=', 1)[1].split('#')[0].strip()
+            self.assertTrue('.' in value or 'e' in value,
+                            f'{line.strip()!r} would be parsed as an integer')
+
+    def test_set_param_writes_float_literals(self):
+        for value in (1.0e6, 30.0, 2.0):
+            new = rmf_scan.set_param(self.text, 'Bomega', value)
+            line = [l for l in new.splitlines() if l.startswith('Bomega')][0]
+            got = line.split('=', 1)[1].split('#')[0].strip()
+            self.assertTrue('.' in got or 'e' in got,
+                            f'{line.strip()!r} would be parsed as an integer')
+
     def test_a_deck_without_the_expected_assignments_is_refused(self):
         """Half-applying the scaling would silently compare different plasmas."""
         with self.assertRaises(SystemExit):

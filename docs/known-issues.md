@@ -281,7 +281,44 @@ trap that `override` exists to catch, and the codebase uses it nowhere.
 
 ---
 
-## 12. Duplicated and uncertain post-processing scripts
+## 12. A deck value written without a decimal point aborts the run
+
+`WxCryptSetLexer::_scan_number` (`src/lib/wxcryptsetlexer.cc:213-223`) types a
+number with no `.` and no exponent as `WX_INT` and stores it through `atoi`;
+everything else goes through `atof` as `WX_REAL`. `WxCrypt::get<REAL>`
+(`src/lib/wxcrypt.h:73-81`) then does `wx_any_cast<double>` on a stored `int`,
+which throws `std::bad_cast`. The solver reports
+
+    Apollo: unexpected error on MPI rank 0: std::bad_cast
+
+and calls `MPI_ABORT`. **The message names neither the key nor the file**, so a
+deck with one integer-looking constant in it fails at setup with nothing to go
+on. The value need not look unusual: `LIGHT = 1000000` is fatal where
+`LIGHT = 1000000.0` and `LIGHT = 1.0e6` are fine.
+
+This bites hardest where decks are generated rather than typed. A parameter scan
+writes a deck per point, and a formatter like Python's `%g` renders `1.0e6` as
+`1000000` — so the scan fails at every point, identically, with an error that
+points nowhere. `scripts/rmf_scan.py` carries a `deck_number()` helper for
+exactly this reason, and `test/test_rmf_scan.py` pins it.
+
+```repro
+REPO=$(git rev-parse --show-toplevel)
+cd $(mktemp -d) && cp $REPO/examples/unstructuredDG/multifluid/rmf_frc/{frc2d.pin,optimizedCircle2.msh} .
+sed -i 's/^LIGHT = 3.0e6.*/LIGHT = 3000000/;s/^TEND = 2.e-6.*/TEND = 1.e-10/' frc2d.pin
+PYTHONPATH=$REPO/scripts python3 $REPO/scripts/wxinpparse.py -i frc2d.pin
+$REPO/src/build-opt/apollo -i frc2d.inp 2>&1 | grep -E "bad_cast|error"
+```
+
+The same routine carries its author's note that `atoi` will silently overflow on
+a large literal (`wxcryptsetlexer.cc:136-138`, "FIX THIS: MAIN ISSUE IS THAT AN
+OVERFLOW MAY OCCUR"), so `n_dens = 100000000000000000000` is worse than fatal —
+it is wrong. Both would be fixed by the same change: parse every numeric literal
+as a double and let `get<int>` narrow, or name the offending key in the error.
+
+---
+
+## 13. Duplicated and uncertain post-processing scripts
 
 Several files in `scripts/` are near-duplicates with no indication of which is
 canonical: `wxdata.py` / `wxdata_3949.py`, `wxunsdgdata.py` / `wxunsdgdata2.py`,

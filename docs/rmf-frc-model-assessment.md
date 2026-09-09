@@ -19,6 +19,13 @@ and the friction source terms do not conserve energy.** The first is the item th
 what the example can be compared against; the second is small on the two-microsecond runs
 shipped here and grows as the ions spin up.
 
+Both of those are now fixed (Phases 0 to 2). Working through Phase 3 added a third, of a
+different kind: **the deck's reduced speed of light is below the speeds of the state the
+validation is meant to reach.** It is 1.2% above the electron sound speed and 3.9% below the
+fastest electron characteristic of a fully penetrated RMF, and it cannot be raised without
+losing the Debye length, because the product of the two constraints is fixed by the density
+alone. See §3.10 and Phase 3.
+
 ---
 
 ## 1. What the literature says the problem is
@@ -282,14 +289,75 @@ r-θ is the right plane for penetration and drive — the classical theory is an
 For the xenon deck that means the r-θ model addresses whether the RMF penetrates and drives
 current, not whether the thruster produces thrust.
 
-### 3.10 Reduced speed of light — acceptable ✓
+### 3.10 Reduced speed of light — at its limit, and past it in the state Phase 3 studies ✗
 
-c/100 with ε₀ rescaled keeps c² = 1/(μ₀ε₀). Light transit across the column is 10 ns against a
-1258 ns RMF period, so the displacement current remains negligible for the RMF; ω_pe drops to
-5.6 × 10⁹ s⁻¹, still 5× ω_ce and resolved (ω_pe Δt = 0.15); the Debye length grows to 0.4 mm,
-comparable to the finest cells. Reduced c is standard in five-moment work; a two-fluid study in
-the search results ran c from 3 to 12 v_Te and found "only a minor effect on the modeled
-instabilities." The price is 73,000 steps for 2 μs.
+This section previously read "acceptable ✓". Phase 3 measured it and it is not.
+
+What still holds. c/100 with ε₀ rescaled keeps c² = 1/(μ₀ε₀). Light transit across the column is
+10 ns against a 1258 ns RMF period, so the displacement current is negligible for the RMF. ω_pe
+drops to 5.64 × 10⁹ s⁻¹, 5.3× ω_ce, and is resolved: ω_pe Δt = 0.154.
+
+**c is not comfortably above the electron speeds. It is one of them.**
+
+| speed | value | c / speed |
+| --- | --- | --- |
+| v_Te = √(kT_e/m_e) | 2.297 × 10⁶ m/s | 1.31 |
+| v_Te = √(2kT_e/m_e) | 3.249 × 10⁶ m/s | **0.92** |
+| electron sound speed √(γkT_e/m_e) | 2.966 × 10⁶ m/s | 1.012 |
+| ion sound speed | 6.92 × 10⁴ m/s | 43 |
+| Alfvén speed (bias) | 1.31 × 10⁴ m/s | 229 |
+
+The two-fluid study cited above as justification ran c from 3 to 12 v_Te; for this deck that is
+c between 6.9 × 10⁶ and 2.8 × 10⁷ m/s. At 3.0 × 10⁶ the deck is a factor of 2.3 below the bottom
+of the range its own citation covers. The citation does not support this setting.
+
+**The step count was attributed to the wrong thing.** "73,000 steps for 2 μs" is right — 2 μs /
+2.7366 × 10⁻¹¹ s = 73,086 — but it is not the price of the reduced c. Apollo's step is
+dt = (2/3)·cfl·dtscale·r_min/max‖λ‖ (`wxnodaldg2dmethod.cc:225`), and the largest characteristic
+speed here is `max(c, c_se)`, with c only 1.2% above c_se. Measured, by running the deck at
+LIGHT = 3.0 × 10⁶, 1.0 × 10⁶, 3.0 × 10⁵ and 1.0 × 10⁵ and reading the dt the solver printed:
+
+| LIGHT [m/s] | dt printed [s] |
+| --- | --- |
+| 3.0 × 10⁶ | 2.73658 × 10⁻¹¹ |
+| 1.0 × 10⁶ | 2.76826 × 10⁻¹¹ |
+| 3.0 × 10⁵ | 2.76826 × 10⁻¹¹ |
+| 1.0 × 10⁵ | 2.76826 × 10⁻¹¹ |
+
+A thirtyfold cut in the speed of light buys 1.16% and then nothing at all: the step saturates on
+the electron sound speed, to six significant figures. Reducing c further is not a lever, and the
+cost of any long RMF run here belongs to the electron fluid, not to the field solver.
+`test/test_rmf_scan.py` pins this.
+
+**In the penetrated state the electron fluid outruns the model's light.** Synchronous rotation at
+the plasma edge is u_θ = ωa = 1.50 × 10⁵ m/s, so the fastest electron characteristic is
+|u| + c_se = 3.12 × 10⁶ m/s — 3.9% *above* c. Equivalently, 0.70 eV of electron heating, or
+3.4 × 10⁴ m/s of bulk electron flow, crosses it. The penetrated state is exactly what Phase 3
+items 1, 2 and 4 exist to measure, so this is not a corner case: the deck's reduced c is below
+the speeds of the state it is meant to study.
+
+**And it cannot simply be raised, because of an identity.** With v_Te = √(kT_e/m_e),
+
+    λ_D · (c/v_Te) = c/ω_pe = √(m_e/(μ₀ n e²))
+
+whose right-hand side depends on the density alone — not on c, not on T_e. At n = 10²⁰ m⁻³ it is
+0.532 mm, against mesh edges of 0.576 to 1.428 mm on `optimizedCircle2.msh`. So c/v_Te and the
+Debye length trade off exactly against each other:
+
+| c/v_Te | λ_D | λ_D / h_min |
+| --- | --- | --- |
+| 0.92 (√2 convention) | 0.576 mm | 1.00 |
+| 1.31 (**this deck**) | 0.407 mm | 0.71 |
+| 3.0 (bottom of the cited range) | 0.177 mm | 0.31 |
+| 12.0 (top) | 0.044 mm | 0.08 |
+
+The deck sits about where the two constraints cross. Buying a defensible c/v_Te costs the Debye
+length, and the only ways out are a finer mesh — cost scales as c·h⁻³, so resolving both at
+c = 3 v_Te is 79× the present cost, about **19 days per RMF period** — or a lower density, which
+changes γ and hence the penetration problem being posed.
+
+None of this is a coding defect, and the choice made was the best available on this mesh. But
+"acceptable ✓" was too strong, and the consequence for Phase 3 is the phase's main finding.
 
 ### 3.11 Smaller items
 
@@ -650,27 +718,182 @@ B_perp has curl B = 0, so Ampère would need ∂E/∂t = 0 while the induced E_z
 rotating field is the quasi-static limit, good to O((ωa/c)²) — 0.25% at this deck's numbers. The
 same caveat applies to the Phase 1 antenna test and is stated there too.
 
-### Phase 3 — validate against the literature (weeks, mostly compute)
+### Phase 3 — validate against the literature — **item 0 DONE; the rest is instrumented and priced, not run**
 
-0. **Which way the drive turns.** Confirm, over tens of RMF periods, that the driven B_z on
-   axis moves *against* the bias field, for each of the two decks. The antenna deck rotates
-   counter-clockwise and the edge-driven deck clockwise (see above); with the same +60 G bias
-   they cannot both be forming an FRC. Everything below assumes this is settled.
+The plan called this "weeks, mostly compute". That was the optimistic reading. What follows is
+what Phase 3 established, what it built, and what each remaining item now costs — measured rather
+than estimated, because the first thing the phase found is that the usual way of making a run like
+this affordable does not work here.
+
+#### 0. Which way the drive turns — **settled, and it did not need a run**
+
+The plan asked for tens of RMF periods to confirm that the driven B_z on axis moves against the
+bias. It does not need them. The question is a sign, the sign chain is short, and every step of it
+can be checked in code:
+
+1. A drive turning counter-clockwise drags electrons counter-clockwise; in the synchronous limit
+   u_e,θ = ζωr with ζ → 1.
+2. J = Σ q_s n_s u_s, and the electron charge is negative, so counter-clockwise electrons carry a
+   **clockwise** current: J_θ < 0.
+3. Inside an infinite cylinder each shell contributes μ₀J_θ dr to the axial field, so
+   B_z(0) = −μ₀neωζa²/2, **negative** for ζ > 0.
+4. A negative driven B_z opposes a +ẑ bias. That is field reversal.
+
+So forming an FRC against a +ẑ bias requires a counter-clockwise RMF, and
+`test/cxx/test_rmf_rotation_sense.cc` (15 checks) asserts the whole chain plus the sense of each
+shipped drive, measured from the classes rather than read off their source — the antenna's from the m = 1
+Fourier component of the current it emits, the boundary condition's from the direction of the
+field it writes.
+
+| drive | sense | rate | driven B_z at ζ = 1 | against a +60 G bias |
+| --- | --- | --- | --- | --- |
+| `maxwellRMFAntenna` | counter-clockwise | exactly ω | −452 G | **opposes it: field reversal** |
+| `twoFluidSimplifiedRMFBC` | clockwise | exactly ω | +452 G | **reinforces it** |
+
+Both are independent of `phase`, which is what "phase" is supposed to mean. The magnitude, 452 G,
+is the μ₀neωa²/2 of §3.2 recovered independently. The analytic expectation the assessment recorded
+was right, and it is now executable: 15 milliseconds instead of tens of periods. The same sign rule
+is asserted from the Python side, on the diagnostic that post-processes a run, in
+`test/test_rmf_diagnostics.py`; both must agree.
+
+What a simulation would still add is the *magnitude* of the reversal and the approach to it — items
+2 and 4 — not the sign.
+
+#### What the rest costs, and why the usual lever is missing
+
+Apollo's step is `dt = (2/3)·cfl·dtscale·r_min / max‖λ‖` (`wxnodaldg2dmethod.cc:225`). The measured
+consequence, and the phase's central finding, is in §3.10: **the largest characteristic speed is
+not the reduced speed of light but the electron sound speed**, which sits 1.2% below it. Cutting c
+by a factor of thirty changes dt by 1.16% and then not at all. The standard way to buy time in a
+reduced-c two-fluid run is unavailable here.
+
+The lever that does work is (T_e, c) together. Under T_e → T_e/s² with c → c/s, every dimensionless
+parameter the penetration literature is written in — γ, λ, ω/ω_ci, ω/ω_ce, B_ω/B_bias, λ_D in
+cells, ω_pe Δt — is invariant, while dt grows by exactly s. Only β moves, by 1/s². That is a real
+change to the plasma and `scripts/rmf_scan.py --speedup` says so rather than hiding it; it is
+legitimate for items 1–3, which are governed by γ and λ, and not for item 4, which is about
+pressure balance.
+
+Measured on the container this was written on (7792 triangles, 0.46 s/step), one RMF period is
+46,000 steps and 5.9 hours:
+
+| item | run | as shipped | with `--speedup 3` |
+| --- | --- | --- | --- |
+| 1. threshold scan | 5 × B_ω, 5 periods | 6.2 days | 2.1 days |
+| 2. penetrated limit | 1 point, 10 periods | 2.5 days | 20 hours |
+| 3. skin-depth limit | 3 × B_ω, 5 periods | 3.7 days | 1.2 days |
+| 4. formation dynamics | 1 point, 20 periods | 4.9 days | not applicable (β) |
+
+None of these fits in a session, and the solver has no checkpoint/restart (`known-issues` §6), so
+an interrupted run is a lost run. That is why `rmf_scan.py` prints the cost before running anything
+and refuses to start a scan it estimates at over six hours.
+
+And these are the prices at the deck's *present* reduced c. Fixing the physics problem §3.10
+describes — c ≥ 3 v_Te with λ_D still resolved — costs a further factor of 79, about 19 days per
+RMF period. The honest statement is that a properly resolved Phase 3 campaign is out of reach of
+this model configuration, not merely of this machine.
+
+#### The instruments, built and verified
+
+The remaining items are all "measure X from a run and compare it with Y", so the phase's other
+deliverable is the measuring apparatus — verified against closed forms first, the way Phases 1
+and 2 verified theirs, because a diagnostic that has never been checked is not evidence.
+
+- **`scripts/rmf_diagnostics.py`** computes B_z on axis, the electron rotation parameter ζ, the
+  penetration of the transverse field, the current-layer thickness against δ, and the
+  penetrated-limit driven field for a measured ζ(r). The current comes from the fluid momenta,
+  J = Σ (q_s/m_s)(ρu)_s — the same expression `WxCurrentSrc` feeds back into Ampère's law, so it
+  is the current the run actually used, and it needs no derivative of a discontinuous P1 field.
+- **`test/test_rmf_diagnostics.py`**, 23 checks in 0.05 s, feeds each function an analytic field
+  whose answer is known and asserts it comes back.
+- **`scripts/rmf_scan.py`** runs a scan, applies the diagnostics, and skips points already
+  complete — the only restart available. **`test/test_rmf_scan.py`**, 12 checks, holds its cost
+  model against six timesteps the solver actually printed, reproducing each to five significant
+  figures.
+
+Both test files run in the fast CI gate, which needed numpy installed there: they had been
+skipping, and a test that skips is not running.
+
+Exercising the pipeline on real output earned its keep twice. The layer-thickness fit reported
+40 mm and 59 mm "skin layers" in a 30 mm column — fits to a switch-on transient that was not
+decaying — and now refuses a length exceeding half the column or an R² below 0.9. And the first
+programmatically generated deck aborted at setup with `std::bad_cast`, because `LIGHT = 1.0e6` had
+been written `1000000` and Apollo's lexer types a literal with no decimal point as an integer. A
+scan writes every one of its decks, so that would have failed at every point, with an error naming
+no key; it is now `known-issues` §12 and is pinned by a test.
+
+#### The items, and where each one stands
+
+0. **Which way the drive turns.** Confirm that the driven B_z on axis moves *against* the bias
+   field, for each of the two decks. — **DONE**, above, analytically and in 15 unit checks. The
+   plan budgeted tens of RMF periods; it needed none.
 1. **Penetration threshold.** At fixed γ and λ, scan B_ω and locate the transition between
    skin-depth-limited (interior B⊥ ≈ 0, current in a layer of thickness δ) and penetrated
    (near-synchronous rotation) states. Compare with the Hugrass–Grimm 1981 threshold and
-   Milroy 1999's empirical expression. This is the test the whole subject rests on.
+   Milroy 1999's empirical expression. This is the test the whole subject rests on. —
+   **instrumented and priced**: `penetration_fraction` measures the transition,
+   `rmf_scan.py --param Bomega` runs the sweep. 6.2 days as shipped, 2.1 with `--speedup 3`.
+   Not run.
 2. **Penetrated limit.** Check the driven field reversal against μ₀ n e ω a²/2 · ζ with ζ
-   measured from the simulation's electron rotation.
-3. **Skin-depth limit.** At low B_ω, check the current layer thickness against δ.
+   measured from the simulation's electron rotation. — **instrumented**:
+   `rotation_parameter` measures ζ(r) and `penetrated_limit_bz` integrates it, both verified
+   against the closed form. 2.5 days for ten periods, 20 hours scaled. Not run.
+3. **Skin-depth limit.** At low B_ω, check the current layer thickness against δ. —
+   **instrumented**: `current_layer_thickness`, verified to recover δ from exp(−(a−r)/δ) and to
+   refuse a fit that is not a layer. 3.7 days for three points, 1.2 scaled. Not run. Note that δ
+   is 1.26 mm against mesh edges of 0.58–1.43 mm, so the layer this item measures is two cells
+   wide at best: the mesh is the binding constraint on the answer, not the run length.
 4. **Formation dynamics.** Reproduce Guo 2002's sequence — reversal, radial expansion, bias-flux
    compression, density rise, torque–friction balance — which needs tens of periods and the
-   Phase 0 energy fix.
+   Phase 0 energy fix. — **not run**, 4.9 days, and the `--speedup` scaling does *not* apply
+   here: it changes β by 1/s², and β is exactly what this item is about.
 5. **Sousa 2016.** Re-run the cases behind the APS 2016 abstract with the corrected boundary and
-   compare instability onset and reversal robustness.
+   compare instability onset and reversal robustness. — **not started**; sits behind item 1.
 6. **Thruster regime.** For the xenon deck, compare penetration against the Michigan
    measurements (R = 10 cm, δ = 1 cm, T_e ≈ 9 eV, currents to 2500 A), restricted to what r-θ
-   can say.
+   can say. — **not started**; the xenon deck has its own parameters and has not been priced.
+
+Items 1–4 are runnable in the sense that everything except the compute exists: the decks, the
+diagnostics, the harness, and a cost estimate good to five significant figures. What none of them
+can do until §3.10 is addressed is claim to describe a *penetrated* state, since in that state the
+model's electrons outrun its light. **That is the finding this phase should be read for**, and it
+belongs ahead of any of the comparisons: an item-1 threshold scan run today would produce a
+threshold, and the side of it that matters — the penetrated side — is the side the model cannot
+currently represent.
+
+#### What would have to change first
+
+Four ways out, in increasing order of how much they cost and decreasing order of how much they
+give up. None is free, and the identity λ_D·(c/v_Te) = c/ω_pe of §3.10 is what makes that so.
+
+1. **Raise c and refine the mesh.** c = 3 v_Te = 6.9 × 10⁶ m/s with cells at λ_D = 0.18 mm.
+   Keeps every physical parameter; costs 79×, about 19 days per RMF period. This is the honest
+   fix and it prices Phase 3 out.
+2. **Raise c and accept an under-resolved Debye length.** c = 3 v_Te on the present mesh gives
+   λ_D = 0.31 h_min. Costs 2.3×; whether that matters is a question about this scheme's
+   behaviour at λ_D < h that nobody here has asked, and it should be asked before it is assumed
+   either way.
+3. **Lower the density.** λ_D and c/ω_pe both go as n^(−1/2), so n = 10¹⁹ m⁻³ buys a factor of
+   3.2 in the trade and makes c = 3 v_Te compatible with the present mesh. But with η fixed
+   ν_ei ∝ n, so γ = ω_ce/ν_ei goes from 75 to 750: a different point in the penetration diagram,
+   which is the thing being measured. Recovering γ needs η ×10, which moves δ and hence λ. The
+   two literature parameters cannot both be held while n moves.
+4. **Change the model.** The constraint is a five-moment artefact: it exists because the electron
+   fluid carries its own sound wave and the scheme is explicit. An implicit or sub-cycled electron
+   treatment, or a Hall/electron-inertia reduction, removes the electron sound speed from the CFL
+   entirely — which is what would make a validation campaign of this shape affordable. That is a
+   solver project, not a deck change.
+
+Whichever is taken, the first cheap thing to do is settle whether the electron sound speed
+exceeding c actually damages the answer, or merely violates a principle. A plasma-free or
+single-fluid case cannot show it, and neither can a run short enough to stay in the
+skin-depth-limited state; it needs a driven run that reaches ζ of order one, which is item 2. That
+is circular, and the way out of the circle is option 2 above: run item 2 at c = 3 v_Te on the
+present mesh, at 2.3× the cost, and compare it against the same case at the shipped c. If they
+agree, the shipped setting is defensible after all and the rest of the phase can proceed on it. If
+they do not, the disagreement is the measurement of how much this matters. Ten periods each is
+2.47 days at c = 3.0 × 10⁶ and 5.67 days at c = 3 v_Te = 6.89 × 10⁶, so **8.1 days for the pair —
+the single most informative run Phase 3 could buy**, and the one to buy first.
 
 ### Phase 4 — physics the literature says matters next
 
@@ -704,12 +927,15 @@ goes as cos(θ − ωt − φ), whose field turns counter-clockwise; `twoFluidSi
 B = (−B_t sin(ωt+φ), −B_t cos(ωt+φ)), which turns clockwise. In the synchronous limit the
 electrons are dragged in the sense of the rotation, so J_θ = −e n u_θ takes the opposite sign to
 it: a counter-clockwise RMF drives J_θ < 0, whose axial field opposes a +ẑ bias — field reversal
-— while a clockwise one reinforces it. The antenna deck turns counter-clockwise for that reason.
-If the argument holds, the shipped deck's pairing of a clockwise drive with a +60 G bias is the
-wrong way round for formation. It is an analytic expectation only: over the fraction of a period
-a short run covers, the driven ΔB_z is about 2e-6 of the bias and oscillates in sign, so it
-settles nothing. **Confirming it is the first thing Phase 3 should do**, before any threshold
-scan, because the sign decides whether the scan is measuring formation or its opposite.
+— while a clockwise one reinforces it. So the shipped edge-driven deck's pairing of a clockwise
+drive with a +60 G bias is the wrong way round for formation.
+
+This was written as an analytic expectation, with confirming it named as the first thing Phase 3
+should do. Phase 3 did it, and it did not need the "tens of RMF periods" the plan budgeted: the
+whole chain is a sign, and `test/cxx/test_rmf_rotation_sense.cc` now asserts every step of it
+along with the measured sense of each drive, in 15 checks and 15 milliseconds. The expectation
+holds. A run would add the magnitude of the reversal and the approach to it, which is Phase 3
+items 2 and 4, but nothing about the sign.
 
 
 ---

@@ -144,6 +144,24 @@ def estimate(params, mesh_path, seconds_per_step=None):
     }
 
 
+def deck_number(value):
+    """Format a number so the deck parser reads it as a REAL, not an integer.
+
+    Apollo's parser types a literal with no decimal point or exponent as an
+    integer, and get<REAL> on an integer throws std::bad_cast, which the solver
+    reports as "unexpected error on MPI rank 0: std::bad_cast" with no mention
+    of which key. The test/cxx tests carry a comment warning about this; the
+    first programmatically generated deck here walked straight into it anyway,
+    writing "c0 = 1000000" for LIGHT = 1.0e6 and aborting the run at setup. A
+    scan generates every one of its decks, so it would have hit this at every
+    point.
+    """
+    text = repr(float(value))
+    if '.' not in text and 'e' not in text and 'n' not in text:  # nan/inf
+        text += '.0'
+    return text
+
+
 def apply_speedup(text, s):
     """Rewrite a deck for the (T_e -> T_e/s^2, c -> c/s) scaling.
 
@@ -152,10 +170,10 @@ def apply_speedup(text, s):
     had scaled and had not would compare runs at different parameters.
     """
     new, n_te = re.subn(r'^(Te\s*=\s*)([0-9.eE+-]+)',
-                        lambda m: f'{m.group(1)}{float(m.group(2)) / (s * s):.10g}',
+                        lambda m: f'{m.group(1)}{deck_number(float(m.group(2)) / (s * s))}',
                         text, count=1, flags=re.M)
     new, n_c = re.subn(r'^(LIGHT\s*=\s*)([0-9.eE+-]+)',
-                       lambda m: f'{m.group(1)}{float(m.group(2)) / s:.10g}',
+                       lambda m: f'{m.group(1)}{deck_number(float(m.group(2)) / s)}',
                        new, count=1, flags=re.M)
     if n_te != 1 or n_c != 1:
         raise SystemExit('--speedup: could not find both "Te =" and "LIGHT =" at the '
@@ -167,7 +185,8 @@ def apply_speedup(text, s):
 
 def set_param(text, name, value):
     new, n = re.subn(rf'^({name}\s*=\s*)([0-9.eE+-]+)',
-                     lambda m: f'{m.group(1)}{value:.10g}', text, count=1, flags=re.M)
+                     lambda m: f'{m.group(1)}{deck_number(value)}', text, count=1,
+                     flags=re.M)
     if n != 1:
         raise SystemExit(f'could not find "{name} =" at the start of a line in the deck')
     return new
