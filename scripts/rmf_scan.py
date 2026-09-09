@@ -100,6 +100,19 @@ GAMMA = 5.0 / 3.0
 # in a two-point fit is load variation between the two points.
 SECONDS_PER_STEP_PER_TRIANGLE = 339.0 / 731.0 / 7792.0
 
+# MPI strong scaling, measured on the same 4-core box: 401 steps of the shipped
+# deck (7792 triangles) took 196.7 s on 1 rank, 95.6 s on 2 and 50.7 s on 4 -
+# speedups of 1.00, 2.06 and 3.88. That is 97% efficiency at 4 ranks, where each
+# rank still holds 1948 cells.
+#
+# The estimate below assumes IDEAL scaling and says so, because the measurement
+# stops at 4 ranks. Strong scaling on an explicit DG scheme falls off once a rank
+# holds too few cells to hide its halo exchange; the usual rule of thumb is a
+# thousand or so, which for this mesh is 7 ranks and for the antenna deck's 11989
+# triangles 11. Past that, measure before believing an estimate.
+MEASURED_RANK_SCALING = {1: 1.00, 2: 2.06, 4: 3.88}
+CELLS_PER_RANK_FLOOR = 1000
+
 
 def mesh_dtscale(path):
     """Smallest inscribed-circle radius, min over triangles of area/(perimeter/2).
@@ -169,19 +182,40 @@ def timestep(params, dtscale, p_order):
     return (2.0 / 3.0) * cfl * dtscale * r_min / v_max
 
 
-def estimate(params, mesh_path, seconds_per_step=None):
+def rank_speedup(ranks, n_tri):
+    """(speedup, note) for `ranks` MPI ranks on a mesh of n_tri triangles.
+
+    Measured up to 4 ranks; ideal beyond, with a warning once the mesh is spread
+    thin enough that the measurement no longer covers the case.
+    """
+    if ranks <= 1:
+        return 1.0, ''
+    if ranks in MEASURED_RANK_SCALING:
+        return MEASURED_RANK_SCALING[ranks], 'measured'
+    per_rank = n_tri / ranks
+    if per_rank < CELLS_PER_RANK_FLOOR:
+        return float(ranks), (f'ASSUMED IDEAL and probably optimistic: '
+                              f'{per_rank:.0f} cells/rank is below the ~'
+                              f'{CELLS_PER_RANK_FLOOR} where strong scaling '
+                              f'usually stops. Measure it.')
+    return float(ranks), 'assumed ideal (measured only to 4 ranks)'
+
+
+def estimate(params, mesh_path, seconds_per_step=None, ranks=1):
     """(dt, steps, wall-clock seconds, notes) for one run of this deck."""
     dtscale, n_tri = mesh_dtscale(mesh_path)
     dt = timestep(params, dtscale, int(params.get('P_ORDER', 1)))
     steps = math.ceil(params['TEND'] / dt)
     per_step = (seconds_per_step if seconds_per_step is not None
                 else SECONDS_PER_STEP_PER_TRIANGLE * n_tri)
+    speedup, scaling_note = rank_speedup(ranks, n_tri)
     v_max, c_se = max_wave_speed(params)
-    return dt, steps, steps * per_step, {
+    return dt, steps, steps * per_step / speedup, {
         'triangles': n_tri, 'dtscale': dtscale, 'max_speed': v_max,
         'electron_sound_speed': c_se,
         'limited_by': 'light' if params['LIGHT'] >= c_se else 'electron sound speed',
-        'seconds_per_step': per_step,
+        'seconds_per_step': per_step, 'ranks': ranks, 'speedup': speedup,
+        'scaling_note': scaling_note,
     }
 
 
@@ -201,6 +235,24 @@ def deck_number(value):
     if '.' not in text and 'e' not in text and 'n' not in text:  # nan/inf
         text += '.0'
     return text
+
+
+def deck_integer(value):
+    """Format a number so the deck parser reads it as an INTEGER.
+
+    The trap runs both ways and the second direction is easy to walk into while
+    avoiding the first. `Output_files` is read with get<int> (apsolver.cc:54), so
+    writing the deck's OUT as "6.0" - which deck_number would - throws exactly
+    the same std::bad_cast, from exactly as far away. Every deck the Phase 3
+    generator produced died this way before this existed.
+
+    Rejects a value that is not a whole number rather than silently truncating
+    it: OUT = 7.5 frames is a mistake worth hearing about.
+    """
+    if float(value) != int(value):
+        raise SystemExit(f'deck_integer: {value!r} is not a whole number, and the '
+                         f'deck key it is going into is read with get<int>')
+    return str(int(value))
 
 
 def apply_speedup(text, s):
@@ -228,16 +280,23 @@ def apply_speedup(text, s):
                  f'against 3.9% unscaled. See the module docstring.')
 
 
+# Deck keys that reach a get<int> rather than a get<REAL>, and so must NOT be
+# written with a decimal point. Keep this list honest: a key wrongly on it, or
+# wrongly off it, is a run that dies at setup with std::bad_cast and no clue.
+INTEGER_KEYS = frozenset({'OUT', 'MEQN', 'P_ORDER', 'HARMONICS'})
+
+
 def set_param(text, name, value):
+    fmt = deck_integer if name in INTEGER_KEYS else deck_number
     new, n = re.subn(rf'^({name}\s*=\s*)([0-9.eE+-]+)',
-                     lambda m: f'{m.group(1)}{deck_number(value)}', text, count=1,
+                     lambda m: f'{m.group(1)}{fmt(value)}', text, count=1,
                      flags=re.M)
     if n != 1:
         raise SystemExit(f'could not find "{name} =" at the start of a line in the deck')
     return new
 
 
-def run_point(deck_text, deck_name, mesh_path, outdir, binary):
+def run_point(deck_text, deck_name, mesh_path, outdir, binary, ranks=1):
     """One scan point in its own directory. Returns the directory."""
     os.makedirs(outdir, exist_ok=True)
     pin = os.path.join(outdir, deck_name)
@@ -249,8 +308,15 @@ def run_point(deck_text, deck_name, mesh_path, outdir, binary):
                     '-i', deck_name], cwd=outdir, env=env, check=True,
                    stdout=subprocess.DEVNULL)
     inp = deck_name.replace('.pin', '.inp')
+    cmd = [binary, '-i', inp]
+    if ranks > 1:
+        # --oversubscribe and --allow-run-as-root are what test/run_examples.sh
+        # uses; on a cluster the scheduler usually supplies the placement, so
+        # APOLLO_MPI_FLAGS can replace them.
+        flags = os.environ.get('APOLLO_MPI_FLAGS', '--oversubscribe').split()
+        cmd = ['mpirun'] + flags + ['-np', str(ranks)] + cmd
     with open(os.path.join(outdir, 'solver.log'), 'w') as log:
-        subprocess.run([binary, '-i', inp], cwd=outdir, stdout=log,
+        subprocess.run(cmd, cwd=outdir, stdout=log,
                        stderr=subprocess.STDOUT, check=True)
     return outdir
 
@@ -269,7 +335,9 @@ def main(argv=None):
     ap.add_argument('--mesh', default=None, help='defaults to the deck Gridname')
     ap.add_argument('--binary', default=os.path.join(REPO, 'src', 'build-opt', 'apollo'))
     ap.add_argument('--sec-per-step', type=float, default=None,
-                    help='override the measured cost constant')
+                    help='override the measured cost constant (per step, 1 rank)')
+    ap.add_argument('--ranks', type=int, default=1,
+                    help='MPI ranks; scales the estimate and runs under mpirun')
     ap.add_argument('--dry-run', action='store_true',
                     help='print the cost of the scan and stop')
     args = ap.parse_args(argv)
@@ -305,7 +373,8 @@ def main(argv=None):
         if args.periods is not None:
             text = set_param(text, 'TEND', args.periods / params['omega'])
             params = rd.deck_parameters_from_text(text)
-        dt, steps, secs, info = estimate(params, mesh, args.sec_per_step)
+        dt, steps, secs, info = estimate(params, mesh, args.sec_per_step,
+                                         ranks=args.ranks)
         total += secs
         plan.append((v, text, params, dt, steps, secs, info))
 
@@ -315,6 +384,10 @@ def main(argv=None):
     print(f'timestep limited by the {first["limited_by"]}: '
           f'max wave speed {first["max_speed"]:.4e} m/s '
           f'(electron sound speed {first["electron_sound_speed"]:.4e})')
+    if args.ranks > 1:
+        note = f' - {first["scaling_note"]}' if first['scaling_note'] else ''
+        print(f'{args.ranks} MPI ranks, speedup {first["speedup"]:.2f}x, '
+              f'{first["triangles"] / args.ranks:.0f} cells/rank{note}')
     print()
     print(f'{args.param:<14}{"TEND [s]":<13}{"periods":<10}{"dt [s]":<13}'
           f'{"steps":<11}{"wall clock":<12}')
@@ -350,7 +423,8 @@ def main(argv=None):
             continue
         print(f'{name}: running, estimated {secs / 60.0:.1f} min ...', flush=True)
         started = time.time()
-        run_point(text, os.path.basename(args.deck), mesh, point, args.binary)
+        run_point(text, os.path.basename(args.deck), mesh, point, args.binary,
+                  ranks=args.ranks)
         elapsed = time.time() - started
 
         import vtu

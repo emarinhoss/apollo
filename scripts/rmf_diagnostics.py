@@ -474,7 +474,39 @@ def frame_time(index, params):
     return tend * index / out
 
 
-def analyse(frames, params, nbins=40):
+def coverage_warning(r, a, n_cells, expected_cells=None):
+    """Text describing what is missing from a frame, or '' if it looks complete.
+
+    THE CASE THIS EXISTS FOR IS MPI. Apollo writes one .vtu per frame regardless
+    of rank count, and it holds roughly 1/N of the cells: measured on the shipped
+    deck, 7792 cells on 1 rank, 3896 on 2 and 1961 on 4. Which cells is a
+    property of the partitioner - at 4 ranks the written subset happened to span
+    the whole disc, at 2 ranks it started at r = 2.6 mm and contained no axis at
+    all.
+
+    That is worse than losing data, because nothing here fails when it happens.
+    axial_field_on_axis given a frame with no axis in it averages the six nodes
+    nearest the hole and returns a number that looks like a field on the axis.
+    See docs/known-issues.md.
+    """
+    problems = []
+    if expected_cells and n_cells < 0.95 * expected_cells:
+        problems.append(f'the frame holds {n_cells} cells against {expected_cells} '
+                        f'in the mesh ({100.0 * n_cells / expected_cells:.0f}%)')
+    if r.size:
+        inner = float(np.min(r))
+        if inner > 0.05 * a:
+            problems.append(f'its innermost node is at r = {inner * 1e3:.2f} mm, '
+                            f'{inner / a:.2f} of the plasma radius, so there is no '
+                            f'axis in it')
+        outer = float(np.max(r))
+        if outer < 0.95 * a:
+            problems.append(f'its outermost node is at r = {outer * 1e3:.2f} mm, '
+                            f'short of the plasma edge at {a * 1e3:.1f} mm')
+    return '; '.join(problems)
+
+
+def analyse(frames, params, nbins=40, expected_cells=None):
     """Per-frame diagnostics for a list of (index, {name: array}) frames."""
     import deckrun
 
@@ -513,6 +545,7 @@ def analyse(frames, params, nbins=40):
         rows.append(dict(
             index=index,
             outside=out_j,
+            coverage=coverage_warning(r, a, x.size // 3, expected_cells),
             bz_axis=bz_axis, n_axis=n_axis,
             zeta=zeta, n_zeta=n_zeta,
             penetration=penetration_fraction(r, b_perp, a),
@@ -541,7 +574,18 @@ def main(argv=None):
     frames = [(int(os.path.basename(p).rsplit('_', 1)[1].split('.')[0]), vtu.read(p))
               for p in names]
 
-    rows = analyse(frames, params)
+    # The mesh the deck names, so a frame holding a fraction of it is noticed.
+    # Missing mesh is not fatal: the geometric half of the check still works.
+    expected_cells = None
+    grid = re.search(r"Gridname\s*=\s*'([^']+)'", open(args.deck).read())
+    if grid:
+        mesh_path = os.path.join(os.path.dirname(os.path.abspath(args.deck)),
+                                 grid.group(1))
+        if os.path.exists(mesh_path):
+            import rmf_scan
+            _dtscale, expected_cells = rmf_scan.mesh_dtscale(mesh_path)
+
+    rows = analyse(frames, params, expected_cells=expected_cells)
     times = [frame_time(r['index'], params) for r in rows]
 
     delta = skin_depth(params['ETA'], 2.0 * math.pi * params['omega'])
@@ -558,6 +602,13 @@ def main(argv=None):
     print(f'resistive skin depth delta = {delta * 1e3:.3f} mm, '
           f'lambda = a/delta = {params["RAD_PLASMA"] / delta:.1f}')
     print()
+    bad = [r for r in rows if r['coverage']]
+    if bad:
+        print('*** THIS OUTPUT DOES NOT COVER THE WHOLE DOMAIN, so every number\n'
+              '*** below describes only the part of it that was written:\n'
+              f'***   {bad[0]["coverage"]}\n'
+              '*** The usual cause is MPI: Apollo writes about 1/N of the cells\n'
+              '*** when run on N ranks. Re-run on one rank. See known-issues.')
     outside = max(r['outside'] for r in rows)
     if outside:
         print(f'note: {outside} nodal points per frame lie outside r = 0..a and are '

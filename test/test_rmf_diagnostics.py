@@ -615,5 +615,54 @@ class TestFrameTiming(unittest.TestCase):
         self.assertTrue(math.isnan(rd.frame_time(3, {'TEND': 1.0, 'OUT': 0})))
 
 
+@unittest.skipIf(np is None, 'numpy is required')
+@unittest.skipIf(rd is None, 'scripts/rmf_diagnostics.py did not import')
+class TestCoverage(unittest.TestCase):
+    """A frame that covers only part of the domain must be noticed.
+
+    Apollo writes one .vtu per frame however many MPI ranks it ran on, and it
+    holds roughly 1/N of the cells - measured 7792, 3896, 1961 on 1, 2 and 4
+    ranks. Which cells is up to the partitioner: at 2 ranks the written subset
+    began at r = 2.6 mm and contained no axis, and axial_field_on_axis answered
+    from the six nodes nearest the hole without complaint.
+    """
+
+    def test_a_complete_frame_is_not_flagged(self):
+        x, y = disc()
+        r, _c, _s = rd.polar(x, y)
+        self.assertEqual(rd.coverage_warning(r, A, 7792, 7792), '')
+
+    def test_a_missing_axis_is_flagged(self):
+        x, y = disc()
+        r, _c, _s = rd.polar(x, y)
+        keep = r > 0.087 * A                      # 2.6 mm, the measured 2-rank case
+        msg = rd.coverage_warning(r[keep], A, 3896, 7792)
+        self.assertIn('no axis', msg)
+
+    def test_a_short_cell_count_is_flagged_even_when_the_span_looks_right(self):
+        """The 4-rank case: a quarter of the cells, spread over the whole disc.
+
+        Radial span alone cannot catch this one, which is why the cell count is
+        checked too.
+        """
+        x, y = disc(n_r=60, n_t=180)
+        r, _c, _s = rd.polar(x, y)
+        msg = rd.coverage_warning(r, A, 1961, 7792)
+        self.assertIn('1961', msg)
+        self.assertNotIn('no axis', msg)
+
+    def test_a_truncated_edge_is_flagged(self):
+        x, y = disc()
+        r, _c, _s = rd.polar(x, y)
+        msg = rd.coverage_warning(r[r < 0.8 * A], A, 7792, 7792)
+        self.assertIn('short of the plasma edge', msg)
+
+    def test_no_expected_count_still_checks_the_span(self):
+        """The cell count is optional; the geometry check is not."""
+        x, y = disc()
+        r, _c, _s = rd.polar(x, y)
+        self.assertIn('no axis', rd.coverage_warning(r[r > 0.2 * A], A, 100))
+
+
 if __name__ == '__main__':
     unittest.main()

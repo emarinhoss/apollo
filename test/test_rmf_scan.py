@@ -293,6 +293,42 @@ class TestEstimate(unittest.TestCase):
         _d2, _s2, _w2, info = rmf_scan.estimate(cold, MESH)
         self.assertEqual(info['limited_by'], 'electron sound speed')
 
+    def test_measured_rank_scaling_is_used_verbatim(self):
+        """1, 2 and 4 ranks were measured; the model must not round them off.
+
+        401 steps of the shipped deck took 196.7 s on 1 rank, 95.6 s on 2 and
+        50.7 s on 4 - speedups of 1.00, 2.06 and 3.88, so 2 ranks is slightly
+        SUPER-linear and 4 is 97% efficient.
+        """
+        for ranks, want in ((1, 1.00), (2, 2.06), (4, 3.88)):
+            got, _note = rmf_scan.rank_speedup(ranks, 7792)
+            self.assertAlmostEqual(got, want, places=6)
+
+    def test_ideal_scaling_beyond_the_measurement_is_labelled(self):
+        """An unmeasured rank count may be estimated, but must say so."""
+        got, note = rmf_scan.rank_speedup(6, 7792)      # 1299 cells/rank
+        self.assertAlmostEqual(got, 6.0)
+        self.assertIn('ideal', note.lower())
+
+    def test_a_thin_decomposition_is_flagged_as_optimistic(self):
+        """Below ~1000 cells/rank the estimate is not to be believed.
+
+        For this mesh the boundary is between 7 ranks (1113 cells each) and 8
+        (974) - close enough that writing "about 8 ranks" in a comment was
+        already wrong, which is what this test caught.
+        """
+        for ranks in (8, 16, 32):
+            _got, note = rmf_scan.rank_speedup(ranks, 7792)
+            self.assertIn('OPTIMISTIC', note.upper(), f'{ranks} ranks')
+        for ranks in (2, 4, 6, 7):
+            _got, note = rmf_scan.rank_speedup(ranks, 7792)
+            self.assertNotIn('OPTIMISTIC', note.upper(), f'{ranks} ranks')
+
+    def test_ranks_divide_the_estimated_wall_clock(self):
+        one = rmf_scan.estimate(self.params, MESH, ranks=1)[2]
+        four = rmf_scan.estimate(self.params, MESH, ranks=4)[2]
+        self.assertAlmostEqual(one / four, 3.88, places=6)
+
     def test_a_longer_run_costs_proportionally_more(self):
         """Guards the arithmetic, not just its parts."""
         base = dict(self.params)
