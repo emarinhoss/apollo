@@ -14,14 +14,23 @@ jobs:
   # Fast gate: no compiler, no PETSc, runs in well under a minute. Catches the
   # class of breakage that once left every post-processing script unrunnable.
   python-tooling:
-    name: Python tooling
+    name: Python tooling (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    # Two interpreters, because a one-version gate hid a real bug. The deck
+    # preprocessor relied on exec() writes into locals() persisting on the
+    # frame; PEP 667 ended that in 3.13, substitution silently stopped, and
+    # every deck reached the solver with its arithmetic unevaluated. It was
+    # invisible on 3.11 and fatal on 3.13, which is what Colab runs.
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
 
       # numpy is not a linter: the Phase 3 diagnostics tests
       # (test_rmf_diagnostics.py, test_rmf_scan.py) check the post-processing
@@ -56,6 +65,11 @@ jobs:
       # only against whatever the build job happens to install.
       - name: PETSc compatibility guards
         run: python test/test_petsc_compat.py -v
+
+      # The .pin -> .inp path, which is what every run in examples/ depends on.
+      # Named rather than left to discovery for the same reason as the others.
+      - name: Deck preprocessing
+        run: python test/test_deck_preprocess.py -v
 
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.

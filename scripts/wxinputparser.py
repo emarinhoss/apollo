@@ -86,16 +86,32 @@ class WxInpParse(object):
             elif child.nodeType == child.ELEMENT_NODE:
                 elemNodes.append(child)
 
-        # compile and evaluate the code
+        # Compile and evaluate the deck's Python preamble in a namespace of its
+        # own, and read the results straight back out of that namespace.
+        #
+        # This used to be a bare `exec(co)` followed by `eval(name)` per symbol,
+        # which worked only by accident. Inside a function, exec() with no
+        # explicit namespace writes into locals(), and on CPython 3.12 and older
+        # those writes happened to persist on the frame so the later eval() could
+        # see them. PEP 667 (Python 3.13) made locals() return an independent
+        # snapshot, so the writes went nowhere, every eval() raised NameError,
+        # the bare `except: pass` below swallowed all of them, and pyDict came
+        # back empty. No substitution then happened anywhere in the deck, and the
+        # first value containing an operator reached the solver verbatim:
+        #
+        #   Error: unexpected symbol '/' on line 23 of the input file
+        #
+        # naming neither the key nor the cause. An explicit namespace is correct
+        # on every version and does not depend on locals() semantics at all.
+        namespace = {}
         co = compile(code, self.inpFile + '.err', 'exec')
-        exec(co)
-        # add all symbols in co to self
-        for name in co.co_names:
-            try:
-                self.pyDict[name] = eval(name)
-            except:
-                # do nothing if adding failed
-                pass
+        exec(co, namespace)
+        # Everything the preamble defined or imported, rather than only the names
+        # in co_names: `from math import *` contributes names that co_names does
+        # not list.
+        for name, value in namespace.items():
+            if not name.startswith('__'):
+                self.pyDict[name] = value
         
         # recursively step into the XML file creating WarpX data object
         wxds = self._createDataSet(elemNodes[0]) # there is only one top level block

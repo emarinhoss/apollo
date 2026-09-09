@@ -21,8 +21,9 @@ environment on a cluster.
 
 The fast tests need no solver and run in under a second:
 `test/test_rmf_diagnostics.py`, `test/test_rmf_scan.py`,
-`test/test_mkdiscmesh.py`, `test/test_python_tooling.py`. So does
-`test/test_petsc_compat.py`, which needs a C++ compiler but no PETSc. The ones that do need
+`test/test_mkdiscmesh.py`, `test/test_python_tooling.py`,
+`test/test_deck_preprocess.py`. So does `test/test_petsc_compat.py`, which needs
+a C++ compiler but no PETSc. The ones that do need
 a solver skip themselves without one, so **a green run does not by itself mean
 they ran** — check the skip count.
 
@@ -47,6 +48,16 @@ result. The ones that bite hardest while editing:
   `test/test_petsc_compat.py`, which compiles the header against a stub
   `<petsc.h>` for every release from 3.11 up. If you touch a version guard, run
   it: it fails in both directions.
+- **The Python version decides whether a deck is preprocessed.** A `.pin`'s
+  preamble is Python, and `wxinputparser.py` evaluates it to substitute names
+  into the body. It used to `exec(co)` inside a method and recover each name
+  with `eval(name)`, which works only because CPython ≤ 3.12 let exec() writes
+  into `locals()` persist. PEP 667 ended that in 3.13: substitution silently
+  stopped and the solver aborted with `unexpected symbol '/' on line 23`, naming
+  neither key nor cause. Fixed by using an explicit namespace, and pinned by
+  `test/test_deck_preprocess.py`, which also compares every `python3.x` on the
+  machine — because the bug was invisible on the interpreter you happened to run.
+  CI runs the Python gate on 3.11 and 3.13.
 - **There is no checkpoint or restart.** An interrupted run is a lost run. (§6)
 - **The two-fluid slope limiter produces NaN** after a few tens of steps, so no
   multifluid case can be limited. (§2)
