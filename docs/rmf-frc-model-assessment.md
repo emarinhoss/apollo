@@ -22,9 +22,10 @@ shipped here and grows as the ions spin up.
 Both of those are now fixed (Phases 0 to 2). Working through Phase 3 added a third, of a
 different kind: **the deck's reduced speed of light is below the speeds of the state the
 validation is meant to reach.** It is 1.2% above the electron sound speed and 3.9% below the
-fastest electron characteristic of a fully penetrated RMF, and it cannot be raised without
-losing the Debye length, because the product of the two constraints is fixed by the density
-alone. See §3.10 and Phase 3.
+fastest electron characteristic of a fully penetrated RMF. Raising it trades away Debye
+resolution one for one, because the product of the two is fixed by the density alone — and the
+deck is already under-resolved there, so this is not a step from resolved to unresolved but from
+one under-resolved state to a worse one. See §3.10 and Phase 3.
 
 ---
 
@@ -318,8 +319,9 @@ drops to 5.64 × 10⁹ s⁻¹, 5.3× ω_ce, and is resolved: ω_pe Δt = 0.154.
 | ion sound speed | 6.92 × 10⁴ m/s | 43 |
 | Alfvén speed (bias) | 1.31 × 10⁴ m/s | 229 |
 
-The two-fluid study cited above as justification ran c from 3 to 12 v_Te; for this deck that is
-c between 6.9 × 10⁶ and 2.8 × 10⁷ m/s. At 3.0 × 10⁶ the deck is a factor of 2.3 below the bottom
+The justification this section used to carry — "reduced c is standard in five-moment work; a
+two-fluid study in the search results ran c from 3 to 12 v_Te and found only a minor effect on
+the modeled instabilities" — puts c between 6.9 × 10⁶ and 2.8 × 10⁷ m/s for this deck. At 3.0 × 10⁶ the deck is a factor of 2.3 below the bottom
 of the range its own citation covers. The citation does not support this setting.
 
 **The step count was attributed to the wrong thing.** "73,000 steps for 2 μs" is right — 2 μs /
@@ -859,8 +861,10 @@ and 2 verified theirs, because a diagnostic that has never been checked is not e
   penetrated-limit driven field for a measured ζ(r). The current comes from the fluid momenta,
   J = Σ (q_s/m_s)(ρu)_s — the same expression `WxCurrentSrc` feeds back into Ampère's law, so it
   is the current the run actually used, and it needs no derivative of a discontinuous P1 field.
-- **`test/test_rmf_diagnostics.py`**, 23 checks in 0.05 s, feeds each function an analytic field
-  whose answer is known and asserts it comes back.
+- **`test/test_rmf_diagnostics.py`**, 41 checks in 0.06 s, feeds each function an analytic field
+  whose answer is known and asserts it comes back. Every guard and sign in the module is checked
+  by mutation — removing it has to break the suite — which is how the R² guard above was found to
+  be doing nothing.
 - **`scripts/rmf_scan.py`** runs a scan, applies the diagnostics, and skips points already
   complete — the only restart available. **`test/test_rmf_scan.py`**, 12 checks, holds its cost
   model against six timesteps the solver actually printed, reproducing each to five significant
@@ -871,7 +875,11 @@ skipping, and a test that skips is not running.
 
 Exercising the pipeline on real output earned its keep twice. The layer-thickness fit reported
 40 mm and 59 mm "skin layers" in a 30 mm column — fits to a switch-on transient that was not
-decaying — and now refuses a length exceeding half the column or an R² below 0.9. And the first
+decaying — and now refuses a length exceeding half the column. An R² test was tried for the
+"is it actually an exponential" half of the job and did not work: R² is about 1 for anything
+monotone once the profile spans decades, so a power law was accepted with R² = 1.00000. It was
+replaced by a consistency test — an exponential has one decay length, so the outer and inner
+halves of the fit window must agree — which refuses that power law at 0.91 against 2.51 mm. And the first
 programmatically generated deck aborted at setup with `std::bad_cast`, because `LIGHT = 1.0e6` had
 been written `1000000` and Apollo's lexer types a literal with no decimal point as an integer. A
 scan writes every one of its decks, so that would have failed at every point, with an error naming

@@ -566,7 +566,9 @@ comparisons themselves are not run, and the assessment says what each would cost
 — measured, not guessed. Its main finding is about the deck rather than the code:
 the reduced speed of light is 1.2% above the electron sound speed and below the
 fastest electron characteristic of the penetrated state the campaign exists to
-measure, and it cannot be raised without losing the Debye length. The assessment
+measure. Raising it trades away Debye resolution one for one — the product of
+the two is fixed by the density — and the deck is already under-resolved there.
+The assessment
 also records why the antenna deck has no vacuum region around its plasma column,
 which is a limit of the model rather than a choice.
 

@@ -45,6 +45,7 @@
 #include "maxwell/aprmfantennasrc.h"
 #include "multifluid/aptwofluidsimplifiedrmfbc.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <sstream>
@@ -203,6 +204,16 @@ double bcFieldAngle(TestableRMFBC& bc, double t)
  * Signed, and that is the whole point: taking the magnitude would let a
  * handedness flip through, which is exactly the defect being guarded against.
  * dt must be well under half a period or the unwrapping is ambiguous.
+ *
+ * THE WINDOW MUST NOT BE A HALF-INTEGER NUMBER OF PERIODS. A standing
+ * (linearly polarised) field has a direction angle that is fixed modulo pi and
+ * jumps by pi each time its amplitude passes through zero - twice per period.
+ * Over exactly half a period it therefore accumulates exactly +/-pi, which is
+ * bit-identical to what a genuine rotation through half a turn produces. This
+ * test measured over 0.5 of a period until someone checked. It now measures
+ * 0.74, where a standing field can only give 0 or +/-pi and a rotation gives
+ * 4.65 rad, and sweepIsMonotone below closes the case a coincidence could still
+ * reach.
  */
 template<class F>
 double sweep(F angleAt, double t0, double dt, int n)
@@ -214,6 +225,32 @@ double sweep(F angleAt, double t0, double dt, int n)
         prev = now;
     }
     return total;
+}
+
+/**
+ * True if every step turns the same way by about the same amount.
+ *
+ * This is what separates rotating from standing without relying on the window
+ * length at all. A rotation advances by omega*dt every step; a standing field
+ * sits still and then jumps by pi. Requiring each increment to be within a
+ * factor of two of the mean, and of the same sign, admits the first and refuses
+ * the second whatever the window.
+ */
+template<class F>
+bool sweepIsMonotone(F angleAt, double t0, double dt, int n)
+{
+    const double mean = sweep(angleAt, t0, dt, n)/n;
+    if (std::fabs(mean) < 1e-12) return false;
+    double prev = angleAt(t0);
+    for (int i = 1; i <= n; ++i) {
+        const double now = angleAt(t0 + i*dt);
+        const double step = wrap(now - prev);
+        prev = now;
+        if (step*mean <= 0.0) return false;                 // turned back
+        if (std::fabs(step) > 2.0*std::fabs(mean)) return false;   // jumped
+        if (std::fabs(step) < 0.5*std::fabs(mean)) return false;   // stalled
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +283,7 @@ void testAntennaTurnsCounterClockwise(double phase, const char* label)
     // it cannot change the angle at all, but starting at t = 0 would sample a
     // vanishing current.
     const double t0 = 40.0*RISE, dt = 0.02/FREQ;
-    const int n = 25;
+    const int n = 37;   // 0.74 of a period; see sweep()
     const double swept = sweep([&](double t) { return antennaPatternAngle(*a, t); },
                                t0, dt, n);
     const double expected = OMEGA*dt*n;
@@ -259,6 +296,10 @@ void testAntennaTurnsCounterClockwise(double phase, const char* label)
           "the antenna's current pattern turns COUNTER-CLOCKWISE", detail);
     check(std::fabs(swept - expected)/std::fabs(expected) < 1e-6,
           "and it turns at exactly omega", detail);
+    check(sweepIsMonotone([&](double t) { return antennaPatternAngle(*a, t); },
+                          t0, dt, n),
+          "and it ROTATES rather than standing: every step turns the same way "
+          "by the same amount", detail);
     delete a;
 }
 
@@ -268,7 +309,7 @@ void testBoundaryTurnsClockwise(double phase, const char* label)
     TestableRMFBC* bc = makeBC(phase);
 
     const double t0 = 40.0*RISE, dt = 0.02/FREQ;
-    const int n = 25;
+    const int n = 37;   // 0.74 of a period; see sweep()
     const double swept = sweep([&](double t) { return bcFieldAngle(*bc, t); },
                                t0, dt, n);
     const double expected = -OMEGA*dt*n;
@@ -281,6 +322,29 @@ void testBoundaryTurnsClockwise(double phase, const char* label)
           "twoFluidSimplifiedRMFBC's field turns CLOCKWISE", detail);
     check(std::fabs(swept - expected)/std::fabs(expected) < 1e-6,
           "and it turns at exactly omega", detail);
+    check(sweepIsMonotone([&](double t) { return bcFieldAngle(*bc, t); },
+                          t0, dt, n),
+          "and it ROTATES rather than standing: every step turns the same way "
+          "by the same amount", detail);
+
+    // A rotating field has constant magnitude; a standing one swings through
+    // zero. Checked here as well as in test_rmf_boundary.cc because this file
+    // is the one that claims to establish the drive is a ROTATING field.
+    double lo = 1e300, hi = 0.0;
+    for (int i = 0; i <= n; ++i) {
+        double xc[3] = {t0 + i*dt, PLASMA_RADIUS, 0.0};
+        double nx[2] = {1.0, 0.0};
+        double q[18] = {0}, qBC[18] = {0}, areaInts[18] = {0};
+        q[0] = 1.0e-12; q[5] = 1.0e-12; q[15] = B_AXIAL;
+        bc->applyToArray(xc, nx, q, NULL, areaInts, qBC);
+        const double mag = std::hypot(qBC[13], qBC[14]);
+        lo = std::min(lo, mag); hi = std::max(hi, mag);
+    }
+    std::snprintf(detail, sizeof detail,
+                  "|B| ranges over %.6e to %.6e T", lo, hi);
+    check((hi - lo)/hi < 1e-6,
+          "and its magnitude is constant, so it is circular and not linear "
+          "polarisation", detail);
     delete bc;
 }
 
@@ -291,7 +355,7 @@ void testTheTwoDrivesDisagree()
     TestableRMFBC* bc = makeBC(0.0);
 
     const double t0 = 40.0*RISE, dt = 0.02/FREQ;
-    const int n = 25;
+    const int n = 37;   // 0.74 of a period; see sweep()
     const double sa = sweep([&](double t) { return antennaPatternAngle(*a, t); },
                             t0, dt, n);
     const double sb = sweep([&](double t) { return bcFieldAngle(*bc, t); },
@@ -345,7 +409,7 @@ void testTheVerdict()
     ApRMFAntennaSrc<double>* a = makeAntenna(0.0);
     TestableRMFBC* bc = makeBC(0.0);
     const double t0 = 40.0*RISE, dt = 0.02/FREQ;
-    const int n = 25;
+    const int n = 37;   // 0.74 of a period; see sweep()
 
     // The sense each drive turns, as +1 or -1, measured not assumed.
     const double sense_a = sweep([&](double t) { return antennaPatternAngle(*a, t); },

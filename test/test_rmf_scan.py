@@ -210,18 +210,95 @@ class TestScaling(unittest.TestCase):
             self.assertTrue('.' in value or 'e' in value,
                             f'{line.strip()!r} would be parsed as an integer')
 
-    def test_set_param_writes_float_literals(self):
-        for value in (1.0e6, 30.0, 2.0):
+    def test_set_param_writes_the_value_it_was_given(self):
+        """Not just a float-shaped literal: the right number, on the right key.
+
+        set_param stamps every scan point's amplitude and every run's TEND into
+        a generated deck. An earlier version of this test asserted only that the
+        text it wrote had a decimal point in it, so mutating set_param to write
+        2*value - every scan point at twice the requested amplitude - left the
+        whole suite green.
+        """
+        import rmf_diagnostics as rd
+        for value in (1.0e6, 30.0, 2.0, 5e-4, 1.5e-3):
             new = rmf_scan.set_param(self.text, 'Bomega', value)
             line = [l for l in new.splitlines() if l.startswith('Bomega')][0]
             got = line.split('=', 1)[1].split('#')[0].strip()
             self.assertTrue('.' in got or 'e' in got,
                             f'{line.strip()!r} would be parsed as an integer')
+            self.assertEqual(float(got), value, f'set_param wrote {got}, not {value}')
+            # And the deck as a whole must agree, so that a rewrite of the wrong
+            # line, or of two lines, is caught too.
+            self.assertEqual(rd.deck_parameters_from_text(new)['Bomega'], value)
+
+    def test_set_param_touches_only_the_named_key(self):
+        import rmf_diagnostics as rd
+        before = rd.deck_parameters_from_text(self.text)
+        after = rd.deck_parameters_from_text(
+            rmf_scan.set_param(self.text, 'Bomega', 123.0e-4))
+        for key in ('Baxial', 'omega', 'Te', 'LIGHT', 'TEND', 'ETA', 'n_dens',
+                    'RAD_PLASMA'):
+            self.assertEqual(after[key], before[key], f'{key} moved')
+        self.assertEqual(after['Bomega'], 123.0e-4)
 
     def test_a_deck_without_the_expected_assignments_is_refused(self):
         """Half-applying the scaling would silently compare different plasmas."""
         with self.assertRaises(SystemExit):
             rmf_scan.apply_speedup('Te = 30.\n# no LIGHT here\n', 3.0)
+
+
+@unittest.skipIf(rmf_scan is None, 'scripts/rmf_scan.py did not import')
+@unittest.skipIf(not os.path.exists(DECK), 'the rmf_frc deck is not present')
+class TestEstimate(unittest.TestCase):
+    """estimate() is what prints the hours and what the 6-hour refusal reads.
+
+    It was covered by nothing: mutating its step count to a tenth left all 49
+    tests green, and so did halving the cost constant and inverting the
+    "limited by" label. The module docstring claimed the cost model "is checked
+    against real timings", and only the timestep half of it was.
+    """
+
+    def setUp(self):
+        import rmf_diagnostics as rd
+        with open(DECK) as fh:
+            self.params = rd.deck_parameters_from_text(fh.read())
+
+    def test_step_count_is_tend_over_dt(self):
+        dt, steps, _secs, _info = rmf_scan.estimate(self.params, MESH)
+        self.assertAlmostEqual(dt, 2.73658e-11, delta=1e-16)
+        self.assertEqual(steps, math.ceil(self.params['TEND'] / dt))
+        # The shipped deck is 2 us; the assessment quotes 73,000 steps for it.
+        self.assertAlmostEqual(steps, 73086, delta=2)
+
+    def test_wall_clock_is_steps_times_the_cost_constant(self):
+        _dt, steps, secs, info = rmf_scan.estimate(self.params, MESH)
+        self.assertAlmostEqual(secs, steps * info['seconds_per_step'], places=6)
+        # Against the MEASUREMENT, not against the constant itself: comparing
+        # info['seconds_per_step'] with SECONDS_PER_STEP_PER_TRIANGLE * 7792 puts
+        # the same number on both sides, so halving the constant left it green.
+        # 731 steps in 339 s on this mesh is 0.4637 s/step.
+        self.assertAlmostEqual(info['seconds_per_step'], 339.0 / 731.0, places=4,
+                               msg='the cost constant no longer matches the timing '
+                                   'it was measured from')
+
+    def test_an_override_is_honoured(self):
+        _dt, steps, secs, _i = rmf_scan.estimate(self.params, MESH,
+                                                 seconds_per_step=1.0)
+        self.assertAlmostEqual(secs, float(steps), places=6)
+
+    def test_the_limiting_speed_label_is_right_both_ways(self):
+        _d, _s, _w, hot = rmf_scan.estimate(self.params, MESH)
+        self.assertEqual(hot['limited_by'], 'light')
+        cold = dict(self.params, LIGHT=1.0e6)
+        _d2, _s2, _w2, info = rmf_scan.estimate(cold, MESH)
+        self.assertEqual(info['limited_by'], 'electron sound speed')
+
+    def test_a_longer_run_costs_proportionally_more(self):
+        """Guards the arithmetic, not just its parts."""
+        base = dict(self.params)
+        a = rmf_scan.estimate(base, MESH)[2]
+        b = rmf_scan.estimate(dict(base, TEND=base['TEND'] * 4.0), MESH)[2]
+        self.assertAlmostEqual(b / a, 4.0, places=3)
 
 
 if __name__ == '__main__':

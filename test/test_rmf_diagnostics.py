@@ -188,6 +188,60 @@ class TestProfiles(unittest.TestCase):
         self.assertAlmostEqual(value, -0.0123, places=12)
         self.assertGreater(n, 0)
 
+    def test_axial_field_on_axis_averages_the_axis_and_not_the_domain(self):
+        """A uniform field cannot show which region was averaged.
+
+        Fed a constant B_z, every possible mask returns that constant, so the
+        test above passes with the selection pointed anywhere - at the whole
+        domain, or at everything OUTSIDE the axis disc. That matters because
+        this function produces the headline number of Phase 3 item 0: on a
+        field-reversed column B_z on axis is the opposite sign to B_z at the
+        edge, so averaging the wrong region does not give a slightly wrong
+        answer, it gives the wrong sign.
+        """
+        x, y = disc(n_r=120, n_t=120)
+        r, _c, _s = rd.polar(x, y)
+        # Reversed core, positive edge: a caricature of a formed FRC.
+        bz = np.where(r < 0.4 * A, -1.0e-2, +6.0e-3)
+        value, n = rd.axial_field_on_axis(r, bz, 0.1 * A)
+        self.assertGreater(n, 0)
+        self.assertAlmostEqual(value, -1.0e-2, places=12,
+                               msg='the axis average picked up the edge field')
+        # And it must not simply be returning the global mean.
+        self.assertNotAlmostEqual(value, float(np.mean(bz)), places=6)
+
+    def test_rotation_parameter_reads_the_annulus_it_says_it_does(self):
+        """Rigid rotation gives the same zeta on any window, so it proves nothing.
+
+        u_theta = zeta*omega*r returns zeta over any selection whatsoever, so
+        the test above cannot see the r-window. A zeta that varies with radius
+        can: here zeta is 1 in the sampled annulus and 0 outside it, so a
+        function reading the wrong region returns a diluted number.
+        """
+        x, y = disc(n_r=200, n_t=64)
+        r, _c, _s = rd.polar(x, y)
+        band = (r > 0.1 * A) & (r < 0.9 * A)
+        u_theta = np.where(band, 1.0 * OMEGA * r, 0.0)
+        got, n = rd.rotation_parameter(r, u_theta, OMEGA, 0.1 * A, 0.9 * A)
+        self.assertGreater(n, 0)
+        self.assertAlmostEqual(got, 1.0, places=12,
+                               msg='zeta was averaged over more than the stated '
+                                   'annulus, so the zeros outside it diluted it')
+
+    def test_rotation_parameter_divides_by_the_local_radius(self):
+        """zeta = u_theta/(omega r) pointwise, not u_theta/(omega <r>)."""
+        x, y = disc(n_r=200, n_t=64)
+        r, _c, _s = rd.polar(x, y)
+        # Solid-body u_theta = k r gives zeta = k/omega everywhere; a CONSTANT
+        # u_theta does not, and dividing by a mean radius would not notice.
+        u_theta = np.full_like(r, 1.0e5)
+        got, _n = rd.rotation_parameter(r, u_theta, OMEGA, 0.1 * A, 0.9 * A)
+        sel = (r > 0.1 * A) & (r < 0.9 * A)
+        want = float(np.mean(1.0e5 / (OMEGA * r[sel])))
+        self.assertAlmostEqual(got, want, places=12)
+        self.assertNotAlmostEqual(got, 1.0e5 / (OMEGA * float(np.mean(r[sel]))),
+                                  places=6)
+
     def test_rotation_parameter_recovers_rigid_rotation(self):
         """u_theta = zeta * omega * r must give exactly that zeta."""
         x, y = disc()
@@ -419,6 +473,29 @@ class TestPenetrationAndLayer(unittest.TestCase):
         self.assertTrue(math.isnan(
             rd.current_layer_thickness(centres, spike, A, max_ratio=1e12)),
             'this one must be refused even with the consistency guard disabled')
+
+    def test_the_fit_uses_the_outer_half_only(self):
+        """The layer lives at the plasma edge; the interior is a different problem.
+
+        Fed a profile that is exponential outside 0.5a and flat inside it - a
+        skin layer sitting on a penetrated core - restricting the fit to the
+        outer half recovers delta. Widening it to the whole column mixes two
+        scales and the consistency guard refuses, which is the right answer for
+        a fit but the wrong answer for the question. Without this, removing the
+        r > 0.5a restriction changed nothing any test could see.
+        """
+        centres = np.linspace(0.0, A, 200)
+        # 3 mm, not the deck's 1.26: at 1.26 mm the flat core sits at 7e-6 of
+        # the peak and the noise floor removes it anyway, so the window makes no
+        # difference and the test could not see it either.
+        delta = 3.0e-3
+        j = 1.0e6 * np.where(centres > 0.5 * A,
+                             np.exp(-(A - centres) / delta),
+                             math.exp(-(0.5 * A) / delta))
+        got = rd.current_layer_thickness(centres, j, A)
+        self.assertAlmostEqual(got / delta, 1.0, places=2,
+                               msg=f'the outer-half fit gave {got * 1e3:.4f} mm '
+                                   f'for a {delta * 1e3:.3f} mm layer')
 
     def test_skin_depth_closed_form(self):
         """delta = sqrt(2 eta / (mu0 omega)); the assessment quotes 1.26 mm."""
