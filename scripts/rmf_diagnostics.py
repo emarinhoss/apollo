@@ -282,7 +282,8 @@ def penetration_fraction(r, b_perp, a, inner=0.3, outer=0.9):
 
 
 def current_layer_thickness(r_centres, j_theta, a, floor_fraction=1e-3,
-                            max_ratio=1.5, max_fraction=0.5):
+                            max_ratio=1.5, max_fraction=0.5,
+                            j_scale=None, min_fraction=1e-3):
     """e-folding length of |J_theta| inward from the edge, to compare with delta.
 
     In the skin-depth-limited state the driven current sits in a layer at the
@@ -306,6 +307,13 @@ def current_layer_thickness(r_centres, j_theta, a, floor_fraction=1e-3,
       * an inconsistent decay length: an exponential has the same logarithmic
         derivative everywhere, so fitting the outer and inner halves of the
         window separately must give the same length. Anything else does not.
+      * no current worth fitting: if j_scale is given (the synchronous current
+        scale e*n*omega*a) and the profile's peak is below min_fraction of it,
+        there is nothing there and a decay length describes the noise. The first
+        run through this pipeline reported a 7.6 mm layer from a frame whose
+        penetration measure was 0.0000 - no transverse field inside the plasma
+        at all, so no driven current either. The two-half test passed it because
+        noise can be log-linear over a handful of bins.
 
     THE LAST GUARD REPLACED AN R^2 TEST, WHICH DID NOT WORK. R^2 measures
     residual variance against the total variance of log|J|, and an edge-peaked
@@ -325,6 +333,8 @@ def current_layer_thickness(r_centres, j_theta, a, floor_fraction=1e-3,
     peak = np.nanmax(j[good])
     if not np.isfinite(peak) or peak <= 0.0:
         return float('nan')
+    if j_scale and peak < min_fraction * abs(j_scale):
+        return float('nan')            # no driven current: nothing to fit
     # Keep the part of the profile that is above the noise floor; taking a log
     # of a value that has decayed into round-off fits the round-off.
     good &= j > floor_fraction * peak
@@ -549,7 +559,11 @@ def analyse(frames, params, nbins=40, expected_cells=None):
             bz_axis=bz_axis, n_axis=n_axis,
             zeta=zeta, n_zeta=n_zeta,
             penetration=penetration_fraction(r, b_perp, a),
-            layer=current_layer_thickness(centres, j_prof, a),
+            # The synchronous current scale, e n omega a: what J_theta would
+            # be at the plasma edge if the electrons were fully driven. A
+            # profile far below it is noise, not a layer.
+            layer=current_layer_thickness(centres, j_prof, a,
+                                          j_scale=q * params['n_dens'] * omega * a),
             j_theta_mean=float(np.nanmean(j_prof)),
             bz_predicted=penetrated_limit_bz(
                 centres, zeta_prof, params.get('n_dens', float('nan')), q, omega, a),

@@ -47,3 +47,8 @@ apollo-paths.sh
 test/cxx/test_*
 !test/cxx/test_*.cc
 *.d
+
+# Phase 3 run output. Each run copies its own deck and mesh into its results
+# directory and writes frames there, so the whole tree is reproducible from the
+# checked-in decks plus the solver - and one campaign is several GB.
+examples/unstructuredDG/multifluid/rmf_frc/phase3/results/

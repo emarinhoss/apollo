@@ -64,6 +64,17 @@ Apollo implements a flexible and extensible DG framework capable of solving mult
 
 ## Installation
 
+Three files exist so you do not have to assemble this by hand:
+
+| file | for |
+| --- | --- |
+| [`requirements.txt`](requirements.txt) | the Python side: SCons to build, numpy to analyse |
+| [`requirements-dev.txt`](requirements-dev.txt) | the above plus linting and the legacy visualisation scripts |
+| [`environment.yml`](environment.yml) | a conda environment that builds Apollo without root, for clusters with no PETSc module |
+
+The C and C++ dependencies below still come from a package manager, a module
+system, or that conda environment — `requirements.txt` cannot install PETSc.
+
 ### Option 1: Install Dependencies via System Package Manager
 
 #### Ubuntu/Debian
@@ -191,6 +202,19 @@ export PETSC_DIR=$HOME/software/petsc
 export PETSC_ARCH=arch-linux-c-opt
 ```
 
+### Option 4: conda, for a cluster where you cannot install packages
+
+```bash
+conda env create -f environment.yml     # or mamba, which is much faster
+conda activate apollo
+cd src && scons build-opt
+```
+
+Read the comments in [`environment.yml`](environment.yml) first. If your cluster
+provides PETSc, MPI and HDF5 as **modules**, prefer them — they are built against
+the interconnect and conda-forge's OpenMPI is not — and use
+`pip install -r requirements.txt` for the Python side only.
+
 ### Building Apollo
 
 Apollo uses SCons as its build system. Once all dependencies are installed:
@@ -310,6 +334,15 @@ src/build-opt/apollo -i <input>.inp
 # Parallel
 mpirun -np <ranks> src/build-opt/apollo -i <input>.inp
 ```
+
+> **The output of a parallel run is incomplete.** Apollo writes one `.vtu` per
+> frame however many ranks it ran on, and that file holds roughly 1/N of the
+> cells — measured 7792, 3896 and 1961 on 1, 2 and 4 ranks of the same case.
+> Which cells is decided by the partitioner, so post-processing a multi-rank run
+> silently describes a fraction of the domain. The solver scales well (3.88× on
+> four ranks); it is the writer that does not. Run one rank when you intend to
+> analyse the output, and get throughput by running independent cases at once.
+> See [`docs/known-issues.md`](docs/known-issues.md) §13.
 
 Mesh files named by a deck are resolved relative to the **working directory**,
 not to the deck, so run from the directory holding the mesh (or copy the mesh in).
@@ -575,10 +608,29 @@ does not do this. The assessment also records why the antenna deck has no vacuum
 region around its plasma column, which is a limit of the model rather than a
 choice.
 
+The runs Phase 3 asks for are laid out ready to start in
+[`examples/unstructuredDG/multifluid/rmf_frc/phase3/`](examples/unstructuredDG/multifluid/rmf_frc/phase3/),
+one self-contained folder each, with a README saying what to run, in what order,
+and what it costs. Start with `00-divergence-gate`: it takes six minutes and
+decides whether the other three folders are worth their compute. There is a
+SLURM job-array template and a Colab bootstrap script beside them.
+
+Four tools support that work, and each is verified against closed forms by tests
+that need no solver:
+
+| script | what it does |
+| --- | --- |
+| `scripts/rmf_diagnostics.py` | what a run produced: driven field, ζ, penetration, current-layer thickness |
+| `scripts/rmf_scan.py` | parameter scans, and what one would cost before you start it |
+| `scripts/rmf_cleaning_check.py` | the gate: does the answer depend on the divergence-cleaning speed? |
+| `scripts/rmf_make_phase3_runs.py` | regenerates the run folders from the shipped decks |
+
 ## Documentation
 
 Documentation is a work in progress. The most reliable sources are, in order:
 - this file, for building and running;
+- [CLAUDE.md](CLAUDE.md), for the conventions and the traps worth knowing before
+  editing anything;
 - `examples/unstructuredDG/`, for what a deck looks like per physics module;
 - `test/run_examples.sh`, for a working end-to-end invocation;
 - [docs/known-issues.md](docs/known-issues.md), for what is broken;

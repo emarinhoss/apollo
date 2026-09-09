@@ -497,6 +497,28 @@ class TestPenetrationAndLayer(unittest.TestCase):
                                msg=f'the outer-half fit gave {got * 1e3:.4f} mm '
                                    f'for a {delta * 1e3:.3f} mm layer')
 
+    def test_no_driven_current_means_no_layer(self):
+        """A real profile shape, scaled down to nothing, must not be fitted.
+
+        The first run of the Phase 3 pipeline reported a 7.6 mm "layer" from a
+        frame whose penetration measure was 0.0000 - no transverse field inside
+        the plasma, so no driven current. Noise over a handful of bins can be
+        log-linear enough to satisfy the consistency test, so the guard has to
+        be about the SIZE of the current, against the scale the drive sets.
+        """
+        centres = np.linspace(0.0, A, 200)
+        shape = np.exp(-(A - centres) / 1.262e-3)
+        scale = Q * 1e20 * OMEGA * A          # synchronous current at the edge
+        # A fully driven layer is measured as usual.
+        got = rd.current_layer_thickness(centres, scale * shape, A, j_scale=scale)
+        self.assertAlmostEqual(got / 1.262e-3, 1.0, places=3)
+        # The same shape at a millionth of it is noise, whatever its shape.
+        self.assertTrue(math.isnan(rd.current_layer_thickness(
+            centres, 1e-6 * scale * shape, A, j_scale=scale)))
+        # Without a scale to compare against, the guard cannot and does not fire.
+        self.assertFalse(math.isnan(rd.current_layer_thickness(
+            centres, 1e-6 * scale * shape, A)))
+
     def test_skin_depth_closed_form(self):
         """delta = sqrt(2 eta / (mu0 omega)); the assessment quotes 1.26 mm."""
         self.assertAlmostEqual(rd.skin_depth(0.5e-5, OMEGA) * 1e3, 1.262, places=3)
