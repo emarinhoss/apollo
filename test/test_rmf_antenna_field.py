@@ -35,7 +35,6 @@ Needs a built solver, so it skips when there is not one. Build with
 import math
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -43,7 +42,6 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPTS = os.path.join(REPO, 'scripts')
 ANTENNA = os.path.join(REPO, 'examples', 'unstructuredDG', 'multifluid',
                        'rmf_frc', 'antenna')
 
@@ -53,20 +51,9 @@ except ImportError:
     np = None
 
 try:
-    import vtu
+    import deckrun
 except ImportError:
-    vtu = None
-
-
-def apollo_binary():
-    if os.environ.get('APOLLO_BIN'):
-        return os.path.abspath(os.environ['APOLLO_BIN'])
-    for variant in ('build-opt', 'build-debug'):
-        path = os.path.join(REPO, 'src', variant, 'apollo')
-        if os.path.isfile(path) and os.access(path, os.X_OK):
-            return path
-    return None
-
+    deckrun = None
 
 # Must match vacuum.pin. Duplicated rather than parsed: a test that reads its
 # expectations out of the file under test cannot fail when that file is wrong.
@@ -75,65 +62,13 @@ COIL_R, COIL_W = 0.036, 0.005
 TEND, NOUT = 3.0e-7, 12
 OMEGA = 2.0 * math.pi * FREQ
 
-# The eighteen-component two-fluid state, laid out node-major in the .vtu cell
-# data: solutiondg.(node*18 + component). 13 and 14 are B_x and B_y.
-NEQ, BX, BY = 18, 13, 14
-
-
-def run_vacuum(workdir):
-    """Run vacuum.pin and return [(t, x, y, Bx, By)] for every output frame."""
-    case = os.path.join(workdir, 'vacuum')
-    os.makedirs(case, exist_ok=True)
-    for name in ('vacuum.pin', 'vacuumDisc.msh'):
-        shutil.copy(os.path.join(ANTENNA, name), case)
-
-    env = dict(os.environ, PYTHONPATH=SCRIPTS)
-    pre = subprocess.run(
-        [sys.executable, os.path.join(SCRIPTS, 'wxinpparse.py'), '-i', 'vacuum.pin'],
-        cwd=case, env=env, capture_output=True, text=True, timeout=300)
-    if pre.returncode != 0:
-        raise RuntimeError(f'preprocessing failed: {pre.stdout}{pre.stderr}')
-
-    run = subprocess.run([apollo_binary(), '-i', 'vacuum.inp'],
-                         cwd=case, capture_output=True, text=True, timeout=3600)
-    log = run.stdout + run.stderr
-    if run.returncode != 0:
-        raise RuntimeError(f'solver exited {run.returncode}:\n{log[-2000:]}')
-    for bad in ('NaN', 'Negative pressure', 'Negative density'):
-        if bad in log:
-            raise RuntimeError(f'solver reported "{bad}":\n{log[-2000:]}')
-
-    # Sorted by frame INDEX, not by name: a plain sort gives _0, _1, _10, _11,
-    # _12, _2, ... which silently shuffles time order, and everything below
-    # that takes "the later frames" or measures a sweep between consecutive
-    # frames then reads a scrambled sequence.
-    def index_of(name):
-        return int(name.rsplit('_', 1)[1].split('.')[0])
-
-    frames = []
-    for name in sorted((f for f in os.listdir(case) if f.endswith('.vtu')),
-                       key=index_of):
-        index = index_of(name)
-        data = vtu.read(os.path.join(case, name))
-        points, cells = data['Position'], data['connectivity'].reshape(-1, 3)
-        xs, ys, bxs, bys = [], [], [], []
-        for node in range(3):
-            vid = cells[:, node]
-            xs.append(points[vid, 0])
-            ys.append(points[vid, 1])
-            bxs.append(data[f'solutiondg.{node * NEQ + BX}'])
-            bys.append(data[f'solutiondg.{node * NEQ + BY}'])
-        frames.append((TEND * index / NOUT,
-                       np.concatenate(xs), np.concatenate(ys),
-                       np.concatenate(bxs), np.concatenate(bys)))
-    if len(frames) < 4:
-        raise RuntimeError(f'expected output frames, got {len(frames)}')
-    return frames
+# The eighteen-component two-fluid state; 13 and 14 are B_x and B_y.
+BX, BY = 13, 14
 
 
 @unittest.skipIf(np is None, 'numpy is required')
-@unittest.skipIf(vtu is None, 'test/vtu.py not importable')
-@unittest.skipIf(apollo_binary() is None,
+@unittest.skipIf(deckrun is None or deckrun.vtu is None, 'test helpers not importable')
+@unittest.skipIf(deckrun is not None and deckrun.apollo_binary() is None,
                  'no Apollo binary; build with "cd src && scons build-opt" '
                  'or set APOLLO_BIN')
 class TestRMFAntennaField(unittest.TestCase):
@@ -142,13 +77,17 @@ class TestRMFAntennaField(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix='apollo-rmf-antenna-')
-        cls.frames = run_vacuum(cls.tmp)
+        case = deckrun.run(ANTENNA, 'vacuum.pin', cls.tmp,
+                           aux_files=('vacuumDisc.msh',))
         # Inside the winding's inner edge, where the closed form applies, and
         # away from the axis where the polar mesh's smallest cells are.
         r_in = COIL_R - 0.5 * COIL_W
-        cls.interior = [
-            (t, bx, by, (np.hypot(x, y) > 0.004) & (np.hypot(x, y) < r_in))
-            for (t, x, y, bx, by) in cls.frames]
+        cls.interior = []
+        for index, data in deckrun.frames(case):
+            x, y, f = deckrun.nodal(data, (BX, BY))
+            r = np.hypot(x, y)
+            cls.interior.append((TEND * index / NOUT, f[BX], f[BY],
+                                 (r > 0.004) & (r < r_in)))
 
     @classmethod
     def tearDownClass(cls):

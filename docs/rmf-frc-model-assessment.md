@@ -182,13 +182,26 @@ ghost state (B_x, B_y) = −B_t(t)(sin ωt, cos(ωt+φ)) — the **vacuum** rota
    "create the azimuthal torque", so their θ-structure is the torque's structure. This one is
    cheap to make exact.
 
-3. **The hyperbolic system is over-specified at the boundary.** At a face of the Maxwell
-   system, only the incoming characteristics may be imposed; the outgoing ones must come from
-   the interior. The ghost state sets E_z, B_x, B_y, B_z all to prescribed values, and the
-   Lax–Friedrichs flux then averages ghost and interior. The net effect is a partially
-   reflecting, non-characteristic injection whose effective imposed field is neither the
-   prescribed one nor the interior one. This is a numerics issue rather than a physics one, but
-   it means the "prescribed" B_ω is not what the plasma sees even by the code's own logic.
+3. **The hyperbolic system is over-specified at the boundary — and it does not matter here.**
+   At a face of the Maxwell system only the incoming characteristics may be imposed; the
+   outgoing ones must come from the interior. The ghost state sets E_z, B_x, B_y, B_z all to
+   prescribed values, which is over-specified. *This assessment originally concluded from that
+   that the imposed B_ω "is not what the plasma sees even by the code's own logic". That was
+   wrong*, and Phase 2 below establishes why.
+
+   `WxPHMaxwellEqn::DGnumericalFlux` is Lax–Friedrichs with λ = max(c, χc, γc). At χ = γ = 1 —
+   what every deck in this repository sets — every eigenvalue of the flux Jacobian has magnitude
+   c, so |A| = cI and that flux *is* the exact upwind flux, not an average. An upwind flux takes
+   the outgoing characteristics from the interior and ignores whatever the ghost says about
+   them: algebraically it depends on the ghost only through (A − cI)q_ghost, and (A − cI)
+   annihilates exactly the outgoing eigenvectors. The over-specification is therefore invisible.
+   Measured: the two constructions give fluxes agreeing to 2.9e-16 relative.
+
+   It becomes a real defect the moment χ or γ is anything else — the deck exposes both as
+   `DIVE_SPEED` and `DIVB_SPEED` — where the same measurement gives 17% and 25%. It is also real
+   in the slope limiter, which consumes the ghost state directly rather than through a Riemann
+   solve. `twoFluidSimplifiedRMFBC` now takes the characteristic route when the deck supplies
+   `c0`; see Phase 2.
 
 4. **The geometry is inconsistent unless an assumption is stated.** The coil sits at 3.6 cm,
    *outside* the flux conserver at 3.5 cm. A conducting shell at 795 kHz screens a transverse
@@ -506,17 +519,83 @@ chased down. It is the only limiter that handles the eighteen-component two-flui
 (`eulerLimiterHW` limits the five-component Euler state and is enabled in several shipped Euler
 decks), so with it broken no multifluid case can be limited at all.
 
-### Phase 2 — characteristic-consistent boundary injection (with Phase 1)
+### Phase 2 — characteristic-consistent boundary injection — **DONE, and it changed the plan**
 
-For the Maxwell subsystem, set only the incoming characteristic variables at a boundary face
-from the prescribed field and take the outgoing ones from the interior state (the standard
-Riemann-invariant / ghost-state construction: for a prescribed field F, use ghost = 2F − F_int
-for the prescribed components so the face average is F, or inject through the eigenvectors of
-the flux Jacobian, which `eigenSystem()` in `wxphmaxwelleqn.cc` already provides). Verification
-that costs nothing: **a plasma-free run must reproduce the applied field exactly.** With n → 0
-(or the plasma sources switched off) in the Phase 1 geometry, the interior field must equal the
-uniform rotating field of the coils at every point and time — an exact solution, so the test
-tolerance is discretisation error. Add it to `test/`.
+The plan asked for boundary conditions that impose only the incoming characteristics, on the
+grounds that writing a whole prescribed field into the ghost state over-specifies a hyperbolic
+system and leaves the plasma seeing something other than the prescribed field. The machinery
+exists now. **The premise does not hold in the shipped configuration**, and establishing that is
+the more useful half of this phase.
+
+**The finding.** `WxPHMaxwellEqn::DGnumericalFlux` is Lax–Friedrichs with λ = max(c, χc, γc).
+At χ = γ = 1 — what every deck in this repository sets, as `DIVE_SPEED` and `DIVB_SPEED` — every
+eigenvalue of the flux Jacobian has magnitude c, so |A| = cI and that Lax–Friedrichs flux **is**
+the exact upwind flux. An upwind flux takes the outgoing characteristics from the interior and
+ignores what the ghost says about them; the flux depends on the ghost only through
+(A − cI)q_ghost, and (A − cI) annihilates precisely the outgoing eigenvectors. The
+over-specification is invisible. Measured, over 300 random states and face normals against the
+real equation object:
+
+| χ, γ | max relative difference between the old ghost and the characteristic one |
+|---|---|
+| **1, 1** (every shipped deck) | **2.9e-16** — roundoff |
+| 1.5, 1 | 1.7e-1 |
+| 1, 2 | 2.5e-1 |
+
+So the defect is latent rather than active. It becomes real if a deck changes either cleaning
+speed, and it is real already in the slope limiter, which consumes the ghost state directly
+rather than through a Riemann solve.
+
+**What was built.** `src/hyperapps/maxwell/apmaxwellcharacteristics.h` gives the closed-form
+decomposition and the ghost state. In a frame whose x-axis is the outward face normal, with
+t1 = n turned a quarter turn in the plane and t2 = z:
+
+| outgoing (leaving) | incoming (entering) |
+|---|---|
+| v₁ = E_t1 + c B_t2 (+c) | w₁ = E_t1 − c B_t2 (−c) |
+| v₂ = E_t2 − c B_t1 (+c) | w₂ = E_t2 + c B_t1 (−c) |
+| v₃ = E_n + c φ (+χc) | w₃ = E_n − c φ (−χc) |
+| v₄ = B_n + ψ/c (+γc) | w₄ = B_n − ψ/c (−γc) |
+
+χ and γ scale two of the speeds but not their signs, and only the sign decides what is incoming,
+so they do not enter the construction. The ghost is computed as the interior state plus the
+incoming part of (prescribed − interior) rather than by inverting the invariants: the two are
+algebraically the same, but reconstructing ψ from (v₄ − w₄)c/2 subtracts two numbers each about
+B_n that differ by 2ψ/c, which with the reduced speed of light loses seven digits — enough that
+feeding the interior state back in did not return it. In the difference form both degenerate
+cases come out exact.
+
+`twoFluidSimplifiedRMFBC` takes this route when the deck supplies `c0`, and leaves the old path
+otherwise, so no existing deck changes by even a bit unless it asks.
+
+**Not through `eigenSystem()`.** The plan proposed injecting through the eigenvectors that
+`wxphmaxwelleqn.cc` "already provides". That function is never called — its only caller is
+`WxHyperbolicEqnSet::eigenSystem`, which nothing calls in turn — and it is wrong where it can be
+read: it takes the cleaning speeds from `gamma = q[6]; kappa = q[7]`, which are the cleaning
+*potentials* φ and ψ, not the speeds. It is also axis-aligned, so an unstructured face normal
+would need a rotation around it anyway. See `docs/known-issues.md`.
+
+**Verification.** Two tests, at different levels:
+
+- `test/cxx/test_maxwell_characteristics.cc`, 9 checks. The eight characteristic variables are
+  checked against the flux Jacobian **assembled by calling `WxPHMaxwellEqn::flux` itself**, so a
+  change to the flux cannot silently invalidate the decomposition; |A| = cI is checked as
+  A² = c²I; the ghost's outgoing invariants are checked to be the interior's and its incoming
+  ones the prescribed field's; both degenerate limits come out exactly zero; and the table above
+  is asserted, identical at χ = γ = 1 and materially different away from it.
+- `examples/unstructuredDG/multifluid/rmf_frc/vacuum.pin` with `test/test_rmf_bc_field.py` is the
+  plasma-free run the plan asked for, and it is new coverage rather than a formality: nothing
+  previously checked at solver level that `twoFluidSimplifiedRMFBC` applies the field it says it
+  applies. Both Phase 0 defects in that class — the phase applied to one Cartesian component
+  only, and an induced E_z satisfying neither component of Faraday's law — would have failed it.
+  It checks magnitude, uniformity and rotation *sense* (this boundary condition turns clockwise;
+  the antenna turns the other way).
+
+**On "exactly".** The plan said a plasma-free run "must reproduce the applied field exactly". It
+cannot, and the reason bounds the tolerance rather than being a defect: a spatially uniform
+B_perp has curl B = 0, so Ampère would need ∂E/∂t = 0 while the induced E_z rotates. The uniform
+rotating field is the quasi-static limit, good to O((ωa/c)²) — 0.25% at this deck's numbers. The
+same caveat applies to the Phase 1 antenna test and is stated there too.
 
 ### Phase 3 — validate against the literature (weeks, mostly compute)
 

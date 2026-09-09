@@ -46,10 +46,15 @@
  *    flux; the two conditions imposed above - full B_perp, flux-conserved
  *    B_z - are exactly that arrangement.
  *
- * 3. E and B are both written into the ghost state, which over-specifies a
- *    hyperbolic system: only the incoming characteristics may be imposed. The
- *    field the plasma actually sees is therefore not exactly the prescribed
- *    one even by this code's own logic.
+ * 3. Only the incoming characteristics of a hyperbolic system may be imposed.
+ *    Supplying `c0` switches on maxwellCharacteristicGhost, which takes the
+ *    outgoing ones from the interior; without it the whole prescribed field is
+ *    written into the ghost state, which is over-specified. In the shipped
+ *    configuration this makes no difference - the Lax-Friedrichs flux at
+ *    chi = gamma = 1 is exactly upwind, and upwind discards the ghost's
+ *    outgoing part - but it does away from those cleaning speeds, and in the
+ *    slope limiter, which reads the ghost state directly. See
+ *    src/hyperapps/maxwell/apmaxwellcharacteristics.h.
  *
  * RELATED BOUNDARY CONDITIONS, which impose DIFFERENT fields despite the
  * similar names - they are not interchangeable:
@@ -100,7 +105,8 @@ class APTwoFluidSimplifiedRMFBC : public WxGridBC<REAL>
     void applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *AreaInts, REAL *qBC);
 
   private:
-    REAL _omega, _baxial, _B0, _phase, _rise, _a, _b, _pi;
+    REAL _omega, _baxial, _B0, _phase, _rise, _a, _b, _pi, _c0;
+    bool _characteristic; // deck supplied c0; see applyBC
 
 };
 

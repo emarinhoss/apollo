@@ -108,16 +108,17 @@ jobs:
 
       # These need the built objects, so they belong here rather than in the
       # toolchain-free job above.
-      - name: Unit tests (friction sources, RMF boundary and antenna)
+      - name: Unit tests (friction sources, RMF boundary, antenna, characteristics)
         env:
           PETSC_DIR: /usr/lib/petsc
         run: make -C test/cxx
 
       # The verification tests skip themselves without numpy or a binary, which
       # is why running them in the python-only job above was silently a no-op.
-      # Each runs the solver against a case with an exact answer: the isentropic
-      # vortex for the Euler operator, and the RMF antenna in vacuum for the
-      # Maxwell operator plus the antenna source.
+      # Each runs the solver against a case whose answer is known: the
+      # isentropic vortex for the Euler operator, the RMF antenna in vacuum for
+      # the Maxwell operator plus the antenna source, and the RMF boundary
+      # condition in vacuum for the field it claims to apply at the edge.
       # Run the files directly rather than through `unittest discover -p`,
       # which exits 0 with "Ran 0 tests ... OK" when its glob matches nothing -
       # so a renamed or moved file would leave the build green with the only
@@ -129,6 +130,7 @@ jobs:
           python -m pip install numpy
           python test/test_vortex_accuracy.py -v
           python test/test_rmf_antenna_field.py -v
+          python test/test_rmf_bc_field.py -v
 
       - name: Solver smoke tests
         run: test/run_examples.sh -b src/build-opt/apollo

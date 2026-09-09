@@ -75,7 +75,49 @@ edge and so has no vacuum region around its column — see
 
 ---
 
-## 3. `Numerical_Flux = Wave` aborts
+## 3. `eigenSystem()` is dead code, and wrong where it can be read
+
+Every equation object defines `eigenSystem(d, q, ev, lev, rev)`, filling in
+eigenvalues and left and right eigenvectors of the flux Jacobian. Nothing uses
+them. The only caller is `WxHyperbolicEqnSet::eigenSystem`
+(`src/hyper/wxhyperboliceqnset.cc:428`), and nothing calls that:
+
+```repro
+grep -rn "eigenSystem" src --include=*.cc --include=*.h | grep -v build
+```
+
+returns only the definitions and that one forwarding call.
+
+That matters because it is the natural building block for anything needing a
+characteristic decomposition - which is exactly what
+`docs/rmf-frc-model-assessment.md` Phase 2 proposed to build on - and it is
+unexercised, so nothing would notice if it were wrong. In
+`WxPHMaxwellEqn::eigenSystem` it is: lines 567-568 read
+
+```cpp
+  gamma = q[6];
+  kappa = q[7];
+```
+
+and use those as the divergence-cleaning wave speeds. `q[6]` and `q[7]` are the
+cleaning POTENTIALS phi and psi - solution components, varying in space and time
+- not the speeds, which are the `_gamma` and `_chi` members set from the deck.
+The eigenvalues it returns are therefore `c*phi` and `c*psi`, which are not wave
+speeds of anything.
+
+It is also written only for axis-aligned directions (`d` = 0, 1, 2), so on an
+unstructured mesh a caller would have to rotate into the face frame around it.
+
+Phase 2 went around it: the Maxwell characteristic decomposition is written out
+in closed form in `src/hyperapps/maxwell/apmaxwellcharacteristics.h` and checked
+against a Jacobian assembled by calling `flux()` itself
+(`test/cxx/test_maxwell_characteristics.cc`). Fixing `eigenSystem` would still be
+worth doing before anything else relies on it - a Roe flux for Maxwell, say -
+and that test shows what the answer should be.
+
+---
+
+## 4. `Numerical_Flux = Wave` aborts
 
 `WxEulerEqn::applyWavePropagationFluxes` (`src/hyperapps/euler/wxeulereqn.cc`)
 forms the jump as `df[m] = qM[m] - qP[m]` and then calls
@@ -91,7 +133,7 @@ already written to cover it.
 
 ---
 
-## 4. Roughly two thirds of `src/lib` is not built
+## 5. Roughly two thirds of `src/lib` is not built
 
 A transitive include closure from the 89 sources the SConscripts actually
 compile reaches 222 files. **129 of the 188 files in `src/lib` are in none of
@@ -100,7 +142,7 @@ them.** Among the unreachable:
 | Group | Files | Note |
 | --- | --- | --- |
 | NDG++ value types | `Vec_Type.h`, `Mat_COL.h`, `VecObj_Type.h`, `MatObj_Type.h`, `ArrayGen.h`, `ArrayMacros.h`, `Region1D/2D.h`, `MappedRegion1D/2D.h`, `Index.h`, `Registry_Type.h`, … | Cannot link even if included: `umERROR`, `umWARNING`, `gVecData` are declared and never defined |
-| HDF5 I/O | `wxhdf5io.cc/.h`, `wxhdf5iotmpl.*`, `wxhdf5traits.*`, `wxiobase.cc` | Why there is no checkpointing (§5) |
+| HDF5 I/O | `wxhdf5io.cc/.h`, `wxhdf5iotmpl.*`, `wxhdf5traits.*`, `wxiobase.cc` | Why there is no checkpointing (§6) |
 | FEM geometry | `wxfemgeometry.*`, `wxfemquadrature.*`, `wxfemshapefuncs.h`, `wx3dfemgeom.*` | |
 | Box/grid machinery | `wxbox*.cc/h`, `wxgridbox.*`, `wxgridrange.*`, `wxsplitbox.*` | |
 | Dependency graph | `wmdependencygraph.*`, `wmnametree.*`, `wmindexer.*` | |
@@ -150,17 +192,17 @@ PY
 
 ---
 
-## 5. There is no checkpoint/restart
+## 6. There is no checkpoint/restart
 
 `--restart` now fails with a message rather than being silently ignored, but the
 feature itself does not exist: the load path in `apolloMain()` is commented out,
-and the HDF5 I/O layer that would back it is in the unreachable set above (§4).
+and the HDF5 I/O layer that would back it is in the unreachable set above (§5).
 For a code that runs multi-day fusion simulations this is the largest missing
 capability.
 
 ---
 
-## 6. Error paths bypass MPI
+## 7. Error paths bypass MPI
 
 67 `exit()`/`abort()` calls remain in `src/`, against 4 `MPI_Abort`. Calling
 `exit()` from one rank leaves its peers blocked in whatever collective they were
@@ -173,7 +215,7 @@ throw a `WxExcept` and let it reach that handler.
 
 ---
 
-## 7. PETSc return codes are discarded
+## 8. PETSc return codes are discarded
 
 555 PETSc calls, 63 `CHKERRQ`. A failing `DMPlexCreateFromFile`, `VecGetArray`
 or `MatAssemblyEnd` is not noticed, and execution continues with an object that
@@ -187,7 +229,7 @@ codebase, so it wants to be its own change.
 
 ---
 
-## 8. Deprecated PETSc APIs
+## 9. Deprecated PETSc APIs
 
 `src/subsolvers/wxpetsctimestepping.h` calls `TSSetDuration`,
 `TSSetInitialTimeStep` and `TSGetTimeStepNumber`, all deprecated since PETSc 3.8
@@ -197,7 +239,7 @@ codebase, so it wants to be its own change.
 
 ---
 
-## 9. Build warnings
+## 10. Build warnings
 
 A clean `scons build-opt` emits 786 warnings (down from 821 at the start of the
 review; the uninitialized-variable reports specifically went from 35 to 5).
@@ -206,10 +248,10 @@ review; the uninitialized-variable reports specifically went from 35 to 5).
 | --- | --- | --- |
 | `-Wsign-compare` | 185 | `unsigned` loop counters against `int` bounds; mostly benign, individually cheap to fix |
 | `-Wmisleading-indentation` | 175 | Worth reading each one: indentation that lies about control flow is how a guard silently stops guarding |
-| `-Wdeprecated-declarations` | 151 | §8, plus `std::auto_ptr` in the vendored muParser |
+| `-Wdeprecated-declarations` | 151 | §9, plus `std::auto_ptr` in the vendored muParser |
 | `-Wunused-variable` | 93 | |
 | `-Wreorder` | 72 | Member initialiser lists that do not match declaration order — currently harmless, a real bug the moment one member's initialiser reads another |
-| `-Woverloaded-virtual` | 47 | A derived `init()` hiding the base's `init(PetscReal, Vec)`. §10 |
+| `-Woverloaded-virtual` | 47 | A derived `init()` hiding the base's `init(PetscReal, Vec)`. §11 |
 | `-Wmaybe-uninitialized` | 5 | |
 | `-Wformat-security` | 4 | `sprintf(dst, variable)` in the CR module; a `%` in the data is a crash |
 
@@ -217,7 +259,7 @@ review; the uninitialized-variable reports specifically went from 35 to 5).
 
 ---
 
-## 10. `init()` signature mismatches hide the base virtual
+## 11. `init()` signature mismatches hide the base virtual
 
 `WxObject::init(PetscReal, Vec)` is virtual; `ApFVM2dScheme::init()` and
 `ApDomainDecompCheck::init()` declare a no-argument `init()`, which hides rather
@@ -228,7 +270,7 @@ trap that `override` exists to catch, and the codebase uses it nowhere.
 
 ---
 
-## 11. Duplicated and uncertain post-processing scripts
+## 12. Duplicated and uncertain post-processing scripts
 
 Several files in `scripts/` are near-duplicates with no indication of which is
 canonical: `wxdata.py` / `wxdata_3949.py`, `wxunsdgdata.py` / `wxunsdgdata2.py`,

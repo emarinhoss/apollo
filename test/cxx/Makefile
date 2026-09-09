@@ -44,6 +44,8 @@ CORE_OBJS := $(BUILD)/lib/wxcryptset.o $(BUILD)/lib/wxcryptsetlexer.o \
 # code under test rather than drag in the whole solver.
 test_friction_sources_OBJS := $(BUILD)/hyper/wxhyperbolicsrc.o
 test_rmf_antenna_OBJS      := $(BUILD)/hyper/wxhyperbolicsrc.o
+test_maxwell_characteristics_OBJS := $(BUILD)/hyperapps/maxwell/wxphmaxwelleqn.o \
+                                    $(BUILD)/hyper/wxhyperboliceqn.o
 
 # The boundary-condition classes define their methods in .cc files with explicit
 # template instantiation, so the object is needed even though the class is
@@ -53,7 +55,8 @@ test_rmf_boundary_OBJS := $(BUILD)/solvers/wxgridbc.o \
                           $(BUILD)/subsolvers/apsubsolver.o \
                           $(BUILD)/hyperapps/multifluid/aptwofluidsimplifiedrmfbc.o
 
-TESTS := test_friction_sources test_rmf_boundary test_rmf_antenna
+TESTS := test_friction_sources test_rmf_boundary test_rmf_antenna \
+         test_maxwell_characteristics
 BINS  := $(addprefix $(CURDIR)/,$(TESTS))
 
 .PHONY: all run clean check-build

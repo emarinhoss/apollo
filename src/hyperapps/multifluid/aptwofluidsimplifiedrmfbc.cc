@@ -1,4 +1,5 @@
 #include "aptwofluidsimplifiedrmfbc.h"
+#include "maxwell/apmaxwellcharacteristics.h"
 #include <wxmath.h>
 
 template <typename REAL>
@@ -13,6 +14,10 @@ APTwoFluidSimplifiedRMFBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   _B0 = wxc.template get<REAL>("B_rmf");
   _phase = wxc.template get<REAL>("phase");
   _rise = wxc.template get<REAL>("rise_time");
+
+  // Optional. Its presence turns on characteristic injection; see applyBC.
+  _characteristic = wxc.has("c0");
+  _c0 = _characteristic ? wxc.template get<REAL>("c0") : 0.0;
   _a = wxc.template get<REAL>("plasma_radius");
   _b = wxc.template get<REAL>("flux_conserver_radius");
 
@@ -66,12 +71,17 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     if(intBzda==0.0)
         intBzda = _pi*_a*_a*_baxial;
 
-    // E-field
+    // The field this condition wants to apply, assembled into one block so
+    // that it can be handed to the characteristic injection below rather than
+    // written straight into the ghost state.
+    REAL qF[8];
+
+    // E-field: conducting-wall reflection of the in-plane part.
     REAL enorm = ex*nx[0] + ey*nx[1];
     REAL etang = ex*nx[1] - ey*nx[0];
 
-    qBC[10] = enorm*nx[0] - etang*nx[1];
-    qBC[11] = enorm*nx[1] + etang*nx[0];
+    qF[0] = enorm*nx[0] - etang*nx[1];
+    qF[1] = enorm*nx[1] + etang*nx[0];
 
     // B-field
     //
@@ -114,15 +124,41 @@ APTwoFluidSimplifiedRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux
     // azimuthal torque, so its angular structure is the torque's structure.
     REAL Ez = x*dBy - y*dBx;
 
-    qBC[12] = Ez;
-    qBC[13] = Bx;
-    qBC[14] = By;
+    qF[2] = Ez;
+    qF[3] = Bx;
+    qF[4] = By;
 
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
 //    REAL AA = -intBzda/(_b*_b-_a*_a)/_pi;
-    qBC[15] = newBz;
-    qBC[16] = -phi;
-    qBC[17] =  psi;
+    qF[5] = newBz;
+    qF[6] = -phi;
+    qF[7] =  psi;
+
+    // Impose only what a hyperbolic system allows to be imposed.
+    //
+    // Writing the whole of qF into the ghost state sets the outgoing
+    // characteristics as well as the incoming ones, which is over-specified.
+    // maxwellCharacteristicGhost keeps the outgoing ones from the interior; see
+    // src/hyperapps/maxwell/apmaxwellcharacteristics.h for the decomposition
+    // and test/cxx/test_maxwell_characteristics.cc for its verification.
+    //
+    // It makes NO DIFFERENCE at the cleaning speeds every deck in this
+    // repository sets. DGnumericalFlux is Lax-Friedrichs with
+    // lambda = max(c, chi c, gamma c); at chi = gamma = 1 every eigenvalue has
+    // magnitude c, so that flux is exactly upwind and an upwind flux ignores
+    // what the ghost says about outgoing characteristics. The two constructions
+    // then agree to roundoff - measured at 2.9e-16 relative. Away from
+    // chi = gamma = 1 they differ by tens of percent, and the slope limiter
+    // consumes the ghost state directly rather than through a Riemann solve,
+    // where the outgoing part does matter.
+    //
+    // Off unless the deck supplies c0, so that a deck which does not ask for
+    // this is untouched down to the last bit.
+    if (_characteristic)
+        maxwellCharacteristicGhost(nx, _c0, q + 10, qF, qBC + 10);
+    else
+        for (unsigned k = 0; k < 8; ++k)
+            qBC[10 + k] = qF[k];
 }
 
 // instantiations
