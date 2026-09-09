@@ -78,8 +78,18 @@ if [[ "$RANKS" -gt 1 ]]; then
   fi
 fi
 
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+# APOLLO_EXAMPLES_WORK keeps the run directories instead of discarding them, so
+# a caller can inspect what the solver actually wrote. CI uses it to read a .vtu
+# back with test/vtu.py on the older PETSc, which is the only way to catch the
+# output-format differences between PETSc releases - the reader once assumed the
+# 8-byte length prefix of PETSc 3.19 and could not read 3.15's files at all.
+if [[ -n "${APOLLO_EXAMPLES_WORK:-}" ]]; then
+  WORK="$APOLLO_EXAMPLES_WORK"
+  mkdir -p "$WORK"
+else
+  WORK="$(mktemp -d)"
+  trap 'rm -rf "$WORK"' EXIT
+fi
 
 # Diagnostics the solver prints when the solution has gone bad. It does not
 # always exit non-zero on these, so grep for them as well as checking the status.

@@ -71,6 +71,11 @@ jobs:
       - name: Deck preprocessing
         run: python test/test_deck_preprocess.py -v
 
+      # The .vtu reader every diagnostic depends on. Builds both of the layouts
+      # PETSc writes, so it needs no PETSc of its own.
+      - name: VTU reader
+        run: python test/test_vtu_reader.py -v
+
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.
   build-scripts:
@@ -233,3 +238,37 @@ jobs:
         env:
           PETSC_DIR: /usr/lib/petsc
         run: make -C test/cxx
+
+      # The step that makes this job worth its minutes. Apollo does not write
+      # .vtu itself - PETSc's viewer does - so the on-disk layout follows the
+      # PETSc version: 3.15 writes a 4-byte length prefix and declares no
+      # header_type, 3.19 writes 8 bytes and declares UInt64. test/vtu.py
+      # assumed the 8-byte form, so on this PETSc it could not read a run's
+      # output at all, and every diagnostic in scripts/ goes through it.
+      # Building proves nothing about that; something has to read a file THIS
+      # PETSc produced.
+      - name: Read back a .vtu written by this PETSc
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples
+        run: |
+          python -m pip install numpy
+          test/run_examples.sh -b src/build-opt/apollo maxwell-circular-pulse
+          python - <<'PY'
+          import glob, os, sys
+          sys.path.insert(0, 'test')
+          import vtu
+          work = os.environ['APOLLO_EXAMPLES_WORK']
+          files = sorted(glob.glob(os.path.join(work, '*', '*.vtu')))
+          if not files:
+              sys.exit('no .vtu produced under %s' % work)
+          for path in files:
+              arrays = vtu.read(path)
+              if not arrays:
+                  sys.exit('%s: reader returned no arrays' % path)
+              if 'Position' not in arrays:
+                  sys.exit('%s: no Position array; got %s'
+                           % (path, sorted(arrays)))
+          print('read %d .vtu file(s) written by this PETSc; '
+                'first has %d arrays' % (len(files), len(vtu.read(files[0]))))
+          PY

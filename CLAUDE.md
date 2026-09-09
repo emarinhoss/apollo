@@ -22,8 +22,8 @@ environment on a cluster.
 The fast tests need no solver and run in under a second:
 `test/test_rmf_diagnostics.py`, `test/test_rmf_scan.py`,
 `test/test_mkdiscmesh.py`, `test/test_python_tooling.py`,
-`test/test_deck_preprocess.py`. So does `test/test_petsc_compat.py`, which needs
-a C++ compiler but no PETSc. The ones that do need
+`test/test_deck_preprocess.py`, `test/test_vtu_reader.py`. So does
+`test/test_petsc_compat.py`, which needs a C++ compiler but no PETSc. The ones that do need
 a solver skip themselves without one, so **a green run does not by itself mean
 they ran** — check the skip count.
 
@@ -58,6 +58,16 @@ result. The ones that bite hardest while editing:
   `test/test_deck_preprocess.py`, which also compares every `python3.x` on the
   machine — because the bug was invisible on the interpreter you happened to run.
   CI runs the Python gate on 3.11 and 3.13.
+- **The `.vtu` layout is PETSc's, not Apollo's, so it changes with PETSc.**
+  Output goes through `PETSCVIEWERVTK`, and the length prefix before each
+  appended block is 4 bytes on PETSc 3.15 (no `header_type` attribute, so the
+  VTK default UInt32) and 8 bytes on 3.19 (`header_type="UInt64"`).
+  `test/vtu.py` assumed 8 and could not read a 3.15 run at all — it failed with
+  numpy's "buffer size must be a multiple of element size", naming neither file
+  nor cause, and every diagnostic in `scripts/` goes through it. It now reads
+  the attribute and refuses with a diagnosable message when a block does not
+  add up. Pinned by `test/test_vtu_reader.py`, which builds both layouts, and
+  by a CI step that reads back a `.vtu` the 22.04 job's PETSc actually wrote.
 - **There is no checkpoint or restart.** An interrupted run is a lost run. (§6)
 - **The two-fluid slope limiter produces NaN** after a few tens of steps, so no
   multifluid case can be limited. (§2)
