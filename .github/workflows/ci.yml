@@ -121,7 +121,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
+          # The runner image carries third-party apt repositories Apollo never
+          # installs from. When one of them serves a bad index - dl.google.com
+          # returned a hash-sum mismatch on 2026-09-09 - `apt-get update` exits
+          # 100 and takes the whole job with it, although every package below
+          # comes from the Ubuntu archive. Let update report and carry on: the
+          # install is the real gate and fails loudly with "Unable to locate
+          # package" if an index Apollo actually needs is the one that is missing.
+          sudo apt-get update \
+            || echo 'apt-get update reported errors; continuing - the install below is the gate'
           sudo apt-get install -y --no-install-recommends \
             libopenmpi-dev openmpi-bin \
             libpetsc-real-dev \
@@ -209,7 +217,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
+          # The runner image carries third-party apt repositories Apollo never
+          # installs from. When one of them serves a bad index - dl.google.com
+          # returned a hash-sum mismatch on 2026-09-09 - `apt-get update` exits
+          # 100 and takes the whole job with it, although every package below
+          # comes from the Ubuntu archive. Let update report and carry on: the
+          # install is the real gate and fails loudly with "Unable to locate
+          # package" if an index Apollo actually needs is the one that is missing.
+          sudo apt-get update \
+            || echo 'apt-get update reported errors; continuing - the install below is the gate'
           sudo apt-get install -y --no-install-recommends \
             libopenmpi-dev openmpi-bin \
             libpetsc-real-dev \
