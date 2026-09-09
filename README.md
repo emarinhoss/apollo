@@ -92,12 +92,29 @@ sudo apt-get install libopenblas-dev        # optimized BLAS, provides <cblas.h>
 pip3 install scons
 ```
 
-That is the full set: on Ubuntu 24.04 these packages are enough to build and run
-Apollo with no source builds and no edits to `src/this_host_config.py`. It is
-also exactly what CI installs, so it is checked on every push.
+That is the full set: on Ubuntu 22.04 and 24.04 these packages are enough to
+build and run Apollo with no source builds and no edits to
+`src/this_host_config.py`. It is also exactly what CI installs on both of those
+releases, so it is checked on every push.
 
 `libpetsc-real-dev` installs PETSc under `/usr/lib/petsc`, which the build finds
 either automatically or via `export PETSC_DIR=/usr/lib/petsc`.
+
+**Which PETSc you get depends on the release, and it matters.** Ubuntu 22.04
+ships PETSc 3.15, 24.04 ships 3.19. Apollo builds against **3.11 and newer**:
+`src/lib/petsc_compat.h` substitutes for the plex calls upstream has removed
+over that range, and `test/test_petsc_compat.py` checks the substitutions fire
+at the right versions — in both directions, so a shim cannot quietly collide
+with a declaration that is still there. A PETSc older than 3.11 is untested and
+will probably not compile.
+
+If a build fails with a wall of template errors naming `DMPlex...` functions,
+check the version first:
+
+```bash
+sed -n 's/#define PETSC_VERSION_\(MAJOR\|MINOR\|SUBMINOR\) *//p' \
+    /usr/lib/petsc/include/petscversion.h | paste -sd. -
+```
 
 #### CentOS/RHEL/Fedora
 

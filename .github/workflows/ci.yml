@@ -50,6 +50,13 @@ jobs:
           python test/test_rmf_scan.py -v
           python test/test_rmf_cleaning_check.py -v
 
+      # Needs a C++ compiler but no PETSc: it compiles petsc_compat.h against a
+      # stub <petsc.h> that declares what each PETSc release declares, so the
+      # version guards are checked across the whole supported range rather than
+      # only against whatever the build job happens to install.
+      - name: PETSc compatibility guards
+        run: python test/test_petsc_compat.py -v
+
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.
   build-scripts:
@@ -162,3 +169,53 @@ jobs:
             src/config.log
             src/.sconf_temp/**
           if-no-files-found: ignore
+
+  # The same build against the PETSc an older distribution ships. This job
+  # exists because it would have caught a real bug: two compatibility shims
+  # named 3.18 as the release that removed their symbols when the answer was
+  # 3.13 and 3.14, so Apollo compiled on 24.04 (PETSc 3.19) and did not compile
+  # at all on 22.04 (PETSc 3.15). Every job above ran ubuntu-latest, so nothing
+  # noticed until someone tried to build it in Google Colab, which is 22.04.
+  #
+  # Building alone is the point here; the smoke tests stay on the newer runner.
+  build-old-petsc:
+    name: Build on Ubuntu 22.04 (PETSc 3.15)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenmpi-dev openmpi-bin \
+            libpetsc-real-dev \
+            libhdf5-openmpi-dev \
+            libopenblas-dev \
+            libgsl-dev \
+            libboost-dev \
+            libeigen3-dev
+          python -m pip install --upgrade pip scons
+
+      # Printed rather than assumed: if the distribution moves to a different
+      # PETSc, this job stops testing what its name says and the log says so.
+      - name: Report PETSc version
+        run: |
+          sed -n 's/#define PETSC_VERSION_\(MAJOR\|MINOR\|SUBMINOR\) *//p' \
+            /usr/lib/petsc/include/petscversion.h | paste -sd. -
+
+      - name: Build (optimized)
+        working-directory: src
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          SCONSFLAGS: ''
+        run: scons build-opt arch=x86-64-v2
+
+      - name: Unit tests
+        env:
+          PETSC_DIR: /usr/lib/petsc
+        run: make -C test/cxx

@@ -27,10 +27,15 @@ set -euo pipefail
 SUDO=""
 if [[ "$(id -u)" -ne 0 ]]; then SUDO="sudo"; fi
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APOLLO="${APOLLO:-$(cd "$HERE/../../../../.." && pwd)}"
+
 echo "=== system packages"
 $SUDO apt-get update -qq
-# The same set README.md lists, which is enough on Ubuntu 22.04 and 24.04. PETSc
-# comes from the distribution: no source build.
+# The same set README.md lists. PETSc comes from the distribution, so no source
+# build - but note the version differs: 22.04 gives 3.15, 24.04 gives 3.19. Both
+# work; the version is reported below because it decides which compatibility
+# shims apply.
 $SUDO apt-get install -y -qq --no-install-recommends \
     build-essential \
     libopenmpi-dev openmpi-bin \
@@ -41,13 +46,33 @@ $SUDO apt-get install -y -qq --no-install-recommends \
     libgsl-dev \
     libopenblas-dev
 
+# Which PETSc this actually got. Apollo builds against 3.11 and up, but the
+# version varies by distribution - Ubuntu 22.04 (what Colab runs) ships 3.15,
+# 24.04 ships 3.19 - and the compatibility shims in src/lib/petsc_compat.h
+# switch on it. Printing it costs nothing and turns "300 lines of template
+# errors" into "you have version X", which is the difference between a
+# five-minute problem and an afternoon.
+export PETSC_DIR="${PETSC_DIR:-/usr/lib/petsc}"
+PETSC_VERSION="$(sed -n 's/#define PETSC_VERSION_\(MAJOR\|MINOR\|SUBMINOR\) *//p' \
+    "$PETSC_DIR/include/petscversion.h" 2>/dev/null | paste -sd. - || true)"
+echo "=== petsc ${PETSC_VERSION:-UNKNOWN} in $PETSC_DIR"
+
+PETSC_MINOR="$(printf '%s' "$PETSC_VERSION" | cut -d. -f2)"
+if [[ -z "$PETSC_MINOR" ]]; then
+    echo "WARNING: could not read a PETSc version from $PETSC_DIR." >&2
+    echo "         If the build fails below, that is the first thing to check." >&2
+elif (( PETSC_MINOR < 11 )); then
+    echo "PETSc $PETSC_VERSION is older than 3.11, which is the oldest release" >&2
+    echo "the compatibility header is tested against (test/test_petsc_compat.py)." >&2
+    echo "The build below will probably fail. Use a newer PETSc, or the conda" >&2
+    echo "environment in environment.yml, which pins 3.19." >&2
+    exit 1
+fi
+
 echo "=== python packages"
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APOLLO="${APOLLO:-$(cd "$HERE/../../../../.." && pwd)}"
 python3 -m pip install -q -r "$APOLLO/requirements.txt"
 
 echo "=== build"
-export PETSC_DIR="${PETSC_DIR:-/usr/lib/petsc}"
 cd "$APOLLO/src"
 # -j$(nproc) rather than a fixed number: Colab gives two cores, a cluster login
 # node may give many, and scons will happily use whatever it is told.

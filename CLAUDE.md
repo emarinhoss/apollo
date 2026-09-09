@@ -21,7 +21,8 @@ environment on a cluster.
 
 The fast tests need no solver and run in under a second:
 `test/test_rmf_diagnostics.py`, `test/test_rmf_scan.py`,
-`test/test_mkdiscmesh.py`, `test/test_python_tooling.py`. The ones that do need
+`test/test_mkdiscmesh.py`, `test/test_python_tooling.py`. So does
+`test/test_petsc_compat.py`, which needs a C++ compiler but no PETSc. The ones that do need
 a solver skip themselves without one, so **a green run does not by itself mean
 they ran** — check the skip count.
 
@@ -39,6 +40,13 @@ result. The ones that bite hardest while editing:
   cells on N ranks, and which cells is up to the partitioner. Diagnostics on a
   multi-rank run describe a fraction of the domain and do not fail. Run one rank
   when the output matters. (§13)
+- **The PETSc version decides whether it compiles at all.** `petsc_compat.h`
+  substitutes for plex calls upstream removed at 3.13 and 3.14; the guards said
+  3.18 for both, so Apollo built on 24.04 (PETSc 3.19) and would not compile on
+  22.04 (PETSc 3.15) — including in Colab. Fixed, and pinned by
+  `test/test_petsc_compat.py`, which compiles the header against a stub
+  `<petsc.h>` for every release from 3.11 up. If you touch a version guard, run
+  it: it fails in both directions.
 - **There is no checkpoint or restart.** An interrupted run is a lost run. (§6)
 - **The two-fluid slope limiter produces NaN** after a few tens of steps, so no
   multifluid case can be limited. (§2)

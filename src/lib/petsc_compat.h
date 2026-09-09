@@ -20,8 +20,20 @@
 #define PETSC_NULL PETSC_NULLPTR
 #endif
 
-/* DMPlexGetHybridBounds was removed in PETSc 3.18 */
-#if PETSC_VERSION_GE(3, 18, 0)
+/*
+ * DMPlexGetHybridBounds was removed in PETSc 3.13, not 3.18.
+ *
+ * The guard here said 3.18 until a build on Ubuntu 22.04 failed: that release
+ * ships PETSc 3.15, where the symbol is gone but the shim did not fire, so
+ * every file calling it failed to compile. Verified against upstream headers -
+ * include/petscdmplex.h declares it through v3.12.5 and no longer declares it
+ * in v3.13.6; it is not in include/petsc/private/dmpleximpl.h either. So the
+ * shim is needed for 3.13 and later, and must NOT be defined at 3.12 and
+ * earlier, where it would clash with the real declaration.
+ *
+ * test/test_petsc_compat.py pins both directions.
+ */
+#if PETSC_VERSION_GE(3, 13, 0)
 /*
  * Callers use the returned bound directly as a loop limit, so every output is
  * written before anything that can fail: an early CHKERRQ return must not leave
@@ -54,8 +66,14 @@ static inline PetscErrorCode DMPlexGetHybridBounds(DM dm, PetscInt *cMax, PetscI
 }
 #endif
 
-/* DMPlexSetAdjacencyUseCone and DMPlexSetAdjacencyUseClosure were removed in PETSc 3.18 */
-#if PETSC_VERSION_GE(3, 18, 0)
+/*
+ * DMPlexSetAdjacencyUseCone and DMPlexSetAdjacencyUseClosure were removed in
+ * PETSc 3.14, not 3.18 - the same mis-dating as the hybrid-bounds shim above,
+ * and the same symptom on Ubuntu 22.04's PETSc 3.15. Verified against upstream
+ * headers: both are declared in include/petscdmplex.h through v3.13.6 and are
+ * absent from v3.14.6 onwards. Replaced upstream by DMSetBasicAdjacency.
+ */
+#if PETSC_VERSION_GE(3, 14, 0)
 static inline PetscErrorCode DMPlexSetAdjacencyUseCone(DM dm, PetscBool useCone)
 {
   /* In newer PETSc, adjacency is controlled differently.
