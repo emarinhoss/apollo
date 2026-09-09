@@ -487,12 +487,17 @@ def frame_time(index, params):
 def coverage_warning(r, a, n_cells, expected_cells=None):
     """Text describing what is missing from a frame, or '' if it looks complete.
 
-    THE CASE THIS EXISTS FOR IS MPI. Apollo writes one .vtu per frame regardless
-    of rank count, and it holds roughly 1/N of the cells: measured on the shipped
-    deck, 7792 cells on 1 rank, 3896 on 2 and 1961 on 4. Which cells is a
-    property of the partitioner - at 4 ranks the written subset happened to span
-    the whole disc, at 2 ranks it started at r = 2.6 mm and contained no axis at
-    all.
+    THIS USED TO BE DESCRIBED AS AN MPI DEFECT, AND THAT WAS WRONG. The numbers
+    that motivated it - 7792 cells on 1 rank, 3896 on 2, 1961 on 4 - were not a
+    truncated writer. PETSc writes one <Piece> per rank and all of them are in
+    the file; test/vtu.py flattened them, so only the last rank's arrays
+    survived. The reader now joins the pieces, and a multi-rank frame carries
+    the whole domain again.
+
+    The guard is kept because the question it asks is still worth asking: does
+    this frame's nodal coverage actually span [0, a]? It should now be silent on
+    a healthy run of any rank count, so if it does fire, something is genuinely
+    missing rather than merely unread.
 
     That is worse than losing data, because nothing here fails when it happens.
     axial_field_on_axis given a frame with no axis in it averages the six nodes
@@ -621,8 +626,9 @@ def main(argv=None):
         print('*** THIS OUTPUT DOES NOT COVER THE WHOLE DOMAIN, so every number\n'
               '*** below describes only the part of it that was written:\n'
               f'***   {bad[0]["coverage"]}\n'
-              '*** The usual cause is MPI: Apollo writes about 1/N of the cells\n'
-              '*** when run on N ranks. Re-run on one rank. See known-issues.')
+              '*** This is no longer expected on a multi-rank run: the reader\n'
+              '*** joins every rank\'s piece. Treat it as a real gap in the\n'
+              '*** output and say so, rather than re-running on one rank.')
     outside = max(r['outside'] for r in rows)
     if outside:
         print(f'note: {outside} nodal points per frame lie outside r = 0..a and are '

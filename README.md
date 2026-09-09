@@ -352,14 +352,17 @@ src/build-opt/apollo -i <input>.inp
 mpirun -np <ranks> src/build-opt/apollo -i <input>.inp
 ```
 
-> **The output of a parallel run is incomplete.** Apollo writes one `.vtu` per
-> frame however many ranks it ran on, and that file holds roughly 1/N of the
-> cells — measured 7792, 3896 and 1961 on 1, 2 and 4 ranks of the same case.
-> Which cells is decided by the partitioner, so post-processing a multi-rank run
-> silently describes a fraction of the domain. The solver scales well (3.88× on
-> four ranks); it is the writer that does not. Run one rank when you intend to
-> analyse the output, and get throughput by running independent cases at once.
-> See [`docs/known-issues.md`](docs/known-issues.md) §13.
+> **Run one rank for anything you intend to analyse.** Earlier versions of this
+> file gave the reason as incomplete output — one `.vtu` holding roughly 1/N of
+> the cells. That was a bug in `test/vtu.py`, which flattened PETSc's per-rank
+> `<Piece>` elements and kept only the last; the file was always complete, and a
+> two-rank frame now reads back 4304 cells against the one-rank file's 4304.
+> Fixing the reader exposed the actual problem: **the solver's answer depends on
+> the rank count**. One rank and two give materially different fields on the
+> Maxwell circular pulse as well as on the RMF decks, diverging from an identical
+> initial frame. See [`docs/known-issues.md`](docs/known-issues.md) §15. The
+> solver scales 3.88× on four ranks; that speed is not usable until this is
+> understood.
 
 Mesh files named by a deck are resolved relative to the **working directory**,
 not to the deck, so run from the directory holding the mesh (or copy the mesh in).

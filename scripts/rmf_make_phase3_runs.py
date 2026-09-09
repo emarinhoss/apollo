@@ -72,7 +72,16 @@ RUNS = [
         folder='00-divergence-gate',
         deck=ANT_DECK, mesh=ANT_MESH,
         periods=0.00435, frames=6,
-        decks=[('antenna-cleaning-on', [('DIVB_SPEED', 1.0), ('DIVE_SPEED', 1.0)])],
+        # The antenna deck gets the SAME two-run test as the edge deck, not just
+        # the psi/E symptom check. The whole campaign is predicated on this deck
+        # being the sound one, and until both halves exist that is an assumption:
+        # a deck can hold psi/E near 0.05 and still have its answer move when
+        # DIVB_SPEED moves. Cheap to settle - about five minutes - and it governs
+        # every long run in 01, 02 and 03.
+        decks=[
+            ('antenna-cleaning-on', [('DIVB_SPEED', 1.0), ('DIVE_SPEED', 1.0)]),
+            ('antenna-cleaning-off', [('DIVB_SPEED', 0.0), ('DIVE_SPEED', 0.0)]),
+        ],
     ),
     dict(
         folder='01-c-sensitivity',

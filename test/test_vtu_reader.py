@@ -40,7 +40,8 @@ ROOT = os.path.dirname(HERE)
 _PREFIX = {'UInt32': '<I', 'UInt64': '<Q'}
 
 
-def build_vtu(arrays, header_type='UInt64', declare=True, byte_order='LittleEndian'):
+def build_vtu(arrays, header_type='UInt64', declare=True, byte_order='LittleEndian',
+              pieces=None):
     """Write a minimal UnstructuredGrid .vtu and return the bytes.
 
     `arrays` is a list of (name, numpy array). A 2-D array is written with
@@ -52,22 +53,38 @@ def build_vtu(arrays, header_type='UInt64', declare=True, byte_order='LittleEndi
         else _PREFIX[header_type].replace('<', '>')
     width = struct.calcsize(fmt)
 
-    declarations, blocks, offset = [], [], 0
-    for name, data in arrays:
-        ncomp = data.shape[1] if data.ndim > 1 else 1
-        vtk_type = {'float64': 'Float64', 'float32': 'Float32',
-                    'int32': 'Int32', 'int64': 'Int64',
-                    'uint8': 'UInt8'}[data.dtype.name]
-        declarations.append(
-            '        <DataArray type="%s" Name="%s" NumberOfComponents="%d" '
-            'format="appended" offset="%d" />' % (vtk_type, name, ncomp, offset))
-        # The declared byte order applies to the data as well as the prefix,
-        # so write it that way rather than leaving native bytes under a
-        # BigEndian declaration - that would test the builder, not the reader.
-        raw = data.astype(data.dtype.newbyteorder(
-            '>' if byte_order == 'BigEndian' else '<')).tobytes()
-        blocks.append(struct.pack(fmt, len(raw)) + raw)
-        offset += width + len(raw)
+    # `pieces` is a list of array-lists, one per <Piece> - which is how PETSc
+    # writes a multi-rank run. The single-piece case is the common one.
+    if pieces is None:
+        pieces = [arrays]
+
+    piece_xml, blocks, offset = [], [], 0
+    for piece_arrays in pieces:
+        declarations = []
+        npoints = ncells = 1
+        for name, data in piece_arrays:
+            ncomp = data.shape[1] if data.ndim > 1 else 1
+            vtk_type = {'float64': 'Float64', 'float32': 'Float32',
+                        'int32': 'Int32', 'int64': 'Int64',
+                        'uint8': 'UInt8'}[data.dtype.name]
+            declarations.append(
+                '        <DataArray type="%s" Name="%s" NumberOfComponents="%d" '
+                'format="appended" offset="%d" />'
+                % (vtk_type, name, ncomp, offset))
+            # The declared byte order applies to the data as well as the prefix,
+            # so write it that way rather than leaving native bytes under a
+            # BigEndian declaration - that would test the builder, not the reader.
+            raw = data.astype(data.dtype.newbyteorder(
+                '>' if byte_order == 'BigEndian' else '<')).tobytes()
+            blocks.append(struct.pack(fmt, len(raw)) + raw)
+            offset += width + len(raw)
+            if name == 'Position':
+                npoints = len(data)
+            elif name == 'types':
+                ncells = len(data)
+        piece_xml.append(
+            '    <Piece NumberOfPoints="%d" NumberOfCells="%d">\n%s\n    </Piece>'
+            % (npoints, ncells, '\n'.join(declarations)))
 
     attrs = 'type="UnstructuredGrid" version="0.1" byte_order="%s"' % byte_order
     if declare:
@@ -77,12 +94,10 @@ def build_vtu(arrays, header_type='UInt64', declare=True, byte_order='LittleEndi
         '<?xml version="1.0"?>\n'
         '<VTKFile %s>\n'
         '  <UnstructuredGrid>\n'
-        '    <Piece NumberOfPoints="1" NumberOfCells="1">\n'
         '%s\n'
-        '    </Piece>\n'
         '  </UnstructuredGrid>\n'
         '  <AppendedData encoding="raw">\n_'
-        % (attrs, '\n'.join(declarations)))
+        % (attrs, '\n'.join(piece_xml)))
     return header.encode('ascii') + b''.join(blocks) + \
         b'\n  </AppendedData>\n</VTKFile>\n'
 
@@ -184,6 +199,62 @@ class TestVtuReader(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             vtu.read(path)
         self.assertIn('UInt16', str(caught.exception))
+
+    def test_every_piece_is_read_not_just_the_last(self):
+        """PETSc writes one <Piece> per MPI rank; all of them are the file.
+
+        Every Piece re-declares the same array names at its own offset, so a
+        reader that walks DataArray elements into a flat dict keeps only the
+        last rank's copy. That is what produced the repository's belief that
+        "Apollo writes roughly 1/N of the cells on N ranks": the numbers behind
+        it were the size of the last piece, not of the file.
+        """
+        pieces = [
+            [('Position', np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])),
+             ('connectivity', np.array([0, 1, 2], dtype='int32')),
+             ('offsets', np.array([3], dtype='int32')),
+             ('types', np.array([5], dtype='uint8')),
+             ('rhoe', np.array([10.0]))],
+            [('Position', np.array([[2., 0., 0.], [3., 0., 0.], [2., 1., 0.]])),
+             ('connectivity', np.array([0, 1, 2], dtype='int32')),
+             ('offsets', np.array([3], dtype='int32')),
+             ('types', np.array([5], dtype='uint8')),
+             ('rhoe', np.array([20.0]))],
+        ]
+        path = write_temp(build_vtu(None, pieces=pieces))
+        self.paths.append(path)
+        got = vtu.read(path)
+
+        self.assertEqual(len(got['types']), 2, 'a piece was dropped')
+        self.assertEqual(len(got['Position']), 6)
+        np.testing.assert_array_equal(got['rhoe'], [10.0, 20.0])
+
+    def test_connectivity_is_shifted_into_the_joined_numbering(self):
+        """Each piece numbers points from zero, so indices must be rebased.
+
+        Without the shift the second piece's triangle would silently point at
+        the first piece's vertices - a coherent-looking mesh made of the wrong
+        cells, which is far worse than an error.
+        """
+        pieces = [
+            [('Position', np.zeros((3, 3))),
+             ('connectivity', np.array([0, 1, 2], dtype='int32')),
+             ('offsets', np.array([3], dtype='int32')),
+             ('types', np.array([5], dtype='uint8'))],
+            [('Position', np.ones((4, 3))),
+             ('connectivity', np.array([0, 1, 2, 3], dtype='int32')),
+             ('offsets', np.array([4], dtype='int32')),
+             ('types', np.array([5], dtype='uint8'))],
+        ]
+        path = write_temp(build_vtu(None, pieces=pieces))
+        self.paths.append(path)
+        got = vtu.read(path)
+
+        # Second piece's indices rebased by the first piece's 3 points.
+        np.testing.assert_array_equal(got['connectivity'], [0, 1, 2, 3, 4, 5, 6])
+        # offsets are cumulative across the joined connectivity.
+        np.testing.assert_array_equal(got['offsets'], [3, 7])
+        self.assertLess(int(got['connectivity'].max()), len(got['Position']))
 
     def test_both_layouts_agree(self):
         """The two layouts carry the same numbers; only the framing differs."""

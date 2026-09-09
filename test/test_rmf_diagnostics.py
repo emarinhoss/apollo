@@ -642,11 +642,17 @@ class TestFrameTiming(unittest.TestCase):
 class TestCoverage(unittest.TestCase):
     """A frame that covers only part of the domain must be noticed.
 
-    Apollo writes one .vtu per frame however many MPI ranks it ran on, and it
-    holds roughly 1/N of the cells - measured 7792, 3896, 1961 on 1, 2 and 4
-    ranks. Which cells is up to the partitioner: at 2 ranks the written subset
-    began at r = 2.6 mm and contained no axis, and axial_field_on_axis answered
-    from the six nodes nearest the hole without complaint.
+    The case that motivated this guard turned out to be a reader bug rather
+    than an output one: the counts behind it - 7792, 3896, 1961 cells on 1, 2
+    and 4 ranks - were the size of PETSc's last <Piece>, because test/vtu.py
+    flattened the per-rank pieces and kept only the last. That is fixed, so a
+    multi-rank frame now carries the whole domain.
+
+    The guard stays, and so do these checks, because the question is still the
+    right one: a frame whose nodal coverage does not span [0, a] must be
+    noticed rather than averaged over. axial_field_on_axis answering from the
+    six nodes nearest a hole, with a number that looks right, is the failure
+    being prevented - whatever put the hole there.
     """
 
     def test_a_complete_frame_is_not_flagged(self):

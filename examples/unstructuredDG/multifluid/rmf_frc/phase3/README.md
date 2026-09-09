@@ -57,21 +57,32 @@ rather than taking it from this file.
 
 ### 2. Do not use MPI for a run whose output you intend to analyse.
 
-Apollo writes one `.vtu` per frame however many ranks it ran on, and that file
-holds roughly **1/N of the cells** — measured 7792, 3896 and 1961 on 1, 2 and 4
-ranks. Which cells is up to the partitioner: at 2 ranks the written subset began
-at r = 2.6 mm and contained no axis at all, and the axis diagnostic answered from
-the six nodes nearest the hole with a number that looked right.
+The conclusion is unchanged but the reason has changed, and the new one is worse.
 
-The solver itself parallelises well — 2.06× on 2 ranks, 3.88× on 4 — so this is
-an output defect, not a solver one. But until it is fixed:
+This section used to say a frame held only about 1/N of the cells on N ranks.
+That was a misdiagnosis: PETSc writes one `<Piece>` per rank and every piece is
+in the file, but `test/vtu.py` flattened them so the last rank's copy of each
+array won. The counts that looked like a truncated writer — 7792, 3896, 1961 on
+1, 2 and 4 ranks — were the size of the last piece. The reader is fixed and a
+two-rank frame now reads back 4304 cells against the one-rank file's 4304.
 
-> **Run one rank per run, and get your throughput from running many runs at
-> once.** That suits this campaign: `02-threshold-scan` is nine independent
-> points, which is a SLURM job array, not an MPI job.
+Fixing it made the runs comparable for the first time, and **they do not agree**.
+On this gate deck the penetration ratio is 0.0000 at every frame on one rank and
+climbs to 0.71 on two, over the same 210 steps; B_z on axis moves in the fifth
+digit. The same divergence appears on the Maxwell circular pulse — a different
+module and a different boundary condition — from an identical frame 0. See
+[`known-issues.md`](../../../../../docs/known-issues.md) §15.
+
+> **Run one rank per run, and get throughput from running many runs at once.**
+> That still suits this campaign: `02-threshold-scan` is nine independent points,
+> which is a SLURM job array, not an MPI job.
+
+The solver does scale — 2.06× on 2 ranks, 3.88× on 4 — so there is real time to
+be had here once §15 is understood. It is not available yet.
 
 `scripts/rmf_diagnostics.py` prints a banner when a frame does not cover the
-domain, so you will be told rather than left to find out. Do not silence it.
+domain. With the reader fixed it should not fire on a multi-rank run; if it does,
+that is a genuine gap in the output.
 
 ### 3. There is no checkpoint or restart.
 

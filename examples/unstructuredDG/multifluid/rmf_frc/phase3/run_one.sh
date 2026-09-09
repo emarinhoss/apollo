@@ -9,10 +9,13 @@
 # overwrite each other's output without a word. This copies the deck and its
 # mesh somewhere of their own first.
 #
-# ONE RANK, DELIBERATELY. Apollo writes about 1/N of the cells to each .vtu when
-# run on N ranks, and which cells is up to the partitioner, so the analysis of a
-# multi-rank run describes a fraction of the domain. Set APOLLO_RANKS to
-# override if you are only after timing; the diagnostics will warn you.
+# ONE RANK, DELIBERATELY. The output of a multi-rank run is complete - the old
+# claim that a frame held 1/N of the cells was a bug in test/vtu.py, which kept
+# only the last of PETSc's per-rank <Piece> elements, and that is fixed. What
+# fixing it revealed is worse: the solver's answer depends on the rank count
+# (known-issues.md 15). One rank and two give different fields on this deck and
+# on the Maxwell pulse alike. APOLLO_RANKS still works and is fine for timing,
+# but do not analyse what it produces.
 #
 # Environment:
 #   APOLLO        checkout root      (default: five levels up from this script)

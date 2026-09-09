@@ -428,3 +428,68 @@ parse and import, so a maintainer can diff them and delete the losers.
 an `owners` attribute that is never assigned anywhere (it is now an explicit
 `NotImplementedError`), and `buildLineFaces`/`buildRectangleFaces`/
 `buildHexahedronFaces` are unreferenced.
+
+## 15. The solver's answer depends on the number of MPI ranks
+
+The same case run on one rank and on two produces materially different fields.
+This is not a partitioning artefact in the reader and it is not floating-point
+noise: it is the solution.
+
+**How it was hidden.** Until now this comparison could not be made. PETSc writes
+one `<Piece>` per rank into each `.vtu`, and `test/vtu.py` walked `DataArray`
+elements into a flat dictionary, so only the last rank's copy of each array
+survived. A multi-rank frame therefore *looked* truncated, and the repository
+recorded that as a defect in the writer — "one `.vtu` per frame holds roughly
+1/N of the cells". It does not: the counts behind that claim (7792, 3896, 1961
+cells on 1, 2, 4 ranks) were the size of the last piece. With the reader fixed a
+two-rank frame reads back 4304 cells against the one-rank file's 4304, and the
+runs can be compared for the first time.
+
+**repro** — the Maxwell circular pulse, chosen because it is a different module
+and a different boundary condition from the RMF work, so this is not specific to
+`twoFluidSimplifiedRMFBC`:
+
+```bash
+APOLLO_EXAMPLES_WORK=/tmp/one test/run_examples.sh -b src/build-opt/apollo maxwell-circular-pulse
+APOLLO_EXAMPLES_WORK=/tmp/two test/run_examples.sh -b src/build-opt/apollo -j 2 maxwell-circular-pulse
+python3 - <<'PY'
+import sys, glob; sys.path.insert(0, 'test')
+import vtu, numpy as np
+one = sorted(glob.glob('/tmp/one/*/*.vtu')); two = sorted(glob.glob('/tmp/two/*/*.vtu'))
+for i in (0, 3, 5):
+    a, b = vtu.read(one[i])['solutiondg.0'], vtu.read(two[i])['solutiondg.0']
+    print(i, a.size, b.size, np.sort(a.ravel()).sum(), np.sort(b.ravel()).sum())
+PY
+```
+
+Observed: frame 0 is identical on both — the initial condition is laid down the
+same way — and the runs have diverged by frame 3.
+
+```
+0  4304 4304   +0.000000e+00   +0.000000e+00
+3  4304 4304   +1.291388e+02   -2.405673e+01
+5  4304 4304   +1.393984e+00   -2.393447e+01
+```
+
+Values are compared as sorted multisets, so cell ordering and partitioning play
+no part; the cell counts agree exactly. The difference exceeds the magnitude of
+the solution itself, which rules out summation-order noise in a linear problem
+integrated for six frames.
+
+The same is visible in the RMF gate deck: on one rank the penetration ratio is
+0.0000 at every frame over 210 steps, on two ranks it climbs to 0.71, and B_z on
+axis moves from 6.000000e-03 to 6.003557e-03.
+
+**Consequence.** Run one rank for anything whose numbers you intend to use. That
+was already the standing advice, but for a reason that turned out to be false;
+this is the real one, and it is worse, because a multi-rank run now produces a
+complete, plausible, coherent file that simply disagrees with the serial answer.
+
+**Not diagnosed here.** The obvious suspects are the halo exchange for the DG
+face terms and whether a partition-interior face is being treated as a domain
+boundary — `twoFluidSimplifiedRMFBC` writing the applied field at a rank
+interface would look exactly like the RMF observation above — but the Maxwell
+case uses a different boundary condition and shows it too, so a shared cause in
+the face pairing or the ghost exchange is more likely than either boundary
+condition. `wxnodaldggeometry2d.cc:FacePair2d` and the `DMPlexGetHybridBounds`
+shim's `-1` returns for face bounds are worth reading first.

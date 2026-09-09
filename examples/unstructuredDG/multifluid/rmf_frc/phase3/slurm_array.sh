@@ -9,10 +9,11 @@
 # The array index picks the deck, so set the range to match the folder: nine
 # decks means --array=0-8. The script tells you the count if you get it wrong.
 #
-# ONE CORE PER TASK, AND THAT IS THE POINT. Apollo parallelises well (3.88x on
-# four ranks) but writes only about 1/N of the cells to each output frame when
-# run on N ranks, so a multi-rank run cannot be analysed. A scan is independent
-# runs, so the throughput belongs at the array level, where it costs nothing.
+# ONE CORE PER TASK, AND THAT IS STILL THE POINT. The reason used to be that a
+# frame held only 1/N of the cells on N ranks; that was a reader bug and it is
+# fixed. The reason now is that the solver's answer depends on the rank count
+# (known-issues.md 15), which the reader bug had been hiding. A scan is
+# independent runs, so the throughput belongs at the array level regardless.
 # See README.md in this folder.
 #
 # EDIT THESE BEFORE SUBMITTING. Partition names, account strings and module

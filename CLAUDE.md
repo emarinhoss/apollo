@@ -37,10 +37,17 @@ result. The ones that bite hardest while editing:
   message names neither the key nor the file. **The mirror is just as fatal**:
   `Output_files` is read with `get<int>`, so `OUT = 6.0` dies the same way. Use
   `rmf_scan.deck_number()` and `deck_integer()` when generating decks. (§12)
-- **MPI output is incomplete.** One `.vtu` per frame holds roughly 1/N of the
-  cells on N ranks, and which cells is up to the partitioner. Diagnostics on a
-  multi-rank run describe a fraction of the domain and do not fail. Run one rank
-  when the output matters. (§13)
+- **Run one rank for anything whose numbers you will use — the solver's answer
+  depends on the rank count.** (§15) This entry used to give a different reason:
+  that MPI output was incomplete, one frame holding ~1/N of the cells. That was
+  wrong. PETSc writes one `<Piece>` per rank and all of them are in the file;
+  `test/vtu.py` flattened them so the last piece won, and the counts behind the
+  old claim (7792, 3896, 1961) were that piece's size. The reader is fixed —
+  a two-rank file reads back 4304 cells against the one-rank 4304 — and fixing
+  it made the real problem visible for the first time: one rank and two ranks
+  give materially different fields, on the Maxwell pulse as well as the RMF
+  decks. A multi-rank run now produces a complete, plausible file that disagrees
+  with the serial answer, which is worse than one that was obviously short.
 - **The PETSc version decides whether it compiles at all.** `petsc_compat.h`
   substitutes for plex calls upstream removed at 3.13 and 3.14; the guards said
   3.18 for both, so Apollo built on 24.04 (PETSc 3.19) and would not compile on
