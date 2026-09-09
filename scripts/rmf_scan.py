@@ -105,11 +105,24 @@ def mesh_dtscale(path):
 def max_wave_speed(params):
     """The larger of the reduced speed of light and the electron sound speed.
 
-    Those are the two fast waves of the 18-component system at rest. The ion
+    Those are the two fast waves of the 18-component system AT REST. The ion
     sound speed is smaller by sqrt(m_i/m_e) = 43 and the Alfven speed by 229, so
-    neither can set the step; a flow speed could in principle, but only once the
-    run has developed one comparable with these, which for the electrons would
-    mean sonic electron flow.
+    neither can set the step.
+
+    THIS IS AN ESTIMATE FOR A COLD START AND IT DRIFTS LOW AS THE RUN PROCEEDS.
+    Apollo recomputes dt every step (wxnodaldg2dmethod.cc:553) from the Euler
+    flux's Lax-Friedrichs speed, which is |u| + sqrt(gamma p/rho) - the flow
+    speed ADDS to the sound speed rather than competing with it
+    (wxeulereqn.cc:1110). So a driven run gets slower as it spins up: at
+    synchronous electron rotation, u_theta = omega*a = 1.50e5 m/s at the plasma
+    edge, so the electron characteristic reaches 3.116e6 against the deck's
+    LIGHT of 3.0e6 and dt falls 3.7%. Cost estimates from this function are
+    therefore LOWER bounds: by about that much for a fully penetrated run, and
+    by nothing at all for a run that stays screened.
+
+    That same arithmetic is why the shipped deck has a physics problem rather
+    than only a cost one: 3.12e6 is above its LIGHT of 3.0e6. See the assessment,
+    section 3.10.
     """
     c_se = math.sqrt(GAMMA * params['Te'] * params['Q'] / params['ME'])
     return max(params['LIGHT'], c_se), c_se

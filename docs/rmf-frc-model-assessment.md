@@ -329,9 +329,11 @@ the electron sound speed, to six significant figures. Reducing c further is not 
 cost of any long RMF run here belongs to the electron fluid, not to the field solver.
 `test/test_rmf_scan.py` pins this.
 
-**In the penetrated state the electron fluid outruns the model's light.** Synchronous rotation at
-the plasma edge is u_θ = ωa = 1.50 × 10⁵ m/s, so the fastest electron characteristic is
-|u| + c_se = 3.12 × 10⁶ m/s — 3.9% *above* c. Equivalently, 0.70 eV of electron heating, or
+**In the penetrated state the electron fluid outruns the model's light.** The Euler flux's
+Lax–Friedrichs speed is |u| + √(γp/ρ) — the flow *adds* to the sound speed rather than competing
+with it (`wxeulereqn.cc:1110`). Synchronous rotation at the plasma edge is u_θ = ωa =
+1.50 × 10⁵ m/s, so the fastest electron characteristic is |u| + c_se = 3.116 × 10⁶ m/s — 3.9%
+*above* c. Equivalently, 0.70 eV of electron heating, or
 3.4 × 10⁴ m/s of bulk electron flow, crosses it. The penetrated state is exactly what Phase 3
 items 1, 2 and 4 exist to measure, so this is not a corner case: the deck's reduced c is below
 the speeds of the state it is meant to study.
