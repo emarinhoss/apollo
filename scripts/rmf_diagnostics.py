@@ -210,6 +210,14 @@ def penetration_fraction(r, b_perp, a, inner=0.3, outer=0.9):
     for the second. It is a shape measure, deliberately normalised by the field
     the run itself has at the edge rather than by the deck's B_omega, so that it
     says whether the field got in rather than how big the drive was.
+
+    IT CAN EXCEED 1, AND THAT IS NOT A PENETRATED STATE. Before the run settles,
+    the transverse field arrives as a wave and rings the domain, so the interior
+    can transiently hold more field than the edge: the shipped deck reads 1.20,
+    0.63 and 1.24 on successive frames over its first 0.15 of an RMF period.
+    Only a value cycle-averaged over a whole period means what this docstring
+    says; anything else is a snapshot of a transient. See cycle_average, and the
+    warning main() prints when the frames do not span a period.
     """
     inner_sel = r < inner * a
     outer_sel = (r > outer * a) & (r <= a)
@@ -443,8 +451,16 @@ def main(argv=None):
     times = [frame_time(r['index'], params) for r in rows]
 
     delta = skin_depth(params['ETA'], 2.0 * math.pi * params['omega'])
-    print(f'RMF period {period:.4e} s; frames span '
-          f'{(times[-1] - times[0]) / period:.3f} periods')
+    spanned = (times[-1] - times[0]) / period
+    print(f'RMF period {period:.4e} s; frames span {spanned:.3f} periods')
+    if spanned < 1.0:
+        # Said here as well as beside the averages below, because the per-frame
+        # table is what gets read and copied out of.
+        print('*** THESE FRAMES DO NOT SPAN AN RMF PERIOD. Every column below is a\n'
+              '*** snapshot of a transient, not a driven state: the penetration ratio\n'
+              '*** can exceed 1 while the field rings, and zeta has not had a period\n'
+              '*** in which to be driven. Do not compare any of it with the\n'
+              '*** literature, which describes cycle-averaged steady states.')
     print(f'resistive skin depth delta = {delta * 1e3:.3f} mm, '
           f'lambda = a/delta = {params["RAD_PLASMA"] / delta:.1f}')
     print()
