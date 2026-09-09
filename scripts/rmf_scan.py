@@ -45,9 +45,24 @@ The lever that does work is the pair (T_e, c) together: every dimensionless
 parameter the RMF penetration literature is written in - gamma, lambda,
 omega/omega_ci, omega/omega_ce, B_omega/B_bias, the Debye length in cells, and
 omega_pe*dt - is invariant under T_e -> T_e/s^2 with c -> c/s, while dt grows by
-s. Only beta moves, by 1/s^2. `--speedup` applies that scaling and says what it
+s. Only beta moves, by 1/s^2. --speedup applies that scaling and says what it
 did to beta, because a scan that quietly changed the plasma it was scanning
 would be worthless.
+
+WHERE --speedup MAY NOT BE USED. omega and a are untouched by the scaling, so
+the drive speed omega*a = 1.50e5 m/s stays fixed while c and c_se both fall by
+s. The ratio omega*a/c therefore GROWS by exactly s, and so does the margin by
+which a penetrated state's electron fluid outruns the model's light: |u| + c_se
+exceeds c by 3.9% at s = 1 and by 13.8% at s = 3. The quasi-static error the
+boundary condition carries, O((omega a/c)^2), goes from 0.25% to 2.25% over the
+same range.
+
+So it is sound for Phase 3 items 1 and 3, which live in the screened and
+near-threshold states, and NOT for item 2, the penetrated limit - the one state
+where the deck already has this problem. Item 4 is excluded for the separate
+reason that it is about beta. And "dt grows by exactly s" is a statement about a
+cold start: in a penetrated state dt grows by 2.74 at s = 3, because the flow
+speed does not scale with the sound speed.
 """
 
 import argparse
@@ -204,9 +219,13 @@ def apply_speedup(text, s):
     if n_te != 1 or n_c != 1:
         raise SystemExit('--speedup: could not find both "Te =" and "LIGHT =" at the '
                          'start of a line in this deck; refusing to half-apply it')
-    return new, (f'Te/{s * s:g} and LIGHT/{s:g}: dt x{s:g}, beta /{s * s:g}. '
+    return new, (f'Te/{s * s:g} and LIGHT/{s:g}: dt x{s:g} from rest, beta /{s * s:g}. '
                  f'gamma, lambda, omega/omega_ci, B_omega/B_bias, the Debye length '
-                 f'in cells and omega_pe*dt are all unchanged.')
+                 f'in cells and omega_pe*dt are all unchanged. NOT for a penetrated '
+                 f'state: omega*a/c grows by {s:g}, so the fastest electron '
+                 f'characteristic exceeds c by '
+                 f'{100 * ((1.4985e5 + 2.9657e6 / s) / (3.0e6 / s) - 1):.1f}% '
+                 f'against 3.9% unscaled. See the module docstring.')
 
 
 def set_param(text, name, value):

@@ -121,26 +121,53 @@ def radial(vx, vy, cos_t, sin_t):
 
 
 def radial_profile(r, values, edges):
-    """Bin `values` by radius. Returns (centres, mean, std, count).
+    """Bin `values` by radius. Returns (centres, mean, std, count, n_outside).
 
     Empty bins come back as NaN in mean and std and 0 in count, rather than
     being dropped, so that profiles from different frames stay index-aligned and
     can be averaged over a cycle.
+
+    POINTS EXACTLY ON THE OUTER EDGE GO IN THE LAST BIN. np.digitize puts
+    r >= edges[-1] one past the last bin, which for these meshes silently
+    discards most of the plasma boundary: optimizedCircle2.msh has its outer
+    boundary at exactly RAD_PLASMA, so whether a boundary node is kept came down
+    to whether hypot(x, y) rounded to just under 0.030 or to exactly it - 396 of
+    608 boundary nodes fell out. That is the ring where the RMF enters and where
+    the skin layer lives, so losing two thirds of it is not a rounding detail.
+
+    Points genuinely outside [edges[0], edges[-1]] are still dropped, but they
+    are counted and returned, so a caller can say so rather than quietly
+    reporting a profile of whatever happened to land inside.
     """
     edges = np.asarray(edges, dtype=float)
+    r = np.asarray(r, dtype=float)
+    values = np.asarray(values, dtype=float)
     centres = 0.5 * (edges[:-1] + edges[1:])
-    idx = np.digitize(r, edges) - 1
     n = len(centres)
+
+    idx = np.digitize(r, edges) - 1
+    # Fold the closed outer edge into the last bin; anything beyond it is out.
+    # The tolerance is not decoration: a boundary node's radius is computed as
+    # hypot(x, y) from coordinates that came through a mesh file and a solver, so
+    # a node the mesh puts exactly on r = a lands anywhere in the last few ulps
+    # either side of it. On optimizedCircle2.msh the boundary ring spreads over
+    # 0.030 to 0.030000000000000006. Dropping the half that rounds upward would
+    # be an arbitrary bisection of the most important ring in the problem.
+    outer = edges[-1] * (1.0 + 1.0e-9)
+    idx = np.where((idx == n) & (r <= outer), n - 1, idx)
+    inside = (idx >= 0) & (idx < n)
+    n_outside = int(np.count_nonzero(~inside))
+
     mean = np.full(n, np.nan)
     std = np.full(n, np.nan)
     count = np.zeros(n, dtype=int)
     for b in range(n):
-        sel = values[idx == b]
+        sel = values[inside & (idx == b)]
         count[b] = sel.size
         if sel.size:
             mean[b] = float(np.mean(sel))
             std[b] = float(np.std(sel))
-    return centres, mean, std, count
+    return centres, mean, std, count, n_outside
 
 
 def axial_field_on_axis(r, bz, r_axis):
@@ -191,14 +218,39 @@ def penetrated_limit_bz(r_centres, zeta_profile, n_e, q, omega, a):
     B_z < 0, which OPPOSES a +z bias. See the module docstring.
 
     NaN bins - radii the run put no nodes in - are skipped, not treated as zero.
+
+    THE INTEGRAL RUNS OVER [0, a], NOT BETWEEN THE FIRST AND LAST SAMPLE. When
+    the profile comes from radial_profile the samples are BIN CENTRES, which
+    start half a bin inside r = 0 and stop half a bin short of r = a. Dropping
+    those two slivers is not symmetric: the integrand is zeta*r, so the outer
+    sliver carries the most weight of anywhere in the domain. On the 40-bin grid
+    analyse() uses, a uniform zeta came out 2.5% low, and a screened profile -
+    exp(-(a-r)/delta) with the deck's own delta, which is what a
+    skin-depth-limited run produces - came out 24% low. Every unit test passed a
+    full-range linspace and so never saw it.
+
+    The ends are closed by appending r = 0, where the integrand zeta*r vanishes
+    identically, and r = a, carrying the outermost sample's zeta. The first is
+    exact; the second is a flat extrapolation over half a bin, which is the best
+    available from bin averages and is right to the extent that zeta does not
+    change much across the outermost bin.
     """
     r_centres = np.asarray(r_centres, dtype=float)
     zeta_profile = np.asarray(zeta_profile, dtype=float)
     good = np.isfinite(zeta_profile) & (r_centres <= a)
     if np.count_nonzero(good) < 2:
         return float('nan')
-    integral = _trapezoid(zeta_profile[good] * r_centres[good], r_centres[good])
-    return float(-MU0 * n_e * q * omega * integral)
+
+    rr = r_centres[good]
+    integrand = zeta_profile[good] * rr
+    if rr[0] > 0.0:
+        rr = np.concatenate(([0.0], rr))
+        integrand = np.concatenate(([0.0], integrand))   # zeta*r = 0 at r = 0
+    if rr[-1] < a:
+        rr = np.concatenate((rr, [a]))
+        integrand = np.concatenate((integrand, [zeta_profile[good][-1] * a]))
+
+    return float(-MU0 * n_e * q * omega * _trapezoid(integrand, rr))
 
 
 def penetration_fraction(r, b_perp, a, inner=0.3, outer=0.9):
@@ -230,7 +282,7 @@ def penetration_fraction(r, b_perp, a, inner=0.3, outer=0.9):
 
 
 def current_layer_thickness(r_centres, j_theta, a, floor_fraction=1e-3,
-                            min_r2=0.9, max_fraction=0.5):
+                            max_ratio=1.5, max_fraction=0.5):
     """e-folding length of |J_theta| inward from the edge, to compare with delta.
 
     In the skin-depth-limited state the driven current sits in a layer at the
@@ -251,8 +303,19 @@ def current_layer_thickness(r_centres, j_theta, a, floor_fraction=1e-3,
       * a decay length longer than max_fraction of the column: a layer that
         does not fit inside the plasma is not a layer. The default of half the
         radius is generous - the deck's own delta is a/24.
-      * a poor fit: R^2 below min_r2 means the profile is not an exponential,
-        so its "decay length" describes nothing.
+      * an inconsistent decay length: an exponential has the same logarithmic
+        derivative everywhere, so fitting the outer and inner halves of the
+        window separately must give the same length. Anything else does not.
+
+    THE LAST GUARD REPLACED AN R^2 TEST, WHICH DID NOT WORK. R^2 measures
+    residual variance against the total variance of log|J|, and an edge-peaked
+    profile spanning several decades has so much total variance that R^2 is
+    essentially 1 for anything monotone. A power law (a-r)^-2 - about as
+    un-exponential as a decaying profile gets - was accepted with R^2 = 1.00000
+    and reported a 0.044 mm layer. The two-half test refuses it, because a power
+    law's decay length varies through the window and an exponential's does not.
+    No test exercised the R^2 guard either: setting its threshold to -1e9 left
+    all 26 passing.
     """
     r_centres = np.asarray(r_centres, dtype=float)
     j = np.abs(np.asarray(j_theta, dtype=float))
@@ -269,32 +332,58 @@ def current_layer_thickness(r_centres, j_theta, a, floor_fraction=1e-3,
         return float('nan')
     depth = a - r_centres[good]
     logj = np.log(j[good])
-    slope, intercept = np.polyfit(depth, logj, 1)
-    if slope >= 0.0:
-        return float('nan')            # grows inward: not a skin layer
 
-    length = -1.0 / slope
+    def decay_length(d, y):
+        """-1/slope of a log-linear fit, or NaN if it does not decay inward."""
+        if d.size < 2 or np.ptp(d) <= 0.0:
+            return float('nan')
+        slope = np.polyfit(d, y, 1)[0]
+        return float('nan') if slope >= 0.0 else float(-1.0 / slope)
+
+    length = decay_length(depth, logj)
+    if not np.isfinite(length):
+        return float('nan')            # grows inward: not a skin layer
     if length > max_fraction * a:
         return float('nan')            # wider than the column: not a layer
 
-    resid = logj - (slope * depth + intercept)
-    spread = float(np.sum((logj - np.mean(logj)) ** 2))
-    if spread <= 0.0:
+    # An exponential has one decay length; anything else has a different one in
+    # each half of the window. Split by depth so the halves are the outer and
+    # inner parts of the layer.
+    order = np.argsort(depth)
+    d, y = depth[order], logj[order]
+    half = d.size // 2
+    if half < 2:
+        return float('nan')            # too few samples to check consistency
+    outer = decay_length(d[:half], y[:half])
+    inner = decay_length(d[half:], y[half:])
+    if not (np.isfinite(outer) and np.isfinite(inner)):
         return float('nan')
-    r2 = 1.0 - float(np.sum(resid ** 2)) / spread
-    if r2 < min_r2:
-        return float('nan')            # not an exponential: the length means nothing
-    return float(length)
+    if max(outer, inner) / min(outer, inner) > max_ratio:
+        return float('nan')            # not an exponential; the length means nothing
+    return length
 
 
-def cycle_average(times, values, period):
+def cycle_average(times, values, period, min_samples=8):
     """Mean of `values` over the last whole RMF period covered by `times`.
 
-    Returns (average, spans_a_period). When the samples do not cover a period
-    the plain mean is returned with the flag False, and the caller must say so:
-    an average over a fraction of a cycle is dominated by whichever part of the
-    cycle it happened to catch, which for these diagnostics is the difference
-    between a driven current and its reactive swing.
+    Returns (average, is_a_cycle_average). When the flag is False the plain mean
+    is returned and the caller must say so: an average over a fraction of a
+    cycle is dominated by whichever part of the cycle it happened to catch,
+    which for these diagnostics is the difference between a driven current and
+    its reactive swing.
+
+    THE WINDOW IS HALF-OPEN. A closed window over exactly one period holds both
+    endpoints, which are the same phase, so an oscillation of amplitude A leaks
+    A/(N+1) into the mean. That is not academic: on 201 samples spanning one
+    period a unit-amplitude cosine averaged to 0.004975 = 1/201 instead of zero.
+    It went unnoticed because both tests used a sine, whose endpoints sit at the
+    zero crossings where the double count contributes nothing - a test that
+    could not have failed.
+
+    AND THE WINDOW MUST HOLD ENOUGH SAMPLES. Averaging a period sampled four
+    times is aliasing, not averaging, and the flag said nothing about it. A run
+    that writes the deck's default 10 frames over 5 RMF periods gives two frames
+    per period; min_samples refuses to call that a cycle average.
     """
     times = np.asarray(times, dtype=float)
     values = np.asarray(values, dtype=float)
@@ -303,7 +392,11 @@ def cycle_average(times, values, period):
     span = float(times[-1] - times[0])
     if span < period:
         return float(np.mean(values)), False
-    sel = times >= times[-1] - period
+    # Half-open: (t_end - period, t_end]. Excluding the left edge drops the
+    # sample that repeats the final sample's phase.
+    sel = times > times[-1] - period
+    if int(np.count_nonzero(sel)) < min_samples:
+        return float(np.mean(values[sel])), False
     return float(np.mean(values[sel])), True
 
 
@@ -412,13 +505,14 @@ def analyse(frames, params, nbins=40):
         b_perp = np.hypot(comps[B_X], comps[B_Y])
         bz_axis, n_axis = axial_field_on_axis(r, comps[B_Z], 0.1 * a)
         zeta, n_zeta = rotation_parameter(r, u_theta, omega, 0.1 * a, 0.9 * a)
-        centres, j_prof, _s, _c = radial_profile(r, j_theta, edges)
-        _c2, zeta_prof, _s2, _c3 = radial_profile(
+        centres, j_prof, _s, _c, out_j = radial_profile(r, j_theta, edges)
+        _c2, zeta_prof, _s2, _c3, _out_z = radial_profile(
             r, np.where(r > 0, u_theta / (omega * np.where(r > 0, r, 1.0)), np.nan),
             edges)
 
         rows.append(dict(
             index=index,
+            outside=out_j,
             bz_axis=bz_axis, n_axis=n_axis,
             zeta=zeta, n_zeta=n_zeta,
             penetration=penetration_fraction(r, b_perp, a),
@@ -464,6 +558,10 @@ def main(argv=None):
     print(f'resistive skin depth delta = {delta * 1e3:.3f} mm, '
           f'lambda = a/delta = {params["RAD_PLASMA"] / delta:.1f}')
     print()
+    outside = max(r['outside'] for r in rows)
+    if outside:
+        print(f'note: {outside} nodal points per frame lie outside r = 0..a and are '
+              f'not in any radial bin')
     print(f'{"t [s]":<12}{"B_z axis [T]":<15}{"zeta":<12}'
           f'{"penetration":<14}{"layer [mm]":<12}')
     for t, row in zip(times, rows):

@@ -354,20 +354,39 @@ the speeds of the state it is meant to study.
     λ_D · (c/v_Te) = c/ω_pe = √(m_e/(μ₀ n e²))
 
 whose right-hand side depends on the density alone — not on c, not on T_e. At n = 10²⁰ m⁻³ it is
-0.532 mm, against mesh edges of 0.576 to 1.428 mm on `optimizedCircle2.msh`. So c/v_Te and the
-Debye length trade off exactly against each other:
+0.532 mm. `optimizedCircle2.msh` is essentially uniform — its longest cell edge averages 1.035 mm
+over all 7792 triangles, between 0.576 and 1.428 mm, with **no refinement toward the plasma edge**
+where the RMF physics lives. So c/v_Te and the Debye length trade off exactly against each other:
 
-| c/v_Te | λ_D | λ_D / h_min |
-| --- | --- | --- |
-| 0.92 (√2 convention) | 0.576 mm | 1.00 |
-| 1.31 (**this deck**) | 0.407 mm | 0.71 |
-| 3.0 (bottom of the cited range) | 0.177 mm | 0.31 |
-| 12.0 (top) | 0.044 mm | 0.08 |
+The table is in the √(kT_e/m_e) convention throughout, which is the one the identity is written
+in. (The deck's λ_D is a single number, 0.407 mm; only the *ratio* c/v_Te depends on which
+convention names it, and an earlier draft of this table mixed the two and so gave the same
+physical configuration two different Debye lengths.)
 
-The deck sits about where the two constraints cross. Buying a defensible c/v_Te costs the Debye
-length, and the only ways out are a finer mesh — cost scales as c·h⁻³, so resolving both at
-c = 3 v_Te is 79× the present cost, about **19 days per RMF period** — or a lower density, which
-changes γ and hence the penetration problem being posed.
+| c/v_Te | λ_D | λ_D / typical cell | λ_D / finest cell |
+| --- | --- | --- | --- |
+| 1.31 (**this deck**) | 0.407 mm | 0.39 | 0.71 |
+| 2.0 | 0.266 mm | 0.26 | 0.46 |
+| 3.0 (bottom of the cited range) | 0.177 mm | 0.17 | 0.31 |
+| 12.0 (top of it) | 0.044 mm | 0.04 | 0.08 |
+
+Read the "typical cell" column. The Debye length is already under-resolved by a factor of 2.6 in
+the bulk, so the deck's low c/v_Te is not *buying* Debye resolution — it is not resolved either
+way. (An earlier draft compared λ_D against the *finest* cell, 0.576 mm, which is one edge out of
+7792 and flatters every ratio by 1.8×. That column is kept, last, for comparison.)
+
+Buying a defensible c/v_Te costs what is left. With cost ∝ c·h⁻³ there are two different prices,
+and they answer two different questions:
+
+| what is bought | refinement | cost | per RMF period |
+| --- | --- | --- | --- |
+| c = 3 v_Te, **keeping the deck's present λ_D/h** | 2.30× | 27.8× | 6.9 days |
+| c = 3 v_Te, **and λ_D resolved at the typical cell** | 5.84× | 457× | 113 days |
+
+The first is what "raise c and change nothing else" actually costs; the second is what it costs to
+stop under-resolving the Debye length at the same time. Neither is affordable, but they are not
+the same number and an earlier draft quoted only a third one. The remaining way out is a lower
+density, which changes γ and hence the penetration problem being posed.
 
 None of this is a coding defect, and the choice made was the best available on this mesh. But
 "acceptable ✓" was too strong, and the consequence for Phase 3 is the phase's main finding.
@@ -783,9 +802,25 @@ reduced-c two-fluid run is unavailable here.
 The lever that does work is (T_e, c) together. Under T_e → T_e/s² with c → c/s, every dimensionless
 parameter the penetration literature is written in — γ, λ, ω/ω_ci, ω/ω_ce, B_ω/B_bias, λ_D in
 cells, ω_pe Δt — is invariant, while dt grows by exactly s. Only β moves, by 1/s². That is a real
-change to the plasma and `scripts/rmf_scan.py --speedup` says so rather than hiding it; it is
-legitimate for items 1–3, which are governed by γ and λ, and not for item 4, which is about
-pressure balance.
+change to the plasma and `scripts/rmf_scan.py --speedup` says so rather than hiding it.
+
+**But it makes §3.10's problem worse, and that limits where it may be used.** ω and a are
+untouched, so the drive speed ωa = 1.50 × 10⁵ m/s is fixed while c and c_se both fall by s. The
+ratio ωa/c therefore grows by exactly s:
+
+| s | c | \|u\| + c_se above c | (ωa/c)² |
+| --- | --- | --- | --- |
+| 1 | 3.0 × 10⁶ | +3.9% | 0.25% |
+| 2 | 1.5 × 10⁶ | +8.8% | 1.00% |
+| 3 | 1.0 × 10⁶ | +13.8% | 2.25% |
+| 5 | 6.0 × 10⁵ | +23.8% | 6.24% |
+
+So the scaling is legitimate for **items 1 and 3**, which are about the screened and
+near-threshold states where the electrons are not driven to ωa, and **not for item 2**, the
+penetrated limit — which is exactly the state where the electron fluid already outruns the
+model's light, and the scaling triples the margin by which it does. It is also not for item 4,
+which is about pressure balance and so about β. And "dt grows by exactly s" is a cold-start
+statement: in a penetrated state dt grows by 2.74 at s = 3, not 3, for the same reason.
 
 One RMF period is 45,965 steps. **The step counts are exact and the hours are not**: the timestep
 model reproduces the solver's dt to six significant figures, but the seconds-per-step constant is a
@@ -800,7 +835,7 @@ a fixed cost of 0.4 s.)
 | --- | --- | --- | --- |
 | 1. threshold scan | 5 × B_ω, 5 periods | 6.2 days | 2.1 days |
 | 1. as it must actually be | 8 × B_ω, 5 periods | 9.9 days | 3.3 days |
-| 2. penetrated limit | 1 point, 10 periods | 2.5 days | 20 hours |
+| 2. penetrated limit | 1 point, 10 periods | 2.5 days | not applicable (see above) |
 | 3. skin-depth limit | 3 × B_ω, 5 periods | 3.7 days | 1.2 days |
 | 4. formation dynamics | 1 point, 20 periods | 4.9 days | not applicable (β) |
 
@@ -809,9 +844,9 @@ an interrupted run is a lost run. That is why `rmf_scan.py` prints the cost befo
 and refuses to start a scan it estimates at over six hours.
 
 And these are the prices at the deck's *present* reduced c. Fixing the physics problem §3.10
-describes — c ≥ 3 v_Te with λ_D still resolved — costs a further factor of 79, about 19 days per
-RMF period. The honest statement is that a properly resolved Phase 3 campaign is out of reach of
-this model configuration, not merely of this machine.
+describes — c ≥ 3 v_Te — costs a further factor of 27.8 at the deck's present resolution, about
+6.9 days per RMF period, or 457 and 113 days if the Debye length is to be resolved too. The honest statement is that a properly resolved Phase 3 campaign
+is out of reach of this model configuration, not merely of this machine.
 
 #### The instruments, built and verified
 
@@ -866,12 +901,18 @@ no key; it is now `known-issues` §12 and is pinned by a test.
 2. **Penetrated limit.** Check the driven field reversal against μ₀ n e ω a²/2 · ζ with ζ
    measured from the simulation's electron rotation. — **instrumented**:
    `rotation_parameter` measures ζ(r) and `penetrated_limit_bz` integrates it, both verified
-   against the closed form. 2.5 days for ten periods, 20 hours scaled. Not run.
+   against the closed form. 2.5 days for ten periods, and **the `--speedup` lever may not be used
+   here**: it triples the margin by which a penetrated state's electrons outrun the model's light,
+   which is the one thing this item must not do. Not run.
 3. **Skin-depth limit.** At low B_ω, check the current layer thickness against δ. —
    **instrumented**: `current_layer_thickness`, verified to recover δ from exp(−(a−r)/δ) and to
-   refuse a fit that is not a layer. 3.7 days for three points, 1.2 scaled. Not run. Note that δ
-   is 1.26 mm against mesh edges of 0.58–1.43 mm, so the layer this item measures is two cells
-   wide at best: the mesh is the binding constraint on the answer, not the run length.
+   refuse a fit that is not a layer. 3.7 days for three points, 1.2 scaled. Not run. **The mesh, not the run
+   length, is the binding constraint on this item.** δ is 1.26 mm and the mesh is essentially
+   uniform at 1.035 mm per cell edge with no refinement at the plasma edge, so the current layer
+   this item exists to measure is **1.2 cells thick**. A thickness cannot be measured from a layer
+   one cell wide, whatever the run length, and `current_layer_thickness` will correctly refuse
+   most such profiles rather than fit them. Item 3 needs a mesh graded toward r = a before it
+   needs any compute at all.
 4. **Formation dynamics.** Reproduce Guo 2002's sequence — reversal, radial expansion, bias-flux
    compression, density rise, torque–friction balance — which needs tens of periods and the
    Phase 0 energy fix. — **not run**, 4.9 days, and the `--speedup` scaling does *not* apply
@@ -895,13 +936,15 @@ currently represent.
 Four ways out, in increasing order of how much they cost and decreasing order of how much they
 give up. None is free, and the identity λ_D·(c/v_Te) = c/ω_pe of §3.10 is what makes that so.
 
-1. **Raise c and refine the mesh.** c = 3 v_Te = 6.9 × 10⁶ m/s with cells at λ_D = 0.18 mm.
-   Keeps every physical parameter; costs 79×, about 19 days per RMF period. This is the honest
-   fix and it prices Phase 3 out.
+1. **Raise c and refine the mesh.** c = 3 v_Te = 6.9 × 10⁶ m/s. Refining only enough to hold the
+   deck's present Debye resolution costs 27.8×, about 6.9 days per RMF period; also resolving
+   λ_D at the typical cell size costs 457×, about 113 days. Either keeps every physical
+   parameter, and either prices Phase 3 out.
 2. **Raise c and accept an under-resolved Debye length.** c = 3 v_Te on the present mesh gives
-   λ_D = 0.31 h_min. Costs 2.3×; whether that matters is a question about this scheme's
-   behaviour at λ_D < h that nobody here has asked, and it should be asked before it is assumed
-   either way.
+   λ_D = 0.17 of a typical cell. Costs 2.3×; whether that matters is a question about this
+   scheme's behaviour at λ_D < h that nobody here has asked. It is worth asking, and it is
+   sharper than it looks: the deck is *already* at λ_D = 0.39 cells, so this is not a step from
+   resolved to unresolved but from one under-resolved state to another.
 3. **Lower the density.** λ_D and c/ω_pe both go as n^(−1/2), so n = 10¹⁹ m⁻³ buys a factor of
    3.2 in the trade and makes c = 3 v_Te compatible with the present mesh. But with η fixed
    ν_ei ∝ n, so γ goes from 62.5 to 625: a different point in the penetration diagram, which is

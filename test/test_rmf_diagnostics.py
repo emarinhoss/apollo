@@ -140,17 +140,42 @@ class TestProfiles(unittest.TestCase):
         x, y = disc(n_r=50, n_t=120)
         r, _c, _s = rd.polar(x, y)
         edges = np.linspace(0.0, A, 21)
-        centres, mean, _std, count = rd.radial_profile(r, 3.0 * r + 1.0, edges)
+        centres, mean, _std, count, outside = rd.radial_profile(r, 3.0 * r + 1.0, edges)
+        self.assertEqual(outside, 0)
         self.assertTrue(np.all(count > 0), 'every bin should hold nodes')
         # Bin means of a linear function sit within half a bin width of the centre.
         np.testing.assert_allclose(mean, 3.0 * centres + 1.0,
                                    atol=3.0 * (edges[1] - edges[0]))
 
+    def test_points_on_the_outer_boundary_are_kept(self):
+        """np.digitize puts r >= edges[-1] past the last bin.
+
+        On optimizedCircle2.msh the plasma boundary is at exactly RAD_PLASMA and
+        the nodal radii computed from it spread over the last few ulps either
+        side, so 396 of 608 boundary nodes fell out of every bin. That ring is
+        where the RMF enters and where the skin layer lives.
+        """
+        edges = np.linspace(0.0, A, 11)
+        r = np.array([0.0, 0.5 * A, A * (1 - 1e-16), A, A * (1 + 1e-16)])
+        _c, _m, _s, count, outside = rd.radial_profile(r, np.ones(5), edges)
+        self.assertEqual(outside, 0, 'a boundary node was dropped')
+        self.assertEqual(int(count.sum()), 5)
+        self.assertEqual(int(count[-1]), 3, 'the three boundary points belong in '
+                                            'the last bin')
+
+    def test_points_genuinely_outside_are_dropped_and_counted(self):
+        """Kept separate from the rounding case: 2a is not a boundary node."""
+        edges = np.linspace(0.0, A, 11)
+        r = np.array([0.5 * A, 2.0 * A, -1.0])
+        _c, _m, _s, count, outside = rd.radial_profile(r, np.ones(3), edges)
+        self.assertEqual(outside, 2)
+        self.assertEqual(int(count.sum()), 1)
+
     def test_empty_bins_come_back_as_nan_not_zero(self):
         """A radius the run has no nodes at must not read as a measured zero."""
         r = np.array([0.001, 0.002])
-        centres, mean, _s, count = rd.radial_profile(r, np.array([1.0, 1.0]),
-                                                     np.linspace(0.0, A, 11))
+        centres, mean, _s, count, _out = rd.radial_profile(
+            r, np.array([1.0, 1.0]), np.linspace(0.0, A, 11))
         self.assertTrue(np.isnan(mean[5]), 'empty bin should be NaN')
         self.assertEqual(int(count[5]), 0)
         self.assertEqual(len(centres), 10)
@@ -218,6 +243,38 @@ class TestPenetratedLimit(unittest.TestCase):
                            'clockwise electrons must drive B_z > 0, reinforcing a '
                            '+z bias rather than reversing it')
         self.assertAlmostEqual(b_ccw, -b_cw, places=12)
+
+    def test_bin_centres_integrate_over_the_whole_column(self):
+        """The grid analyse() actually uses, not the one the tests used to use.
+
+        radial_profile returns bin CENTRES, which stop half a bin short of
+        r = a - and the integrand is zeta*r, so that outer sliver carries more
+        weight than anywhere else. Integrating between the first and last centre
+        read 2.5% low for uniform zeta and 24% low for a screened profile, and
+        every test passed a full-range linspace and so never saw it.
+        """
+        n = 1e20
+        for nbins in (20, 40, 400):
+            edges = np.linspace(0.0, A, nbins + 1)
+            centres = 0.5 * (edges[:-1] + edges[1:])
+            got = rd.penetrated_limit_bz(centres, np.ones(nbins), n, Q, OMEGA, A)
+            want = -MU0 * n * Q * OMEGA * A * A / 2.0
+            self.assertAlmostEqual(got / want, 1.0, places=6,
+                                   msg=f'{nbins} bin centres: {got / want:.6f} of the '
+                                       f'closed form')
+
+    def test_a_screened_profile_is_integrated_to_within_a_per_cent(self):
+        """The case that was 24% low: all the current sits in the outer sliver."""
+        n, delta = 1e20, 1.262e-3
+        edges = np.linspace(0.0, A, 41)
+        centres = 0.5 * (edges[:-1] + edges[1:])
+        got = rd.penetrated_limit_bz(centres, np.exp(-(A - centres) / delta),
+                                     n, Q, OMEGA, A)
+        fine = np.linspace(0.0, A, 20001)
+        want = -MU0 * n * Q * OMEGA * float(
+            np.trapezoid(np.exp(-(A - fine) / delta) * fine, fine))
+        self.assertAlmostEqual(got / want, 1.0, places=1,
+                               msg=f'{got / want:.4f} of a converged integral')
 
     def test_missing_bins_are_skipped_not_counted_as_zero(self):
         """NaN bins must not drag the integral down as if zeta were zero there."""
@@ -299,6 +356,70 @@ class TestPenetrationAndLayer(unittest.TestCase):
         noise = 1.0e6 * (1.0 + 0.8 * rng.standard_normal(60)) ** 2 + 1.0
         self.assertTrue(math.isnan(rd.current_layer_thickness(centres, noise, A)))
 
+    # A power law that decays inward over the fit window without the extreme
+    # dynamic range that would trip the noise floor first. It is the dangerous
+    # case: the full-window fit gives 1.48 mm, within 20% of this deck's actual
+    # skin depth of 1.26 mm, so the number it would report is not obviously
+    # wrong to anyone reading it.
+    PLAUSIBLE_POWER_LAW = staticmethod(
+        lambda centres: 1.0 / (A - centres + 1.0e-3) ** 3)
+
+    def test_a_power_law_is_refused_although_it_fits_beautifully(self):
+        """The case that defeated the R^2 guard this replaced.
+
+        A power law is smooth and monotone in log space, so R^2 came out 1.00000
+        for one and the function reported a layer. This one would report 1.48 mm
+        against a real delta of 1.26 mm - not a number anyone would question.
+        The two-half consistency test refuses it, because a power law's decay
+        length varies through the window (0.91 mm in the outer half, 2.51 mm in
+        the inner) and an exponential's does not.
+        """
+        centres = np.linspace(0.0, A, 100)
+        self.assertTrue(
+            math.isnan(rd.current_layer_thickness(
+                centres, self.PLAUSIBLE_POWER_LAW(centres), A)),
+            'a power law was accepted as an exponential layer')
+
+    def test_an_exponential_on_a_pedestal_is_refused(self):
+        """Two scales in one profile has no single decay length."""
+        centres = np.linspace(0.0, A, 100)
+        j = 1.0e6 * (np.exp(-(A - centres) / 1.262e-3) + 0.1)
+        self.assertTrue(math.isnan(rd.current_layer_thickness(centres, j, A)))
+
+    def test_the_consistency_guard_is_what_rejects_the_power_law(self):
+        """Guard against the guard being dead code.
+
+        The R^2 check this replaced was exercised by no test at all: setting its
+        threshold to -1e9 left the whole suite passing, which is how it survived
+        being useless. Loosening this one has to change the answer, or the same
+        thing has happened again.
+        """
+        centres = np.linspace(0.0, A, 100)
+        power = self.PLAUSIBLE_POWER_LAW(centres)
+        self.assertTrue(math.isnan(rd.current_layer_thickness(centres, power, A)))
+        loosened = rd.current_layer_thickness(centres, power, A, max_ratio=1e12)
+        self.assertFalse(math.isnan(loosened),
+                         'disabling the consistency guard changed nothing, so it is '
+                         'not the guard that rejects a power law')
+        self.assertAlmostEqual(loosened * 1e3, 1.48, delta=0.05,
+                               msg='the number the old guard would have reported')
+
+    def test_a_profile_too_spiky_to_check_is_refused(self):
+        """A near-singular profile leaves too few samples above the noise floor.
+
+        |J| ~ (a-r)^-2 with no offset spans eight decades over the fit window, so
+        the floor filter leaves two points - enough to fit a line through, not
+        enough to establish that it is an exponential. Refused for that reason
+        rather than by the consistency test, and that distinction is why this is
+        a separate case from the one above.
+        """
+        centres = np.linspace(0.0, A, 100)
+        spike = 1.0e-2 / np.maximum(A - centres, 1e-5) ** 2
+        self.assertTrue(math.isnan(rd.current_layer_thickness(centres, spike, A)))
+        self.assertTrue(math.isnan(
+            rd.current_layer_thickness(centres, spike, A, max_ratio=1e12)),
+            'this one must be refused even with the consistency guard disabled')
+
     def test_skin_depth_closed_form(self):
         """delta = sqrt(2 eta / (mu0 omega)); the assessment quotes 1.26 mm."""
         self.assertAlmostEqual(rd.skin_depth(0.5e-5, OMEGA) * 1e3, 1.262, places=3)
@@ -323,6 +444,49 @@ class TestCycleAverage(unittest.TestCase):
             t, 0.25 + np.sin(2 * math.pi * t / period), period)
         self.assertTrue(whole)
         self.assertAlmostEqual(avg, 0.25, places=6)
+
+    def test_a_cosine_averages_to_zero_too(self):
+        """The endpoint double-count, which a sine cannot reveal.
+
+        A closed window over one period holds both endpoints, which are the same
+        phase. For a sine they sit on the zero crossings and contribute nothing,
+        which is why the two original tests passed while the bug was live; for a
+        cosine they sit on the extremum and leak amplitude/(N+1) - measured at
+        +0.004975 = 1/201 on this grid.
+        """
+        period = 1.0 / 7.95e5
+        t = np.linspace(0.0, 3.0 * period, 601)
+        for name, fn in (('cos', np.cos), ('sin', np.sin)):
+            avg, whole = rd.cycle_average(t, fn(2 * math.pi * t / period), period)
+            self.assertTrue(whole)
+            self.assertAlmostEqual(avg, 0.0, places=9,
+                                   msg=f'{name} over whole periods should average to 0, '
+                                       f'got {avg:.6e}')
+
+    def test_a_phase_shifted_wave_averages_to_zero_at_any_phase(self):
+        """Nothing about the answer may depend on where the window happens to start."""
+        period = 1.0 / 7.95e5
+        t = np.linspace(0.0, 2.0 * period, 401)
+        for phase in (0.0, 0.3, 1.0, 2.5, math.pi):
+            avg, whole = rd.cycle_average(
+                t, np.sin(2 * math.pi * t / period + phase), period)
+            self.assertTrue(whole)
+            self.assertAlmostEqual(avg, 0.0, places=9,
+                                   msg=f'phase {phase}: got {avg:.6e}')
+
+    def test_too_few_samples_per_period_is_not_a_cycle_average(self):
+        """Averaging a period sampled twice is aliasing, not averaging.
+
+        A scan that rewrites TEND for more periods but leaves the deck's OUT at
+        10 writes 10/periods frames per period. At five periods that is two.
+        """
+        period = 1.0 / 7.95e5
+        t = np.linspace(0.0, 5.0 * period, 11)          # 2 frames per period
+        _avg, whole = rd.cycle_average(t, np.cos(2 * math.pi * t / period), period)
+        self.assertFalse(whole, 'two samples per period was called a cycle average')
+        t_ok = np.linspace(0.0, 5.0 * period, 201)      # 40 per period
+        _avg2, whole2 = rd.cycle_average(t_ok, np.cos(2 * math.pi * t_ok / period), period)
+        self.assertTrue(whole2)
 
     def test_a_partial_cycle_is_flagged(self):
         """Half a cycle of a sinusoid averages to about 2/pi, not to 0.
