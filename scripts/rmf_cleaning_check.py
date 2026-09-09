@@ -100,6 +100,10 @@ def compare(dir_a, dir_b):
         rms_bx = float(np.sqrt(np.mean(ca[rd.B_X] ** 2)))
         d_bx = float(np.sqrt(np.mean((ca[rd.B_X] - cb[rd.B_X]) ** 2)))
         d_bz = float(np.sqrt(np.mean((ca[rd.B_Z] - cb[rd.B_Z]) ** 2)))
+        # Frame 0 is the initial condition: the applied field has not been
+        # switched on, so rms B_x is exactly zero and the ratio is 0/0. That is
+        # not a small difference, it is no measurement at all, and it must not
+        # be allowed to stand in for one.
         rows.append((i, d_bx / rms_bx if rms_bx > 0 else float('nan'),
                      d_bz / 60e-4))
     return rows
@@ -140,7 +144,21 @@ def main(argv=None):
     for index, dbx, dbz in diffs:
         print(f'  {index:<8}{dbx:<22.4f}{dbz:<20.6f}')
 
-    worst_bx = max(d[1] for d in diffs)
+    # NaN-safe, and the reason is a bug this had: max() over a list whose first
+    # element is NaN returns NaN, and `NaN > TOLERANCE` is False, so a 92%
+    # divergence was reported as a PASS. Comparisons against NaN are False in
+    # both directions, which makes it exactly the wrong sentinel for a gate.
+    usable = [d for d in diffs if d[1] == d[1]]
+    if not usable:
+        print('\n  NO USABLE FRAMES: every frame had rms B_x = 0, so nothing was '
+              'compared.\n        The runs may not have got past their initial '
+              'condition.')
+        return 2
+    if len(usable) < len(diffs):
+        skipped = [d[0] for d in diffs if d[1] != d[1]]
+        print(f'\n  (frames {skipped} carry no field yet and were not compared)')
+
+    worst_bx = max(d[1] for d in usable)
     print()
     if worst_bx > TOLERANCE:
         print(f'  FAIL: B_x differs by {worst_bx:.1%} of its own rms between two '

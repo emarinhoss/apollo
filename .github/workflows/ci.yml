@@ -48,6 +48,7 @@ jobs:
         run: |
           python test/test_rmf_diagnostics.py -v
           python test/test_rmf_scan.py -v
+          python test/test_rmf_cleaning_check.py -v
 
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.
