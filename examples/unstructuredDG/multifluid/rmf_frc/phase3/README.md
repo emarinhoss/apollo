@@ -90,6 +90,47 @@ python3 ../../../../../scripts/rmf_cleaning_check.py \
 The script now reads both decks' cleaning speeds and says so, and refuses to
 call a comparison against zero a sensitivity test.
 
+### 1a. The gate has been run. Here is what it decided.
+
+Stage 3 (γ=χ=1.0 against 0.5, 0.25 periods, identical timestep) reports
+**PASS at 1.1%**. Three things follow, and the third is the one that governs
+the campaign.
+
+**The cleaning scheme is doing its job.** The late-window growth rate is
+0.016 of rms B_x per RMF period against 0.189 for the on/off comparison — the
+cleaning *speed* matters about **12× less** than whether you clean at all. That
+is the reassurance stage 3 existed to provide, and stages 1 and 2 could not.
+
+**But it does not saturate.** From frame 9 onward the difference grows linearly
+at a steady 0.0002 per frame. Extrapolating that late trend:
+
+| | B_x (drives `penetration`) | B_z (drives field reversal) |
+| --- | --- | --- |
+| 0.25 periods (measured) | **1.1%** | 0.025% of bias |
+| 5 periods — `02-threshold-scan` | ~8.7% | ~0.45% |
+| 10 periods — `01-c-sensitivity` | ~17% | ~0.92% |
+| 20 periods — `03-formation` | ~33% | ~1.8% |
+
+B_x crosses the 5% tolerance at about **2.7 periods**. Every long folder here is
+longer than that.
+
+**The two observables are not equally exposed, and that is the useful part.**
+B_z stays under 2% out to twenty periods, so the items that read the axial field
+— field reversal, the penetrated limit, formation — are within tolerance for the
+runs as specified. The penetration ratio is built from B⊥, so `02` carries a
+systematic of order 8.7%. That is above the tolerance but it is **not** fatal to
+what `02` is for: the scan brackets a transition across which `penetration`
+moves by two orders of magnitude (0.45 to 0.003 within this very run), so an 8.7%
+systematic on B_x does not blur the bracket. Quote it as a systematic rather than
+treating the scan as blocked.
+
+**Treat the table as a projection, not a measurement.** It extrapolates a
+0.25-period window out to 20 — a factor of 80 — and an earlier extrapolation of
+exactly this kind, from the 0.004-period stage-1 window, got the shape wrong even
+though it got the order of magnitude right. If cluster time allows, a 1-period
+pair (about 7 h per run) tests the linear trend at 4× the window and costs a day
+against the thirteen `02` asks for.
+
 ### 2. Do not use MPI for a run whose output you intend to analyse.
 
 The conclusion is unchanged but the reason has changed, and the new one is worse.
