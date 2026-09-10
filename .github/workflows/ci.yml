@@ -226,10 +226,17 @@ jobs:
           python test/test_rmf_antenna_field.py -v
           python test/test_rmf_bc_field.py -v
 
+      # The work directory is named so the read-back step below can use the
+      # output these runs already produced instead of running the 209-second
+      # maxwell case a second time.
       - name: Solver smoke tests
+        env:
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples-serial
         run: test/run_examples.sh -b src/build-opt/apollo
 
       - name: Solver smoke tests under MPI (2 ranks)
+        env:
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples-mpi
         run: test/run_examples.sh -b src/build-opt/apollo -j 2
 
       # The .vtu layout is PETSc's, not Apollo's: the length prefix before each
@@ -238,14 +245,13 @@ jobs:
       # the 22.04 job, so the single check that the reader matches its writer
       # was performed against exactly one PETSc - the oldest one, and the one
       # least like anything a user is likely to have. Run it on both.
-      - name: Read back a .vtu written by this PETSc
-        env:
-          PETSC_DIR: /usr/lib/petsc
-          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples
+      # Reads what the smoke tests above already wrote. The first version of
+      # this step re-ran maxwell-circular-pulse itself, which cost 209 s per
+      # CI run for output that was already sitting on disk.
+      - name: Read back the .vtu files this PETSc wrote
         run: |
           python -m pip install numpy
-          test/run_examples.sh -b src/build-opt/apollo maxwell-circular-pulse
-          python - <<'PY'
+          APOLLO_EXAMPLES_WORK=${{ runner.temp }}/examples-serial python - <<'PY'
           import glob, os, sys
           sys.path.insert(0, 'test')
           import vtu
