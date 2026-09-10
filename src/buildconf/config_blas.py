@@ -82,10 +82,27 @@ if blas_found and not conf.CheckCHeader('cblas.h'):
           "libopenblas-dev, RHEL/Fedora: openblas-devel).")
     blas_found = False
 
-# Check for gfortran (needed by some BLAS implementations)
-if not conf.CheckLib('gfortran'):
-    print("Note: gfortran not found, may be needed for some BLAS implementations")
-    # Don't exit - not always needed
+# Check for gfortran, but do NOT add -lgfortran to the link.
+#
+# A shared BLAS records its own dependency: libopenblas.so.0 carries
+# NEEDED libgfortran.so.5, so the linker pulls the right one transitively and
+# the explicit flag is redundant. It is also actively harmful, because -lgfortran
+# resolves through the unversioned libgfortran.so development symlink, and which
+# one that is depends on which lib directory the linker reaches first. In a
+# conda environment the symlink lives with the compiler rather than in
+# $CONDA_PREFIX/lib, so -lgfortran fell through to an old system copy and
+# produced a binary needing BOTH:
+#
+#     libgfortran.so.5 => .../envs/apollo/lib/libgfortran.so.5   (transitive)
+#     libgfortran.so.3 => not found                              (this flag)
+#
+# autoadd=0 keeps the probe - the note below is still worth printing - without
+# putting the library on the link line. If a static BLAS ever does need it, the
+# link fails loudly with undefined _gfortran_* symbols, which is a better
+# failure than silently binding the wrong runtime.
+if not conf.CheckLib('gfortran', autoadd=0):
+    print("Note: gfortran not found. Only matters for a static BLAS; a shared "
+          "one records its own dependency.")
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions
 

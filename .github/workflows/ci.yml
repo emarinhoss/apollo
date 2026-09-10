@@ -176,6 +176,19 @@ jobs:
 
       # These need the built objects, so they belong here rather than in the
       # toolchain-free job above.
+      # Every shared library the binary needs must actually resolve. A build can
+      # link happily and still produce something that will not start: a cluster
+      # build ended up needing libgfortran.so.3, from an explicit -lgfortran that
+      # resolved against an old system copy, while the transitive dependency
+      # brought in libgfortran.so.5 from the environment. `ldd` says "not found"
+      # for exactly that, and nothing else in CI was looking.
+      - name: No unresolved shared libraries
+        run: |
+          ldd src/build-opt/apollo
+          if ldd src/build-opt/apollo | grep -q "not found"; then
+            echo "::error::the binary has unresolved shared libraries"
+            exit 1
+          fi
       - name: Unit tests (friction sources, RMF boundary, antenna, characteristics)
         env:
           PETSC_DIR: /usr/lib/petsc
@@ -269,6 +282,19 @@ jobs:
           SCONSFLAGS: ''
         run: scons build-opt arch=x86-64-v2
 
+      # Every shared library the binary needs must actually resolve. A build can
+      # link happily and still produce something that will not start: a cluster
+      # build ended up needing libgfortran.so.3, from an explicit -lgfortran that
+      # resolved against an old system copy, while the transitive dependency
+      # brought in libgfortran.so.5 from the environment. `ldd` says "not found"
+      # for exactly that, and nothing else in CI was looking.
+      - name: No unresolved shared libraries
+        run: |
+          ldd src/build-opt/apollo
+          if ldd src/build-opt/apollo | grep -q "not found"; then
+            echo "::error::the binary has unresolved shared libraries"
+            exit 1
+          fi
       - name: Unit tests
         env:
           PETSC_DIR: /usr/lib/petsc
