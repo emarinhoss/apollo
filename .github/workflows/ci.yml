@@ -130,7 +130,12 @@ jobs:
   # examples. Everything here is apt-installable, so no PETSc source build.
   build-and-smoke:
     name: Build and smoke-test
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest. This job's value is that it tests a KNOWN PETSc:
+    # 24.04 ships 3.19.6. When the label rolls to the next LTS the PETSc under it
+    # changes with no diff and no announcement, and the version matrix this
+    # workflow is built around quietly stops meaning anything. Bump this line
+    # deliberately, and update the version claims in README.md when you do.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -158,6 +163,14 @@ jobs:
             libboost-dev \
             libeigen3-dev
           python -m pip install --upgrade pip scons
+
+      # Printed rather than assumed, same as the 22.04 job: if the runner image
+      # moves to a different PETSc, this job stops testing what its name says
+      # and the log is the only place that would show it.
+      - name: Report PETSc version
+        run: |
+          sed -n 's/#define PETSC_VERSION_\(MAJOR\|MINOR\|SUBMINOR\) *//p' \
+            /usr/lib/petsc/include/petscversion.h | paste -sd. -
 
       - name: Build (optimized)
         working-directory: src
@@ -218,6 +231,38 @@ jobs:
 
       - name: Solver smoke tests under MPI (2 ranks)
         run: test/run_examples.sh -b src/build-opt/apollo -j 2
+
+      # The .vtu layout is PETSc's, not Apollo's: the length prefix before each
+      # appended block is 4 bytes on 3.15 and 8 on 3.19, and every diagnostic in
+      # scripts/ goes through test/vtu.py. Until now this read-back ran ONLY in
+      # the 22.04 job, so the single check that the reader matches its writer
+      # was performed against exactly one PETSc - the oldest one, and the one
+      # least like anything a user is likely to have. Run it on both.
+      - name: Read back a .vtu written by this PETSc
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples
+        run: |
+          python -m pip install numpy
+          test/run_examples.sh -b src/build-opt/apollo maxwell-circular-pulse
+          python - <<'PY'
+          import glob, os, sys
+          sys.path.insert(0, 'test')
+          import vtu
+          work = os.environ['APOLLO_EXAMPLES_WORK']
+          files = sorted(glob.glob(os.path.join(work, '*', '*.vtu')))
+          if not files:
+              sys.exit('no .vtu produced under %s' % work)
+          for path in files:
+              arrays = vtu.read(path)
+              if not arrays:
+                  sys.exit('%s: reader returned no arrays' % path)
+              if 'Position' not in arrays:
+                  sys.exit('%s: no Position array; got %s'
+                           % (path, sorted(arrays)))
+          print('read %d .vtu file(s) written by this PETSc; '
+                'first has %d arrays' % (len(files), len(vtu.read(files[0]))))
+          PY
 
       - name: Upload logs on failure
         if: failure()

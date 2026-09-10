@@ -20,8 +20,24 @@
 #  * PETSc must be the REAL-scalar build. Apollo's `REAL` is `double` and it does
 #    not compile against a complex-scalar PETSc.
 #
-# Versions are floors. The combination Apollo is regularly built against is
-# PETSc 3.19 with OpenMPI 4, on Python 3.11.
+# A NOTE ON THE PETSc PIN, which is the one thing here that has already caused
+# a surprise. This file used to say `petsc>=3.19,<4` and describe its versions
+# as floors. conda-forge moved on: that constraint resolves to PETSc 3.25.5
+# today, so the file every cluster user is pointed at was silently delivering a
+# release that CI has never executed a single line of Apollo against - CI builds
+# and runs on 3.15.5 (22.04) and 3.19.6 (24.04), and everything above 3.19 is
+# covered only by a compile-only header check.
+#
+# It is pinned now, so that recreating this environment next month gives the
+# same solver rather than a different one. What that costs you: 3.25 is not
+# runtime-tested by this repository. What it buys you: the version behind a
+# result is decided here, in a file you can read, rather than by whatever
+# conda-forge published that week. If you bump it, run
+# `test/run_examples.sh` and the .vtu read-back against the new one first, and
+# see docs/known-issues.md for what changed at 3.22 (VecLock).
+#
+# The combination CI builds and runs is PETSc 3.19.6 with OpenMPI 4 on Python
+# 3.11. The combination this file installs is PETSc 3.25.5.
 
 name: apollo
 channels:
@@ -36,7 +52,9 @@ dependencies:
   # MPI and PETSc. petsc pulls its own MPI, so pinning openmpi here keeps the
   # two consistent rather than letting the solver mix implementations.
   - openmpi>=4.0
-  - petsc>=3.19,<4          # real scalars; conda-forge's default build is real
+  # Pinned, not a floor - see the note at the top of this file. The build-string
+  # glob selects the real-scalar variant, the same idiom as the hdf5 line below.
+  - petsc=3.25.5=real_*
   - hdf5>=1.10=mpi_openmpi*
 
   # Headers the multifluid module includes.

@@ -564,3 +564,97 @@ about revalidation, not a one-line patch. Note also that the current behaviour
 is what makes dt exactly state-independent for the RMF decks, which is why the
 cleaning-speed gate in `scripts/rmf_cleaning_check.py` can compare two runs
 without a timestep confound; a fix would need that gate re-examined.
+
+---
+
+## 17. The slope limiters write into a vector PETSc locks, and from 3.22 that is enforced
+
+`WxNodalDG2dMethod::step` limits **in place**:
+
+```c
+// src/subsolvers/wxnodaldg2dmethod.cc:248-251
+if(_haveLimiter){
+    applyLimiter(in,in);
+    isInfinityOrNAN(in, "NAN/INF encountered in limiter vector of DG step-function.\n");
+}
+```
+
+`in` is the TS solution vector, handed to Apollo by `TSComputeRHSFunction` for
+the duration of one right-hand-side evaluation. Both limiters end by writing the
+limited state back into it:
+
+```c
+// src/hyperapps/euler/wxhesthavenwarburtoneulerlimiter.cc:487-488
+// src/hyperapps/multifluid/aptualiabadilimiter.cc:451-452
+DMLocalToGlobalBegin(_dm, local_out, INSERT_VALUES, q_limited);
+DMLocalToGlobalEnd(_dm, local_out, INSERT_VALUES, q_limited);
+```
+
+An RHS function must not modify its input, and PETSc has always said so:
+`TSComputeRHSFunction` wraps the callback in `VecLockReadPush(U)` /
+`VecLockReadPop(U)`. **What changed is whether the rule is enforced.** Through
+PETSc 3.21 the whole lock API sat behind `#if defined(PETSC_USE_DEBUG)`, with an
+`#else` branch defining `VecSetErrorIfLocked(x, arg)` as `PETSC_SUCCESS` — so in
+an optimized build the check compiled to nothing and the illegal write silently
+succeeded. PETSc 3.22 removed the guard ("Make `VecLock` API active in optimized
+mode", `doc/changes/322.md`), and from 3.22 the lock is live in every build.
+
+**So this is a pre-existing defect that 3.22 exposes, not one it creates.** Every
+Euler limiter result this repository has ever produced was mutating the TS state
+vector mid-evaluation.
+
+**It does not abort.** `DMLocalToGlobalBegin/End` are called bare — no `ierr =`,
+no `CHKERRQ` — and nothing up the chain through `ApSolver::ComputeRHSforTS`
+(`src/solvers/apsolver.cc:461-495`) checks a `PetscErrorCode` either. On 3.22+
+the write is refused with `PETSC_ERR_ARG_WRONGSTATE` ("Vector ... was locked for
+read-only access in TSComputeRHSFunction()"), PETSc prints a traceback, and the
+run **continues with the limiter doing nothing**. A wrong answer with a noisy
+log, which is the worst of the three possible outcomes.
+
+**Who is affected.** Only decks that set a `Limiter` key; `_haveLimiter` defaults
+to false (`wxnodaldg2dmethod.cc:131`). Seven shipped decks do:
+
+```
+examples/unstructuredDG/euler/backwardFacingStep/backwardFacingStep.pin
+examples/unstructuredDG/euler/explosionTest/explosion.pin
+examples/unstructuredDG/euler/forwardFacingStep/forwardFacingStep.pin
+examples/unstructuredDG/euler/forwardFacingStep/HLLflux/forwardFacingStep.pin
+examples/unstructuredDG/euler/forwardFacingStep/Roeflux/forwardFacingStep.pin
+examples/unstructuredDG/euler/scramjet/scramjet_inlet.pin
+examples/unstructuredDG/euler/test/runtestcase.pin
+```
+
+No RMF or multifluid deck in `examples/.../rmf_frc/` sets one — §2 explains why
+(the two-fluid limiter produces NaN), so the multifluid path is unaffected in
+practice. `phase3/03-formation/formation.pin` has no `Limiter` key; the only
+occurrences of the word are prose at lines 186-187.
+
+**repro** — no run needed for the source facts:
+
+```bash
+grep -n 'applyLimiter(in,in)' src/subsolvers/wxnodaldg2dmethod.cc
+grep -rln '^\s*Limiter\s*=' examples/          # the seven decks
+grep -cw PETSC_USE_DEBUG $PETSC_DIR/include/petscconf.h  # 0 means optimized
+```
+
+The `-w` in the third command is load-bearing: without it the pattern also
+matches `#define PETSC_USE_DEBUGGER "gdb"`, which every `petscconf.h` carries,
+so a plain `grep -c PETSC_USE_DEBUG` reports 1 on an optimized build and reads
+as "this is a debug build". Measured on PETSc 3.19.6: naive 1, `-w` 0.
+
+On a PETSc ≥ 3.22, running any of the seven decks shows the traceback once per
+RHS evaluation.
+
+**Not fixed here.** The repair is ownership, not a version guard: limit into a
+scratch vector and feed *that* to the rest of `step()`, never writing back into
+`in`. That is a small change, but it alters the numbers every limited Euler deck
+produces — on 3.21 and earlier they were being limited, and the fix keeps them
+limited while changing *when* the limited state is visible within a stage — so it
+needs those cases revalidated rather than a one-line patch. It also interacts
+with §2: if the two-fluid limiter is ever fixed, this must be fixed first or the
+multifluid path inherits the same silent no-op.
+
+**Version note.** Nothing here depends on Apollo's own version guards, so
+`petsc_compat.h` cannot help: the behaviour is a runtime check inside PETSc, not
+a symbol that appears or disappears. `test/test_petsc_compat.py` will not catch
+it, and neither will any compile-only gate.

@@ -39,9 +39,14 @@ Apollo implements a flexible and extensible DG framework capable of solving mult
   The build passes `-std=c++14`.
 - **MPI library** - OpenMPI 1.8+ or MPICH 3.0+. The build uses the `mpicc` and
   `mpicxx` wrappers.
-- **PETSc** - 3.6 or later, built with MPI. Regularly built against 3.19.
-  Apollo still calls a few routines PETSc deprecated in 3.8 (`TSSetDuration`,
-  `TSSetInitialTimeStep`, `TSGetTimeStepNumber`), which compile with warnings.
+- **PETSc** - **3.11 or later**, built with MPI, real scalars. This said "3.6
+  or later" until it was checked against the code: `src/lib/petsc_compat.h`
+  guards its shims from 3.11 and `test/test_petsc_compat.py` pins 3.11 through
+  3.26, so 3.11 is the floor the repository actually implements. CI builds and
+  runs 3.15.5 and 3.19.6; 3.25.5 has been built and its unit tests run, but see
+  the coverage note below. Apollo still calls a few routines PETSc deprecated in
+  3.8 (`TSSetDuration`, `TSSetInitialTimeStep`, `TSGetTimeStepNumber`); all
+  three still ship at 3.25 and no release has been announced that removes them.
 - **SCons** - the build system (`pip install scons`). Apollo does **not** use
   CMake.
 - **Python 3** - required at build time (SCons) and to preprocess input decks.
@@ -101,12 +106,23 @@ releases, so it is checked on every push.
 either automatically or via `export PETSC_DIR=/usr/lib/petsc`.
 
 **Which PETSc you get depends on the release, and it matters.** Ubuntu 22.04
-ships PETSc 3.15, 24.04 ships 3.19. Apollo builds against **3.11 and newer**:
-`src/lib/petsc_compat.h` substitutes for the plex calls upstream has removed
-over that range, and `test/test_petsc_compat.py` checks the substitutions fire
-at the right versions — in both directions, so a shim cannot quietly collide
-with a declaration that is still there. A PETSc older than 3.11 is untested and
-will probably not compile.
+ships PETSc 3.15, 24.04 ships 3.19, and conda-forge currently ships 3.25.5.
+Apollo builds against **3.11 and newer**: `src/lib/petsc_compat.h` substitutes
+for the plex calls upstream has removed over that range, and
+`test/test_petsc_compat.py` checks the substitutions fire at the right versions
+— in both directions, so a shim cannot quietly collide with a declaration that
+is still there. A PETSc older than 3.11 is untested and will probably not
+compile.
+
+**Compiling is not the same as being tested.** That range is a *compile* gate
+above 3.19: `test_petsc_compat.py` syntax-checks the header against a stub
+`<petsc.h>` and links, runs and computes nothing. Everything that executes
+Apollo's numerics — `test/run_examples.sh`, `test/cxx`, the exact-solution
+tests, the `.vtu` read-back — has only ever run on 3.15.5 and 3.19.6. If you
+are on a newer PETSc, run `test/run_examples.sh` and the exact-solution tests
+before trusting a long run, and read `docs/known-issues.md` §17: PETSc 3.22
+started enforcing `VecLock` in optimized builds, which changes what the slope
+limiters do.
 
 If a build fails with a wall of template errors naming `DMPlex...` functions,
 check the version first:

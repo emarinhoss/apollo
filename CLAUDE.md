@@ -113,11 +113,24 @@ result. The ones that bite hardest while editing:
   numpy's "buffer size must be a multiple of element size", naming neither file
   nor cause, and every diagnostic in `scripts/` goes through it. It now reads
   the attribute and refuses with a diagnosable message when a block does not
-  add up. Pinned by `test/test_vtu_reader.py`, which builds both layouts, and
-  by a CI step that reads back a `.vtu` the 22.04 job's PETSc actually wrote.
+  add up. Pinned by `test/test_vtu_reader.py`, which builds both layouts, and by
+  a CI step that reads back a `.vtu` the job's own PETSc actually wrote — in
+  **both** build jobs. It used to run only on the 22.04 job, so the sole check
+  that the reader matches its writer was performed against exactly one PETSc,
+  the oldest one; and that runner is being deprecated, which would have taken
+  the check with it.
 - **There is no checkpoint or restart.** An interrupted run is a lost run. (§6)
 - **The two-fluid slope limiter produces NaN** after a few tens of steps, so no
   multifluid case can be limited. (§2)
+- **On PETSc 3.22 and newer the Euler limiter silently does nothing.** The
+  limiters write back into the TS solution vector (`applyLimiter(in,in)`,
+  `wxnodaldg2dmethod.cc:250`), which `TSComputeRHSFunction` locks read-only.
+  PETSc always forbade this; 3.22 started *enforcing* it in optimized builds,
+  where it used to compile to nothing. Apollo discards the error code, so the
+  write is refused, a traceback prints once per RHS evaluation, and the run
+  continues unlimited. Seven shipped Euler decks are affected; no RMF deck is.
+  A compile-only gate cannot catch this — it is a runtime check inside PETSc,
+  not a symbol that comes and goes. (§17)
 - **`Numerical_Flux = Wave` aborts**, and `eigenSystem()` is dead code that is
   also wrong where it can be read. (§3, §4)
 
