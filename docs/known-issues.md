@@ -493,3 +493,74 @@ case uses a different boundary condition and shows it too, so a shared cause in
 the face pairing or the ghost exchange is more likely than either boundary
 condition. `wxnodaldggeometry2d.cc:FacePair2d` and the `DMPlexGetHybridBounds`
 shim's `-1` returns for face bounds are worth reading first.
+
+## 16. The CFL timestep is set by the last equation in the deck's list, not the fastest
+
+`WxHyperbolicEqnSet::DGnumericalFlux` passes **one** `maxSpeed` pointer to every
+equation in the set, in the order the deck lists them:
+
+```c
+// src/hyper/wxhyperboliceqnset.cc:186-203
+for (i=_eqnSys.begin(); i!=_eqnSys.end(); ++i)
+  (*i)->DGnumericalFlux(normals, qM+mloc, qP+mloc, nflux+mloc, maxSpeed);
+```
+
+and each equation **assigns** to it rather than accumulating a maximum:
+
+```c
+// src/hyperapps/maxwell/wxphmaxwelleqn.cc:523
+*maxSpeed = lambda;                       // lambda = dmax(chi*c0, gamma*c0, c0)
+// src/hyperapps/euler/wxeulereqn.cc:1118
+*maxSpeed = lambda;                       // lambda = |u| + sqrt(gamma p / rho)
+```
+
+There is no comparison at either site. Whatever the last equation writes is what
+reaches the CFL, `dt = (2/3)*cfl*dtscale*rMin/maxSpeed`
+(`wxnodaldg2dmethod.cc:553`). The earlier equations' wave speeds are computed,
+used for their own Lax-Friedrichs dissipation, and then discarded.
+
+**On the shipped decks this happens to be nearly right, which is why it has not
+bitten.** Every rmf_frc deck lists `Equations = [eulerElc, eulerIon, maxwell]`,
+so Maxwell is last and dt comes from `dmax(chi*c0, gamma*c0, c0)`. With
+c0 = 3.0e6 m/s against an electron sound speed of 2.9657e6 m/s, the number that
+survives is the larger one anyway — by 1.2%.
+
+**Two ways it is wrong.**
+
+*The electron fluid is not represented in the timestep at all.* Section 3.10 of
+the RMF assessment finds that in the penetrated state — the regime the whole
+Phase 3 campaign exists to measure — the fastest electron characteristic reaches
+1.039 c0 = 3.117e6 m/s. That speed never reaches the CFL: dt is computed as if
+the fastest wave in the problem were 3.000e6 m/s, so the step is about 3.9% too
+large exactly where the physics of interest lives. What was recorded as a
+modelling concern ("the reduced speed of light is level with the electron
+speeds") is also a numerical one.
+
+*Reordering the deck's `Equations` list silently changes the timestep.* It reads
+as a list of things to solve, not as something with a significant order. Writing
+`Equations = [maxwell, eulerElc, eulerIon]` — the same physics — leaves the ion
+Euler speed last, and at Te = Ti = 30 eV with a hydrogen mass ratio that is
+6.92e4 m/s against 3.0e6:
+
+| last equation | lambda that sets dt | dt relative to shipped |
+| --- | --- | --- |
+| `maxwell` (as shipped) | 3.000e6 m/s | 1.0x |
+| `eulerElc` | 2.966e6 m/s | 1.01x |
+| `eulerIon` | 6.921e4 m/s | **43.3x** |
+
+A 43x timestep will not survive contact with the light waves it is not
+resolving, so this fails loudly rather than quietly — but it fails for a reason
+nothing in the deck or its documentation would lead anyone to suspect.
+
+**repro** — read it off the source; no run is needed. `grep -n 'maxSpeed' ` on
+the two equation files shows the bare assignments, and
+`wxhyperboliceqnset.cc:186-203` shows the shared pointer and the loop order.
+
+**Not fixed here.** The obvious repair is to make the two sites accumulate
+(`*maxSpeed = dmax(*maxSpeed, lambda)`) with the caller zeroing it first, but
+that changes the timestep of every multifluid run in the repository — including
+every result quoted in `docs/rmf-frc-model-assessment.md` — so it is a decision
+about revalidation, not a one-line patch. Note also that the current behaviour
+is what makes dt exactly state-independent for the RMF decks, which is why the
+cleaning-speed gate in `scripts/rmf_cleaning_check.py` can compare two runs
+without a timestep confound; a fix would need that gate re-examined.

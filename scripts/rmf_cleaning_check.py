@@ -61,6 +61,47 @@ def frames_in(directory):
                     os.path.join(directory, n)) for n in names))
 
 
+def cleaning_speeds(directory):
+    """(DIVB_SPEED, DIVE_SPEED) from the .pin run_one.sh copied in, or None.
+
+    Read from the deck rather than trusted from the directory name, for the
+    same reason the diagnostics read it: a run's numbers should come from the
+    run. Only these two keys are parsed, deliberately - going through
+    rmf_diagnostics.deck_parameters_from_text would demand a complete rmf_frc
+    deck and refuse anything else, and the question "which cleaning speeds did
+    this run use" is worth answering for any deck. Anything that does not parse
+    as a number returns None rather than a guess.
+    """
+    pins = [f for f in os.listdir(directory) if f.endswith('.pin')]
+    if len(pins) != 1:
+        return None
+    found = {}
+    with open(os.path.join(directory, pins[0])) as handle:
+        for line in handle:
+            key, sep, value = line.partition('=')
+            key = key.strip()
+            if not sep or key not in ('DIVB_SPEED', 'DIVE_SPEED'):
+                continue
+            try:
+                found[key] = float(value.split('#')[0].strip())
+            except ValueError:
+                return None
+    if len(found) != 2:
+        return None
+    return found['DIVB_SPEED'], found['DIVE_SPEED']
+
+
+def degenerate_runs(runs, speeds):
+    """Which of these runs have cleaning switched off entirely.
+
+    Separate from main() so it can be tested: the distinction between "a
+    different cleaning speed" and "no cleaning at all" is the difference
+    between this script answering its question and answering a different one.
+    """
+    return [directory for directory, sp in zip(runs, speeds)
+            if sp is not None and sp[0] == 0.0 and sp[1] == 0.0]
+
+
 def load(path, components):
     import vtu
     import deckrun
@@ -138,7 +179,33 @@ def main(argv=None):
     if len(args.runs) == 1:
         return 0
 
+    speeds = [cleaning_speeds(d) for d in args.runs[:2]]
+    degenerate = degenerate_runs(args.runs[:2], speeds)
+
     print(f'\nsensitivity: {args.runs[0]} against {args.runs[1]}')
+    for directory, sp in zip(args.runs, speeds):
+        if sp is None:
+            print(f'  {directory}: could not read DIVB_SPEED/DIVE_SPEED from a deck')
+        else:
+            print(f'  {directory}: DIVB_SPEED={sp[0]:g} DIVE_SPEED={sp[1]:g}')
+
+    # gamma and chi are bare multiplicative factors on every term that couples
+    # phi and psi to E and B (wxphmaxwelleqn.cc:490-497), and chi also scales
+    # the charge source that generates phi (wxchargesrc.h:30). At zero, all of
+    # them vanish: the potentials are inert and there is no divergence cleaning
+    # at all. Comparing against that measures how much divergence error the run
+    # carries, which is worth knowing but is NOT the question this gate is for.
+    if degenerate:
+        print()
+        print('  NOTE: one of these runs has DIVB_SPEED = DIVE_SPEED = 0, which')
+        print('        is not a different cleaning speed - it is no cleaning at')
+        print('        all. Every term coupling phi and psi to E and B is')
+        print('        multiplied by them, so at zero the potentials are inert.')
+        print('        What follows therefore measures how much divergence error')
+        print('        this deck carries, not whether the answer depends on the')
+        print('        cleaning SPEED. For that, compare two non-zero speeds -')
+        print('        1.0 against 0.5, which leave the timestep identical')
+        print('        because dt is set by dmax(chi*c0, gamma*c0, c0).')
     print(f'  {"frame":<8}{"rms dB_x / rms B_x":<22}{"rms dB_z / B_bias":<20}')
     diffs = compare(*args.runs)
     for index, dbx, dbz in diffs:
@@ -161,12 +228,20 @@ def main(argv=None):
     worst_bx = max(d[1] for d in usable)
     print()
     if worst_bx > TOLERANCE:
-        print(f'  FAIL: B_x differs by {worst_bx:.1%} of its own rms between two '
-              f'runs that\n        differ only in the divergence-cleaning speed. '
-              f'Over this interval the\n        transverse field is partly a '
-              f'property of the cleaning scheme, so a\n        longer run on this '
-              f'deck would not measure the plasma. Use the antenna\n        deck '
-              f'(see docs/known-issues.md section 13).')
+        kind = ('divergence error' if degenerate
+                else 'dependence on the cleaning speed')
+        print(f'  FAIL: B_x differs by {worst_bx:.1%} of its own rms between these '
+              f'two runs.')
+        print(f'        What that measures here is {kind}.')
+        if degenerate:
+            print('        Because one run has no cleaning at all, this does NOT')
+            print('        establish that the answer depends on the cleaning')
+            print('        speed. Run two non-zero speeds before concluding that.')
+        else:
+            print('        Over this interval the transverse field is partly a')
+            print('        property of the cleaning scheme, so a longer run on')
+            print('        this deck would not measure the plasma.')
+        print('        See docs/known-issues.md section 13.')
         return 1
     print(f'  PASS: B_x differs by {worst_bx:.1%}, within the {TOLERANCE:.0%} '
           f'tolerance.\n        Note what this does and does not say: it covers '

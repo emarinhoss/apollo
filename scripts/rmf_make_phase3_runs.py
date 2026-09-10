@@ -83,6 +83,15 @@ RUNS = [
         decks=[
             ('antenna-long-cleaning-on', [('DIVB_SPEED', 1.0), ('DIVE_SPEED', 1.0)]),
             ('antenna-long-cleaning-off', [('DIVB_SPEED', 0.0), ('DIVE_SPEED', 0.0)]),
+            # The pair that actually isolates the cleaning SPEED. gamma and chi
+            # are bare multiplicative factors on every term coupling phi and psi
+            # to E and B, and chi also scales the charge source that generates
+            # phi, so 0.0 is not a slower scheme - it is no scheme. Comparing
+            # 1.0 against 0.5 keeps both non-zero, and because the Maxwell wave
+            # speed is dmax(chi*c0, gamma*c0, c0) both give exactly c0 and hence
+            # an identical timestep. 2.0 would double it and halve dt, which
+            # would confound the comparison with a resolution change.
+            ('antenna-long-cleaning-half', [('DIVB_SPEED', 0.5), ('DIVE_SPEED', 0.5)]),
         ],
     ),
     dict(
