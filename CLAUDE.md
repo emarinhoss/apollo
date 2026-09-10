@@ -9,12 +9,25 @@ cleaning potentials φ and ψ at 16 and 17.
 ## Build and test
 
 ```bash
-cd src && scons build-opt          # 85 objects, about 40 s on 4 cores
-PETSC_DIR=/usr/lib/petsc make -C test/cxx    # C++ unit tests, 86 checks
-python3 -m unittest discover -s test         # Python tests
+cd src && scons build-opt                        # 85 objects, about 40 s on 4 cores
+PETSC_DIR=/usr/lib/petsc make -C ../test/cxx     # C++ unit tests, 86 checks
+cd .. && python3 -m unittest discover -s test    # Python tests
 ```
 
-`PETSC_DIR` defaults to `/usr/lib/petsc`. There is a `build-debug` variant.
+**Mind the working directory.** Those three lines run in sequence, and only the
+first is from `src/`. Get it wrong and neither failure points at the cause:
+
+- `make -C test/cxx` after `cd src` says
+  `make: *** test/cxx: No such file or directory.  Stop.` — naming a path that
+  *does* exist in the repo, just not relative to `src/`. So the error reads as
+  nonsense: you look, `test/cxx` is right there.
+- `python3 -m unittest discover -s test` from `src/` is worse. It prints
+  `Ran 0 tests in 0.000s` / `OK` and exits 0. A green run that tested nothing.
+
+Both verified by running them.
+
+`PETSC_DIR` defaults to `/usr/lib/petsc`; inside a conda environment it is
+`$CONDA_PREFIX`. There is a `build-debug` variant.
 Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.

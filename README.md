@@ -475,19 +475,35 @@ Unimplemented, listed roughly by expected value:
 
 ## Testing
 
+All of these are run from the **repository root**, not from `src/`. Run them
+from `src/` and `unittest discover` prints `Ran 0 tests` / `OK` and exits 0 —
+a green run that tested nothing.
+
 ```bash
-# Everything: python tooling (~1 s) plus solver verification (~25 s)
+# The C++ unit tests: 86 checks across five binaries. Needs PETSc, not a
+# built solver. Inside a conda environment, PETSC_DIR is $CONDA_PREFIX.
+PETSC_DIR=/usr/lib/petsc make -C test/cxx
+
+# Everything Python: tooling plus solver verification
 python3 -m unittest discover -s test -v
 
 # Just the parts that need no compiler
 python3 -m unittest discover -s test -p 'test_python*' -v
 
-# Solver against its own examples: ~15 s, needs a built binary
+# Solver against its own examples: needs a built binary
 test/run_examples.sh                       # uses src/build-opt/apollo
 test/run_examples.sh -b src/build-debug/apollo
-test/run_examples.sh -j 2                  # under mpirun
 test/run_examples.sh euler-isentropic-vortex
+test/run_examples.sh -j 2                  # under mpirun - timing only, see below
 ```
+
+**The solver-dependent tests skip themselves when no solver is present**, so a
+green run does not by itself mean they ran. Check the skip count.
+
+**`-j 2` is for timing, not for answers.** The solver's result depends on the
+number of MPI ranks — one rank and two produce materially different fields
+([`docs/known-issues.md`](docs/known-issues.md) §15, which carries a repro).
+Use it to measure throughput; do not analyse what it writes.
 
 There are two kinds of test here.
 
