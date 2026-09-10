@@ -32,15 +32,40 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-The fast tests need no solver and run in under a second:
-`test/test_rmf_diagnostics.py`, `test/test_rmf_scan.py`,
-`test/test_mkdiscmesh.py`, `test/test_python_tooling.py`,
-`test/test_deck_preprocess.py`, `test/test_vtu_reader.py`,
-`test/test_eigen_paths.py`, `test/test_include_paths.py`,
-`test/test_conda_paths.py`. So does `test/test_petsc_compat.py`, which needs a
-C++ compiler but no PETSc. The ones that do need
-a solver skip themselves without one, so **a green run does not by itself mean
-they ran** — check the skip count.
+**161 Python tests, and 3 of them are 72% of the runtime.** Measured on a
+4-core container with a `build-opt` binary present:
+
+| | tests | time |
+| --- | --- | --- |
+| `test_rmf_antenna_field.py` | 3 | 645 s |
+| `test_rmf_bc_field.py` | 4 | 215 s |
+| `test_vortex_accuracy.py` | 2 | 20 s |
+| everything else (11 modules) | 152 | **3.4 s** |
+| whole suite | 161 | 894 s |
+
+So run the 152 while you work and the whole suite before you push. The 152 need
+no solver, and naming them is the only reliable way to select them — a glob is
+not, because the fast and slow modules interleave alphabetically:
+
+```bash
+cd test && python3 -m unittest \
+    test_rmf_diagnostics test_rmf_scan test_rmf_cleaning_check \
+    test_mkdiscmesh test_python_tooling test_deck_preprocess \
+    test_vtu_reader test_eigen_paths test_include_paths \
+    test_conda_paths test_petsc_compat
+# Ran 152 tests in 2.598s -- OK
+```
+
+`cd test` first. From the repository root the stdlib's own `test` package wins
+the import, so `python3 -m unittest test.test_rmf_scan` dies with
+`ModuleNotFoundError: No module named 'test.test_rmf_scan'` — pointing at a file
+that is plainly sitting there. Use `discover -s test`, or `cd test` and name the
+modules as above. `test_petsc_compat` is in the fast set; it needs a C++
+compiler but no PETSc.
+
+The 9 that do need a solver skip themselves without one, so **a green run does
+not by itself mean they ran** — check the skip count. With a binary present the
+suite reports `Ran 161 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 
