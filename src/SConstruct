@@ -106,12 +106,10 @@ if not warpMConstructionEnv.GetOption('clean'):
 	# <boost/format.hpp>), so the build fails without them on every platform,
 	# not just macOS. Both ship as headers under a versioned subdirectory that
 	# is not on the default include path.
-	eigenCandidates = ['/usr/include/eigen3', '/usr/local/include/eigen3']
-	if sys.platform == 'darwin':
-		for prefix in ('/opt/homebrew', '/usr/local'):
-			eigenCandidates.append(os.path.join(prefix, 'include', 'eigen3'))
-	if os.environ.get('EIGEN3_INCLUDE_DIR'):
-		eigenCandidates.insert(0, os.environ['EIGEN3_INCLUDE_DIR'])
+	# buildconf/eigen_paths.py, so the decision is testable: this list once
+	# omitted conda, which is what environment.yml tells people to use.
+	from buildconf.eigen_paths import eigen_candidates
+	eigenCandidates = eigen_candidates()
 
 	for eigen_include in eigenCandidates:
 		if os.path.isfile(os.path.join(eigen_include, 'Eigen', 'Dense')):
@@ -122,10 +120,15 @@ if not warpMConstructionEnv.GetOption('clean'):
 		# <Eigen/Dense> may still resolve if Eigen was installed unversioned.
 		if not os.path.isfile('/usr/include/Eigen/Dense'):
 			print("WARNING: Eigen3 not found; hyperapps/multifluid will fail to "
-			      "compile with 'fatal error: Eigen/Dense'. Install it with "
-			      "'sudo apt-get install libeigen3-dev' (Debian/Ubuntu), "
-			      "'sudo dnf install eigen3-devel' (RHEL/Fedora) or "
-			      "'brew install eigen' (macOS), or set EIGEN3_INCLUDE_DIR.")
+			      "compile with 'fatal error: Eigen/Dense'. Looked in:")
+			for candidate in eigenCandidates:
+			    print("           ", candidate)
+			print("         Install it with 'sudo apt-get install libeigen3-dev' "
+			      "(Debian/Ubuntu), 'sudo dnf install eigen3-devel' "
+			      "(RHEL/Fedora), 'brew install eigen' (macOS) or "
+			      "'conda install -c conda-forge eigen', or point "
+			      "EIGEN3_INCLUDE_DIR at the directory CONTAINING Eigen/Dense "
+			      "- note that is the eigen3 directory, not its parent.")
 
 	SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
 

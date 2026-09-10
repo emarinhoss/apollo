@@ -76,6 +76,13 @@ jobs:
       - name: VTU reader
         run: python test/test_vtu_reader.py -v
 
+      # Where the build looks for Eigen. Pure function of the environment, so
+      # it needs no compiler: the list once omitted conda, which is what
+      # environment.yml tells people to use, and the gap could only surface as
+      # a failed build on a machine nobody here had.
+      - name: Eigen search paths
+        run: python test/test_eigen_paths.py -v
+
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.
   build-scripts:
