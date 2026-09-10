@@ -136,6 +136,18 @@ if not warpMConstructionEnv.GetOption('clean'):
 	# promotes them above the toolchain's sysroot and breaks any compiler
 	# carrying its own libc headers. See buildconf/include_paths.py - this is
 	# what made a conda GCC 15 build fail on _Float128.
+	# Inside a conda environment, link against it: SConstruct scrubs the
+	# environment, so conda's own LDFLAGS never arrive. See
+	# buildconf/conda_paths.py - without this the build compiles against the
+	# environment's headers and links against the system's libraries.
+	from buildconf.conda_paths import conda_link_paths
+	_condaLibs, _condaLinkFlags = conda_link_paths()
+	if _condaLibs:
+		warpMConstructionEnv.PrependUnique(LIBPATH=_condaLibs)
+		warpMConstructionEnv.AppendUnique(LINKFLAGS=_condaLinkFlags)
+		print("Conda environment detected; linking against", _condaLibs[0],
+		      "and recording it as an rpath")
+
 	from buildconf.include_paths import (drop_default_system_includes,
 	                                     drop_default_system_libs)
 	_kept, _dropped = drop_default_system_includes(

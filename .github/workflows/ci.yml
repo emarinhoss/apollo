@@ -89,6 +89,12 @@ jobs:
       - name: System include and library paths
         run: python test/test_include_paths.py -v
 
+      # Linking against the conda environment the build runs inside. CI builds
+      # from distribution packages, so this path is never exercised there —
+      # which is exactly why it needs a test that does not require conda.
+      - name: Conda link paths
+        run: python test/test_conda_paths.py -v
+
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.
   build-scripts:

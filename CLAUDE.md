@@ -23,8 +23,9 @@ The fast tests need no solver and run in under a second:
 `test/test_rmf_diagnostics.py`, `test/test_rmf_scan.py`,
 `test/test_mkdiscmesh.py`, `test/test_python_tooling.py`,
 `test/test_deck_preprocess.py`, `test/test_vtu_reader.py`,
-`test/test_eigen_paths.py`, `test/test_include_paths.py`. So does
-`test/test_petsc_compat.py`, which needs a C++ compiler but no PETSc. The ones that do need
+`test/test_eigen_paths.py`, `test/test_include_paths.py`,
+`test/test_conda_paths.py`. So does `test/test_petsc_compat.py`, which needs a
+C++ compiler but no PETSc. The ones that do need
 a solver skip themselves without one, so **a green run does not by itself mean
 they ran** — check the skip count.
 
