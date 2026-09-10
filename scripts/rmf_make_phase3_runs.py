@@ -125,6 +125,19 @@ RUNS = [
         sweep=('Bomega', [5e-4, 10e-4, 15e-4, 20e-4, 30e-4, 50e-4, 75e-4,
                           100e-4, 150e-4]),
     ),
+    # A Colab-sized pre-flight for the 20-period run below. One period is about
+    # 7 h at 0.714 s/step, which fits inside a single session; the full run is
+    # 139.6 h at the same rate and cannot be checkpointed, so it belongs on a
+    # cluster. The probe cannot show formation - that needs many periods - but
+    # it shows whether B_z on axis is moving toward reversal and whether zeta is
+    # climbing, which is enough to catch a gross problem before committing six
+    # days of somebody's queue.
+    dict(
+        folder='03-formation',
+        deck=ANT_DECK, mesh=ANT_MESH,
+        periods=1.0, frames=FRAMES_PER_PERIOD,
+        decks=[('formation-probe', [])],
+    ),
     dict(
         folder='03-formation',
         deck=ANT_DECK, mesh=ANT_MESH,
