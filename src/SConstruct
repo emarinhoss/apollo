@@ -132,6 +132,26 @@ if not warpMConstructionEnv.GetOption('clean'):
 
 	SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
 
+	# Never hand the compiler its own default include directories with -I: that
+	# promotes them above the toolchain's sysroot and breaks any compiler
+	# carrying its own libc headers. See buildconf/include_paths.py - this is
+	# what made a conda GCC 15 build fail on _Float128.
+	from buildconf.include_paths import (drop_default_system_includes,
+	                                     drop_default_system_libs)
+	_kept, _dropped = drop_default_system_includes(
+		warpMConstructionEnv.get('CPPPATH', []))
+	if _dropped:
+		warpMConstructionEnv.Replace(CPPPATH=_kept)
+		print("Dropped from the include path (the compiler searches these "
+		      "already, and -I would put them ahead of its own sysroot):",
+		      ', '.join(str(d) for d in _dropped))
+	_keptL, _droppedL = drop_default_system_libs(
+		warpMConstructionEnv.get('LIBPATH', []))
+	if _droppedL:
+		warpMConstructionEnv.Replace(LIBPATH=_keptL)
+		print("Dropped from the library path (same reason, one stage later):",
+		      ', '.join(str(d) for d in _droppedL))
+
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
 

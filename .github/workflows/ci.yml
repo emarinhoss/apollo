@@ -83,6 +83,12 @@ jobs:
       - name: Eigen search paths
         run: python test/test_eigen_paths.py -v
 
+      # That the build does not hand the compiler its own default search
+      # directories. -I/usr/include is redundant on a distribution and fatal on
+      # a toolchain with its own sysroot, which is why CI alone cannot catch it.
+      - name: System include and library paths
+        run: python test/test_include_paths.py -v
+
   # The SCons scripts are Python too, and a syntax error in one of them breaks
   # the build for everybody. Reading them requires no toolchain.
   build-scripts:
