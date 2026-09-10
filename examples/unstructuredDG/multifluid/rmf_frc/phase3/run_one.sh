@@ -74,8 +74,15 @@ PYTHONPATH="$APOLLO/scripts" python3 "$APOLLO/scripts/wxinpparse.py" -i "$NAME.p
 
 started=$(date +%s)
 if [[ "$RANKS" -gt 1 ]]; then
-    echo "    WARNING: $RANKS ranks. Each .vtu will hold roughly 1/$RANKS of the"
-    echo "             cells; the diagnostics below will say so. Timing only."
+    # This warning used to say each .vtu would hold roughly 1/$RANKS of the
+    # cells. That was wrong - a bug in test/vtu.py, which kept only the last
+    # rank's <Piece> - and the header of this file has said so since it was
+    # fixed, while these two lines went on printing the retracted claim to
+    # anyone who actually ran it. The real reason is worse; see known-issues 15.
+    echo "    WARNING: $RANKS ranks. The output will be COMPLETE - but the"
+    echo "             solver's answer depends on the rank count, so it will"
+    echo "             not match the one-rank answer. Timing only; do not"
+    echo "             analyse these numbers. See docs/known-issues.md 15."
     # shellcheck disable=SC2086
     mpirun ${APOLLO_MPI_FLAGS:---oversubscribe} -np "$RANKS" \
         "$APOLLO_BIN" -i "$NAME.inp" 2>&1 | tee solver.log
