@@ -34,7 +34,7 @@ COMPAT = os.path.join(ROOT, 'src', 'lib')
 # every PETSc anyone can still install is above it; the ceiling is open-ended
 # on purpose, so a release newer than any that existed when this was written
 # still has to pass.
-SUPPORTED_MINORS = list(range(11, 24))
+SUPPORTED_MINORS = list(range(11, 27))
 
 
 def compiler():
