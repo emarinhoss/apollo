@@ -206,6 +206,11 @@ class TestRunFingerprint(unittest.TestCase):
     # another, so "the file is not here" is the most likely thing a user hits.
     # The first version raised a bare FileNotFoundError traceback pointing at
     # a line of argparse handling, which says nothing about what to do.
+    #
+    # These exit REFUSED (2), not DIFFER (1). A shell gate reads only the
+    # status, and "you typed the wrong path" and "the two builds disagree"
+    # call for opposite reactions. They exited 1 alike until this was pointed
+    # out, which made a typo indistinguishable from a finding.
 
     def _run(self, *paths):
         done = subprocess.run([sys.executable, TOOL, '--compare'] + list(paths),
@@ -218,14 +223,14 @@ class TestRunFingerprint(unittest.TestCase):
             with open(here, 'w') as h:
                 json.dump(_fingerprint(), h)
             code, out = self._run(os.path.join(tmp, 'absent.json'), here)
-        self.assertEqual(code, 1, out)
+        self.assertEqual(code, REFUSED, out)
         self.assertIn('no such fingerprint', out)
         self.assertNotIn('Traceback', out)
 
     def test_directory_where_a_json_was_expected(self):
         with tempfile.TemporaryDirectory() as tmp:
             code, out = self._run(tmp, tmp)
-        self.assertEqual(code, 1, out)
+        self.assertEqual(code, REFUSED, out)
         self.assertIn('is a directory', out)
         self.assertNotIn('Traceback', out)
 
@@ -235,7 +240,7 @@ class TestRunFingerprint(unittest.TestCase):
             with open(bad, 'w') as h:
                 h.write('not json at all')
             code, out = self._run(bad, bad)
-        self.assertEqual(code, 1, out)
+        self.assertEqual(code, REFUSED, out)
         self.assertIn('not valid JSON', out)
         self.assertNotIn('Traceback', out)
 
@@ -245,7 +250,7 @@ class TestRunFingerprint(unittest.TestCase):
             with open(wrong, 'w') as h:
                 json.dump({'something': 'else'}, h)
             code, out = self._run(wrong, wrong)
-        self.assertEqual(code, 1, out)
+        self.assertEqual(code, REFUSED, out)
         self.assertIn('not a fingerprint', out)
         self.assertNotIn('Traceback', out)
 

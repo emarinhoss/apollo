@@ -658,3 +658,70 @@ multifluid path inherits the same silent no-op.
 `petsc_compat.h` cannot help: the behaviour is a runtime check inside PETSc, not
 a symbol that appears or disappears. `test/test_petsc_compat.py` will not catch
 it, and neither will any compile-only gate.
+
+---
+
+## 18. The DG hot path runs on GSL's reference CBLAS, not OpenBLAS
+
+Every DG volume and surface integral goes through one `cblas_dgemm`:
+
+```c
+// src/lib/wxcubature2d.cc:459
+cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            rows, meqn, cols,
+            1.0, (double*)A, cols, (double*)x, meqn,
+            0.0, (double*)y, meqn);
+```
+
+The binary links both `libgslcblas` (pulled in by GSL) and `libopenblas`, and
+`libgslcblas` comes first in `DT_NEEDED`, so the dynamic linker binds
+`cblas_dgemm` to GSL's **reference** implementation. `libopenblas` is loaded and
+never used for this symbol.
+
+**repro**:
+
+```bash
+objdump -p src/build-opt/apollo | grep NEEDED | grep -iE 'blas|gsl'
+#   NEEDED   libgsl.so.27
+#   NEEDED   libgslcblas.so.0     <- wins
+#   NEEDED   libopenblas.so.0
+
+LD_DEBUG=bindings LD_DEBUG_OUTPUT=/tmp/b ./src/build-opt/apollo --help >/dev/null 2>&1
+grep -h cblas_dgemm /tmp/b.* | head -1
+#   binding file ./src/build-opt/apollo [0] to
+#   /lib/x86_64-linux-gnu/libgslcblas.so.0 [0]: normal symbol `cblas_dgemm'
+```
+
+**It costs nothing measurable, which was not the expectation.** The obvious
+worry is speed, and it was measured rather than assumed: the RMF antenna gate
+deck (162 steps) takes **88 s either way** - once as linked, once with
+`LD_PRELOAD=libopenblas.so.0`, verified by `LD_DEBUG` to have actually
+rebound the symbol. Apollo's matrices are per-element and small, so the call
+overhead dominates and OpenBLAS's blocking and vectorisation have nothing to
+work with. Do not "fix" this expecting a speedup; there isn't one here.
+
+**What it does change is the numbers, and that is the useful part.** Swapping
+only the BLAS - same binary, same commit, same PETSc, same machine, one rank,
+same deck - moves the answer:
+
+```bash
+python3 scripts/run_fingerprint.py results-as-linked results-with-openblas
+#   worst over 378 solution arrays: 2.310e-08  (frame 1, solutiondg.52)
+#     driven by:      sorted_sum
+#     absolute:       8.483e-14
+```
+
+That is a calibration worth having. It is what "the same code, one library
+different" costs on this deck, so a cross-machine comparison showing a few
+times that much needs no further explanation. When a PETSc 3.19.6 build here
+was compared against a PETSc 3.25.5 build on a cluster the worst figure was
+6.562e-08 - 2.8x this, from a comparison that also changed compiler, `-march`
+(SConstruct defaults `arch` to `native`, so two hosts give two ISAs), and the
+commit.
+
+**Not fixed here.** Putting `-lopenblas` ahead of `-lgslcblas` would bind the
+faster implementation, but it changes the numbers of every result in this
+repository for no measured gain, so it is a revalidation decision rather than a
+link-order tweak. Note also that `apversion.cc` prints a bare `BLAS` in the
+banner and does not record which one, so a `.vtu` produced here cannot be
+attributed to an implementation after the fact.

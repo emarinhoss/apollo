@@ -151,6 +151,25 @@ def _relative(a, b, scale=None):
     to differ - the same deck at one rank and at two, which known-issues 15
     says gives a different answer - where the difference shows up at 1.9 on the
     sum AND 2.2e-02 of the magnitude, i.e. in both columns at once.
+
+    WHERE THESE NUMBERS COME FROM, since this repository's first convention is
+    that a claim names its evidence:
+
+      3.19.6 magnitudes (6.8217e-10, 3.7506e-06)  measured here, from a run on
+                                                  this machine
+      the 3.25.5 side (2.461e-13, 6.562e-08, and
+      that all twelve worst rows were sorted_sum) measured on the user's
+                                                  cluster and relayed as a
+                                                  pasted table; the .json
+                                                  itself was never on this
+                                                  machine
+      1-rank vs 2-rank (1.9 / 0.826 / max)        measured here, both sides
+
+    The distinction matters because an earlier commit message reported a
+    'before and after' for the 3.25.5 comparison that was in fact produced by
+    adding the relayed absolute differences to the local 3.19.6 fingerprint -
+    a reconstruction that happens to reproduce the relayed numbers exactly, but
+    which is not the same thing as running the tool on the real pair.
     """
     if a is None or b is None:
         return None
@@ -369,6 +388,16 @@ def _report(left, right, tolerance, limit):
     return 1
 
 
+class _Refused(Exception):
+    """Cannot compare at all - distinct from comparable-and-disagreeing.
+
+    These must reach the caller as exit 2, not 1. A shell gate reads only the
+    status, and "you typed the wrong path" and "the two builds disagree" call
+    for opposite reactions; collapsing them into 1 makes a typo look like a
+    finding and a finding look like a typo.
+    """
+
+
 def _load(path):
     """Read a fingerprint, refusing legibly rather than raising a traceback.
 
@@ -378,12 +407,12 @@ def _load(path):
     fingerprint at all. A stack trace names none of them.
     """
     if os.path.isdir(path):
-        raise SystemExit(
+        raise _Refused(
             '%s is a directory. Either drop --compare to fingerprint two run\n'
             'directories directly, or pass the .json files written with -o.'
             % path)
     if not os.path.exists(path):
-        raise SystemExit(
+        raise _Refused(
             'no such fingerprint: %s\n'
             'Fingerprints are not produced by this flag - write one first on\n'
             'the machine that holds the run:\n'
@@ -394,9 +423,9 @@ def _load(path):
         with open(path) as handle:
             loaded = json.load(handle)
     except ValueError as exc:
-        raise SystemExit('%s is not valid JSON: %s' % (path, exc))
+        raise _Refused('%s is not valid JSON: %s' % (path, exc))
     if not isinstance(loaded, dict) or 'frames' not in loaded:
-        raise SystemExit(
+        raise _Refused(
             '%s is not a fingerprint - it has no "frames". Fingerprints are\n'
             'written by this script with -o; this looks like something else.'
             % path)
@@ -451,4 +480,8 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except _Refused as refusal:
+        print(refusal, file=sys.stderr)
+        sys.exit(2)
