@@ -101,5 +101,5 @@ ApElectricDischargeBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, RE
 }
 
 // instantiations
-template class ApElectricDischargeBC<float>;
+//template class ApElectricDischargeBC<float>;
 template class ApElectricDischargeBC<double>;

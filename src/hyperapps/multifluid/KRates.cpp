@@ -8,6 +8,11 @@
 #include <vector>
 #include <string.h>
 #include <dirent.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <string>
 #include <gsl/gsl_linalg.h>
 #include "cubature.h"
 
@@ -328,111 +333,173 @@ void KRates::setMass(AtomX* spec)
 	}
 }
 
+namespace
+{
+    // The output directory comes from the input deck and used to be pasted
+    // straight into a shell command that runs `rm -rf`. Anything the shell
+    // treats specially is rejected rather than escaped, because getting the
+    // escaping subtly wrong here deletes the user's files.
+    bool crOutputDirIsSafe(const char* name, std::string& why)
+    {
+        if (name == NULL || *name == '\0')
+        {
+            why = "it is empty, which would make the cleanup command 'rm -rf *' "
+                  "in the working directory";
+            return false;
+        }
+        const std::string dir(name);
+        if (dir == "/" || dir == "/." || dir == "." || dir == "./" || dir == "..")
+        {
+            why = "it names the root or the working directory itself";
+            return false;
+        }
+        const std::string allowed =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-/";
+        if (dir.find_first_not_of(allowed) != std::string::npos)
+        {
+            why = "it contains a character outside [A-Za-z0-9._-/]";
+            return false;
+        }
+        if (dir.find("..") != std::string::npos)
+        {
+            why = "it contains '..'";
+            return false;
+        }
+        return true;
+    }
+
+    // mkdir -p, without a shell. Creates every missing component of `path`.
+    bool crMakeDirs(const std::string& path)
+    {
+        std::string sofar;
+        for (size_t i = 0; i <= path.size(); ++i)
+        {
+            if (i == path.size() || path[i] == '/')
+            {
+                if (!sofar.empty() && sofar != ".")
+                {
+                    if (mkdir(sofar.c_str(), 0755) != 0 && errno != EEXIST)
+                        return false;
+                }
+            }
+            if (i < path.size())
+                sofar += path[i];
+        }
+        return true;
+    }
+
+    // Directory names are built by concatenation; join them with a single
+    // separator regardless of whether the configured directory ends in one.
+    std::string crJoin(const std::string& base, const std::string& leaf)
+    {
+        if (base.empty() || base[base.size()-1] == '/')
+            return base + leaf;
+        return base + "/" + leaf;
+    }
+}
+
 // Prepare the output directories
 void KRates::setOutputDir(const char* name)
 {
-	outputDir = name;
+	std::string why;
+	if (!crOutputDirIsSafe(name, why))
+	{
+		fprintf(stderr,
+		        "\nCR model: refusing to use output directory '%s': %s.\n"
+		        "  Set output_dir in the input deck to a plain relative or "
+		        "absolute path.\n\n",
+		        name ? name : "(null)", why.c_str());
+		exit(1);
+	}
 
-	char resp;
+	outputDir = name;
+	const std::string base(outputDir);
+
 	DIR* dir = opendir(outputDir);
 	if (dir)
 	{
-		printf("\n>> Overwrite possible contents within %s? (Y/N)\n",outputDir);
-		scanf("%c",&resp);
-		if (resp == 'Y' || resp == 'y')
+		closedir(dir);
+		// The old code prompted on stdin and then ran
+		//     system("exec rm -rf <outputDir>*")
+		// on a 'Y'. `resp` was uninitialised and scanf's return value ignored,
+		// so under a batch scheduler - where stdin is closed and scanf returns
+		// EOF without writing anything - the branch taken was whatever byte
+		// happened to be on the stack, one possibility being the delete. And
+		// every MPI rank ran it at once. Deleting is now opt-in, interactive
+		// only, and never the default.
+		bool wipe = false;
+		if (isatty(fileno(stdin)))
 		{
-			printf("Emptying previously-made directory: %s\n\n",outputDir);
-			char resultsDir[100];
-			sprintf(resultsDir,"exec rm -rf ");
-			sprintf(resultsDir + strlen(resultsDir),outputDir);
-			sprintf(resultsDir + strlen(resultsDir),"*");
-			system(resultsDir);
-		}
-		else if (resp == 'N' || resp == 'n')
-		{
-			printf("No working sub-directory present to continue simulation\n");
-			exit(1);
+			printf("\n>> Overwrite possible contents within %s? (Y/N)\n", outputDir);
+			fflush(stdout);
+			int resp = getchar();
+			wipe = (resp == 'Y' || resp == 'y');
+			if (!wipe && resp != 'N' && resp != 'n')
+			{
+				printf("Incomprehensible response\n");
+				exit(1);
+			}
 		}
 		else
 		{
-			printf("Incomprehensible response\n");
-			exit(1);
+			printf("CR model: reusing existing output directory %s "
+			       "(not deleting its contents; stdin is not a terminal).\n",
+			       outputDir);
+		}
+
+		if (wipe)
+		{
+			printf("Emptying previously-made directory: %s\n\n", outputDir);
+			// base passed crOutputDirIsSafe, so it holds no shell metacharacter;
+			// it is still quoted so a future relaxation of that check cannot turn
+			// into command injection.
+			const std::string cmd = "rm -rf '" + base + "'/*";
+			if (system(cmd.c_str()) != 0)
+				fprintf(stderr, "CR model: warning: could not empty %s\n", outputDir);
 		}
 	}
 	else if (ENOENT == errno)
 	{
-		printf("\n>> Create folders (%s) in current, working directory? (Y/N)\n",outputDir);
-		scanf("%c",&resp);
-		if (resp == 'Y' || resp == 'y')
+		printf("\nCreating output directory: %s\n\n", outputDir);
+		if (!crMakeDirs(base))
 		{
-			printf("\nCreating following directory: %s\n\n",outputDir);
-			char resultsDir[100];
-			sprintf(resultsDir,"mkdir -p ");
-			sprintf(resultsDir + strlen(resultsDir),outputDir);
-			system(resultsDir);
-		}
-		else if (resp == 'N' || resp == 'n')
-		{
-			printf("No working sub-directory present to continue simulation\n");
-			exit(1);
-		}
-		else
-		{
-			printf("Incomprehensible response\n");
+			fprintf(stderr, "CR model: could not create %s: %s\n",
+			        outputDir, strerror(errno));
 			exit(1);
 		}
 	}
 	else
 	{
-		printf("\nUnexpected error\n");
+		fprintf(stderr, "\nCR model: cannot access %s: %s\n",
+		        outputDir, strerror(errno));
 		exit(1);
 	}
 
-	// Subfolder Creation
-
-	// Create the Boltzmann output subfolders if it does not exist
+	// Subfolder Creation. These went through `system("mkdir -p ...")` with
+	// unbounded sprintf into a 150-byte stack buffer; mkdir(2) needs neither.
+	char ion[8];
 	for (int na = 0; na < Natoms; na++)
 	{
-		char foldDir[150];
-		sprintf(foldDir,"mkdir -p ");							// Command
-		sprintf(foldDir + strlen(foldDir),outputDir);			// Folder directory
-		sprintf(foldDir + strlen(foldDir),"BoltzDist/");		// Subdirectory
-		sprintf(foldDir + strlen(foldDir),spcsname);	// Species
-		sprintf(foldDir + strlen(foldDir),"%02d",(na+1));		// Ion
-
-		DIR* subdir = opendir(foldDir);
-		if (subdir)
-			continue;
-		else
-			system(foldDir);
+		snprintf(ion, sizeof(ion), "%02d", na+1);
+		const std::string d = crJoin(base, std::string("BoltzDist/") + spcsname + ion);
+		if (!crMakeDirs(d))
+			fprintf(stderr, "CR model: could not create %s: %s\n",
+			        d.c_str(), strerror(errno));
 	}
 
-	// Create the Line Radiation output subfolders if it does not exist
 	for (int na = 0; na < Natoms; na++)
 	{
-		char foldDir[150];
-		sprintf(foldDir,"mkdir -p ");							// Command
-		sprintf(foldDir + strlen(foldDir),outputDir);			// Folder directory
-		sprintf(foldDir + strlen(foldDir),"LineRad/");			// Subdirectory
-		sprintf(foldDir + strlen(foldDir),spcsname);	// Species
-		sprintf(foldDir + strlen(foldDir),"%02d",(na+1));		// Ion
-
-		DIR* subdir = opendir(foldDir);
-		if (subdir)
-			continue;
-		else
-			system(foldDir);
+		snprintf(ion, sizeof(ion), "%02d", na+1);
+		const std::string d = crJoin(base, std::string("LineRad/") + spcsname + ion);
+		if (!crMakeDirs(d))
+			fprintf(stderr, "CR model: could not create %s: %s\n",
+			        d.c_str(), strerror(errno));
 	}
 
-	// Create the Spectral output subfolder if it does not exist
-	char foldDir[150];
-	sprintf(foldDir,"mkdir -p ");							// Command
-	sprintf(foldDir + strlen(foldDir),outputDir);			// Folder directory
-	sprintf(foldDir + strlen(foldDir),"Spectra/");			// Subdirectory
-
-	DIR* subdir = opendir(foldDir);
-	if (!subdir)
-		system(foldDir);
+	const std::string spectra = crJoin(base, "Spectra");
+	if (!crMakeDirs(spectra))
+		fprintf(stderr, "CR model: could not create %s: %s\n",
+		        spectra.c_str(), strerror(errno));
 }
 
 // Add atom excited states based on cutoff energy

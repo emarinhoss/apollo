@@ -1,5 +1,6 @@
 // includes
 #include <apsimulation.h>
+#include <apversion.h>
 
 // include getopt or mygetopt
 #ifdef _NO_GETOPT_
@@ -15,6 +16,7 @@
 
 // std includes
 #include <ctime>
+#include <iostream>
 
 template <typename REAL>
 ApSimulation<REAL>::ApSimulation(int argc, char **argv)
@@ -142,7 +144,12 @@ ApSimulation<REAL>::setup(const WxCryptSet& wxc)
 //    WxLogStream errStrm = wrc->getErrorStream();
 //    WxLogStream wrnStrm = wrc->getWarningStream();
 
-    // now setup top level solver
+    // now setup top level solver. Record the build first: a result is only
+    // reproducible if the binary that produced it can be identified, and the log
+    // is the one artefact that always accompanies a run.
+    infStrm << Apollo::buildInfo() << std::endl;
+    infStrm << "Input file: " << inpFileName << std::endl;
+    infStrm << "MPI ranks: " << this->getMsg().numProcs() << std::endl;
     infStrm << "Setting up Apollo simulation..." << std::endl;
     std::string simName;
     // name of simulation to run
@@ -215,9 +222,13 @@ ApSimulation<REAL>::parseCmdLine(int argc, char **argv)
     { NULL, 0, NULL, 0}
   };
 
-  char ch;
-  // parse command line parameters
-  while ((ch = getopt_long(argc, argv, "i:r:o:", longopts, NULL)) != -1)
+  // getopt_long returns int, and signals "no more options" with -1. Storing that
+  // in a char is only correct where char happens to be signed: on ARM and
+  // PowerPC, where it is unsigned, -1 becomes 255 and the loop never ends.
+  int ch;
+  // parse command line parameters. 'h' is in the option string because usage()
+  // advertises -h; without it getopt rejected the documented flag.
+  while ((ch = getopt_long(argc, argv, "hi:r:o:", longopts, NULL)) != -1)
   {
     switch (ch)
     {
@@ -243,18 +254,36 @@ ApSimulation<REAL>::parseCmdLine(int argc, char **argv)
         realType = optarg;
         break;
 
+      case 'h':
       case 1:
-        // real number type to use
+        // help
         usage();
         exit(0);
 
       default:
-        // do nothing
-        break;
+        // getopt_long has already written its own diagnostic; do not continue
+        // with a half-parsed command line and a default input file.
+        usage();
+        exit(2);
     }
   }
+  // Consume the options; whatever is left is a positional argument.
   argc -= optind;
   argv += optind;
+
+  if (argc > 0)
+  { // Apollo takes its input file with -i. A bare filename is not the input
+    // file, and silently falling back to apollo.inp made that look like a
+    // missing-file error rather than the usage error it is.
+    std::cerr << "Apollo: unexpected argument '" << argv[0]
+              << "'.\n  The input file is given with -i, for example:\n"
+                 "    apollo -i " << argv[0] << std::endl;
+    exit(2);
+  }
+
+  if (realType == "float")
+    std::cerr << "Apollo: warning: --real-type=float is accepted but has no "
+                 "effect; the solver is instantiated as double." << std::endl;
 }
 
 template <typename REAL>
@@ -263,7 +292,7 @@ ApSimulation<REAL>::usage()
 {
   // print help
   std::cout << "*** Welcome to Apollo ***" << std::endl;
-  std::cout << "Version XXX from svn revision YYY" << std::endl;
+  std::cout << Apollo::buildInfo() << std::endl;
   std::cout << "Apollo accepts the following command line options" << std::endl;
 
   // for help message
@@ -294,12 +323,15 @@ std::string
 ApSimulation<REAL>::stripName(const std::string& nm)
 {
   std::string snm = nm;
-  unsigned trunc = nm.find_last_of(".", snm.size());
-  if (trunc > 0)
-    snm.erase(trunc, snm.size());
+  // find_last_of returns npos when there is no '.', and npos is not 0, so the
+  // old `if (trunc > 0)` test passed and erase(npos, ...) threw std::out_of_range
+  // for any input file whose name has no extension.
+  std::string::size_type trunc = snm.find_last_of('.');
+  if (trunc != std::string::npos && trunc > 0)
+    snm.erase(trunc);
   return snm;
 }
 
 // instantiations
-template class ApSimulation<float>;
+//template class ApSimulation<float>;
 template class ApSimulation<double>;

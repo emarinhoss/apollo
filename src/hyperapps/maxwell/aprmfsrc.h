@@ -12,6 +12,29 @@
 #include <string>
 #include <cmath>
 
+/**
+ * Relaxes E_z, B_x and B_y towards a rotating transverse field outside
+ * `radius`, by adding omega times the target value to their time derivatives.
+ *
+ * This is NOT an antenna. There is no current, so nothing here is a solution of
+ * Maxwell's equations; it is a forcing term whose strength happens to be set by
+ * omega, and the plasma cannot load it any more than it can load a prescribed
+ * boundary field. For a drive that the plasma can screen and load, use
+ * `maxwellRMFAntenna` (aprmfantennasrc.h), which sources dE_z/dt with an actual
+ * current density. See docs/rmf-frc-model-assessment.md.
+ *
+ * Two further defects are left as they are because this class is superseded and
+ * because changing them would silently change the heavyIons deck's results.
+ * Both were fixed in the analogous boundary condition
+ * (APTwoFluidSimplifiedRMFBC):
+ *
+ *   - `_phase` is applied to both components here, but as sin(wt+p) and
+ *     cos(wt+p) with no minus sign, so the pair is a rotating field of the
+ *     opposite handedness to the one the boundary conditions apply;
+ *   - the E_z expression carries the correct radial amplitude with the
+ *     azimuthal dependence dropped, and satisfies neither component of
+ *     Faraday's law. The exact induced field is E_z = x dB_y/dt - y dB_x/dt.
+ */
 template<class REAL>
 class ApRMFSrc : public WxHyperbolicSrc<REAL>
 {
@@ -52,7 +75,26 @@ class ApRMFSrc : public WxHyperbolicSrc<REAL>
         REAL x = tx[1];
         REAL y = tx[2];
         REAL r = sqrt(x*x+y*y);
-        REAL theta = atan(y/x);
+
+        // Write all three outputs unconditionally.
+        //
+        // WxHyperbolicSrc::compSource holds _outValues as a member, does not
+        // clear it between calls, and adds it to the state:
+        //
+        //     sfull[_outIndices[i]] += _outValues[i];
+        //
+        // so the `if (r > _r0)` below used to leave the PREVIOUS quadrature
+        // point's values in place, and they were added at every point inside
+        // r0 - the whole plasma interior of the heavyIons deck, which is the
+        // only deck that uses this class (r0 = 0.025 against a plasma radius
+        // of 0.030). Whatever the last point outside r0 happened to produce
+        // was injected into E_z, B_x and B_y across the column.
+        s[0] = 0.0;
+        s[1] = 0.0;
+        s[2] = 0.0;
+
+        if (r <= _r0)
+            return true;
 
         // RMF
         REAL t = tx[0]; // current time
@@ -63,12 +105,9 @@ class ApRMFSrc : public WxHyperbolicSrc<REAL>
 
         REAL Ez = r*(_B0*(-exp(-t/_rise))/_rise*cos(_omega*t+_phase)-Bt*_omega*sin(_omega*t+_phase));
 
-
-        if(r>_r0){
-            s[1] = _omega*Br;
-            s[2] = _omega*Bc;
-            s[0] = _omega*Ez;
-        }
+        s[1] = _omega*Br;
+        s[2] = _omega*Bc;
+        s[0] = _omega*Ez;
 
       return true;
     }

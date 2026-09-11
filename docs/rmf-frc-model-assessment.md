@@ -1,0 +1,1079 @@
+# RMF-FRC model assessment
+
+An assessment of `examples/unstructuredDG/multifluid/rmf_frc` — the rotating-magnetic-field
+(RMF) field-reversed-configuration (FRC) formation problem — against the published physics,
+with a plan for closing the gaps.
+
+**How this was done.** The deck, the boundary conditions, the source terms and the meshes were
+read in full and the deck was run. The literature was surveyed by web search; the network
+policy of the environment this was written in blocks every publisher and preprint host
+(AIP, Cambridge, IOP, arXiv, OSTI, ADS), so statements attributed to a paper below come
+from its abstract or from sentences quoted in search results, not from full text. Where a
+formula is stated from the standard literature rather than a fetched source, that is said.
+The dimensionless numbers are computed from the deck's own values.
+
+Verdict in one paragraph: **the model class is right, the parameters are in the right regime,
+and the formation scenario is exactly the one the literature studies — but the way the RMF is
+applied at the boundary is not physically consistent with how an RMF interacts with a plasma,
+and the friction source terms do not conserve energy.** The first is the item that most limits
+what the example can be compared against; the second is small on the two-microsecond runs
+shipped here and grows as the ions spin up.
+
+Both of those are now fixed (Phases 0 to 2). Working through Phase 3 added a third, of a
+different kind: **the deck's reduced speed of light is below the speeds of the state the
+validation is meant to reach.** It is 1.2% above the electron sound speed and 3.9% below the
+fastest electron characteristic of a fully penetrated RMF. Raising it trades away Debye
+resolution one for one, because the product of the two is fixed by the density alone — and the
+deck is already under-resolved there, so this is not a step from resolved to unresolved but from
+one under-resolved state to a worse one. See §3.10 and Phase 3.
+
+---
+
+## 1. What the literature says the problem is
+
+**Foundational theory.** The RMF current-drive mechanism was proposed by Blevin and Thonemann
+(1962) and worked out for a plasma cylinder by Jones and Hugrass, *J. Plasma Phys.* **26**, 441
+(1981) — "steady-state solutions of magneto-fluid equations show that, provided the amplitude
+and rotation frequency of the field are suitably chosen, the penetration is not limited by the
+usual classical skin effect. The enhanced penetration of the rotating field is accompanied by
+the generation of a unidirectional azimuthal electron current which is totally absent in a
+purely resistive plasma cylinder" — and numerically by Hugrass and Grimm, *J. Plasma Phys.*
+**26**, 455 (1981), who established that "classical RMF theory predicts a threshold condition for
+magnetic field penetration into the plasma." The mechanism requires the frequency ordering
+ω_ci ≪ ω ≪ ω_ce: electrons are magnetised and dragged around by the rotating transverse field,
+ions are not.
+
+The penetration parameters are (form standard in this literature; the exact threshold curve
+is in Hugrass & Grimm 1981 and, empirically, Milroy 1999):
+
+- γ = ω_ce / ν_ei — how magnetised the electrons are against collisions, with ω_ce taken in
+  the **rotating** field B_ω rather than the bias (see §3.2);
+- λ = r_s / δ, with δ = √(2η / μ₀ω) the classical skin depth — how many skin depths the plasma
+  is wide;
+- penetration when γ is large compared with λ (order unity ratio); the Michigan thruster papers
+  state the same dependence on "the electron cyclotron frequency, electron-ion collision
+  frequency, thruster radius, and the classical skin depth of the RMF."
+
+Once penetrated, the electrons rotate near-synchronously, J_θ ≈ −n e ω r, and Guo, Hoffman and
+Milroy (*Phys. Plasmas* **14**, 112502, 2007) define ζ as "the ratio of average electron rotation
+frequency to RMF frequency." Milroy's fixed-ion model (*Phys. Plasmas* **6**, 2771, 1999) gives
+"empirical expressions … to characterize the critical RMF magnitude required for full
+penetration and the rate of RMF penetration", and finds that "in the presence of strong
+anisotropic plasma resistivity, the direction and magnitude of the axial bias field can have a
+strong influence on the penetration."
+
+**The formation problem — the deck's scenario.** Milroy's r-θ MHD model (*Phys. Plasmas* **7**,
+4135, 2000): "For the formation problem, a RMF is applied to a plasma column with an initially
+uniform axial magnetic field and background plasma density, and the RMF-induced current
+reverses this bias field, forming a FRC." Experimentally, Guo et al. (*Phys. Plasmas* **9**, 185,
+2002): "The RMF creates an FRC by driving an azimuthal current which reverses an initial
+positive bias field. The FRC then expands radially, compressing the initial axial bias flux and
+raising the plasma density, until a balance is reached between the RMF drive force and the
+electron–ion friction." That is precisely what `frc2d.pin` sets up: uniform column, uniform
+bias field, RMF switched on, flux conserver outside.
+
+**Screening — the point that matters for the boundary condition.** From the TCS programme
+(Hoffman, Guo, Slough et al.): "The uniform transverse RMF in vacuum is shielded by the
+conducting plasma, resulting in a mostly azimuthal field near the FRC separatrix with a very
+small radial component." The field at the plasma edge is *not* the vacuum RMF; it is the vacuum
+RMF plus the field of the currents the plasma drives in response, and that sum is what the
+plasma actually sees. Modern simulations therefore put the drive in through the antenna, not
+at the plasma edge: Milroy, Kim and Sovinec (NIMROD, *J. Comput. Phys.* **195**, 355, 2004, and
+later) added "boundary conditions to capture the effects of a finite length RMF antenna" and
+"modifications to the radial boundary conditions [that] capture most of the effects of
+multiple discrete coils", noting that "the Hall term is a zeroth order effect."
+
+**Energetics and torque.** Hoffman et al. (*Phys. Plasmas* **13**, 012507, 2006): "A balance
+between the RMF applied torque and electron-ion friction will determine the peak plasma
+density"; "measurements of total absorbed power and comparisons of applied RMF torque to torque
+on the electrons due to electron-ion friction allowed the separation of classical Ohmic and
+anomalous heating to be inferred." Power "is absorbed by the plasma due to oscillating axial
+currents (which create the azimuthal torque), proportional to B_ω², and due to the azimuthal
+FRC currents, proportional to B_e²." Guo et al. 2007: "A large fraction of the RMF power is
+absorbed by an anomalous mechanism directly proportional to the square of the RMF magnitude."
+
+**Ion spin-up.** "The RMF torque on the electrons is quickly transferred to the ions, but ion
+spin-up is limited in these low density experiments, presumably by ion-neutral friction";
+"the ion rotation is determined by a balance between electron-ion friction, the end shorting
+effect, and ion drag against neutrals"; "ion spin-up can substantially reduce or cancel the RMF
+current drive effect" (TCS/TCSU papers; ions reached ~6 kHz against a 180 kHz drive).
+
+**Two-fluid and multi-fluid precedent.** Belova et al. (HYM, hybrid): "lower plasma density and
+larger RMF amplitudes result in faster RMF field penetration, in agreement with previous
+two-fluid studies." Sousa (APS DPP 2016, "Rotating Magnetic Field FRC Formation Studies using
+the Multi-Fluid Plasma Model"): "aspects of the FRC formation physics using a rotating
+magnetic field (RMF) at low power are simulated using a multi-fluid plasma model, with results
+compared with experimental observations with emphasis on the development of instabilities and
+robustness of the field reversal" — the direct precedent for this example.
+
+**Thrusters — the xenon deck's context.** The Michigan RMF thruster (Woods, Gill, Sercel, Jorns;
+2021–2024): radius R = 10 cm with a measured classical skin depth of 1 cm, T_e ≈ 9 eV, xenon,
+~500 kHz, induced currents to 2500 A "sufficient to form a FRC plasmoid"; the Lorentz force
+"contributes ∼25% of measured thrust"; and "the RMF may not penetrate the plasma as expected due
+to screening caused by a combination of collisionality and classical skin depth." Thrust is an
+axial effect: an r-θ cross-section can model penetration and current drive but not the
+acceleration.
+
+---
+
+## 2. What Apollo implements
+
+Described in full in the conversation that produced this document; in brief: 18 unknowns per
+node (electron and ion Euler fluids, perfectly-hyperbolic Maxwell), coupled by Lorentz-force,
+current and charge sources plus `constantResistivity` friction; speed of light reduced 100×;
+the mesh is the plasma disc r ≤ a = 3 cm; the RMF enters through `twoFluidSimplifiedRMFBC`
+at r = a, which imposes the vacuum rotating field, an axial E, a conducting-wall in-plane E, and
+B_z from an axial flux conserver at b = 3.5 cm evaluated from ∫B_z dA over the plasma.
+
+---
+
+## 3. Assessment
+
+### 3.1 Model class — appropriate ✓
+
+A two-fluid model with full Maxwell contains the Hall physics that the literature identifies as
+zeroth-order for RMF drive, without an Ohm's-law closure; electron inertia and displacement
+current are retained. This is the model class Sousa 2016 used for the same problem and the one
+Belova cites two-fluid results against. Nothing to change.
+
+### 3.2 Regime — right window ✓
+
+From the hydrogen deck (n = 10²⁰ m⁻³, T_e = 30 eV, B_bias = 60 G, B_ω = 50 G, f = 795 kHz,
+a = 3 cm, η = 5 × 10⁻⁶ Ω m):
+
+| quantity | value | reading |
+| --- | --- | --- |
+| ω_ci, ω, ω_ce | 5.7 × 10⁵, 5.0 × 10⁶, 1.1 × 10⁹ rad/s | ω_ci ≪ ω ≪ ω_ce holds (×8.7, ×211) |
+| γ = ω_ce(B_ω)/ν_ei | 62.5 | ν_ei from η: 1.41 × 10⁷ s⁻¹ (see below) |
+| δ, λ = a/δ | 1.26 mm, 23.8 | γ/λ = 2.63: near the threshold, not far above it |
+| η | 5 × 10⁻⁶ Ω m | Spitzer at 30 eV, lnΛ = 10: ~3 × 10⁻⁶; plausible |
+| μ₀ n e ω a²/2 | 450 G | synchronous reversal would be 7.5× the bias: strong drive |
+| B_ω/B_bias | 0.83 | TCS-like ratio |
+| β (T_e + T_i vs bias) | 50 | the bias is weak; the column is essentially β ≫ 1 |
+| ion gyroperiod | 11 μs | longer than the 2 μs run: ions barely respond |
+| run length | 1.6 RMF periods | rise time 30 ns ≪ period: an abrupt switch-on |
+
+**On γ.** This table first computed γ with the *bias* field, giving 75 and γ/λ ≈ 3.2. The RMF
+literature evaluates ω_ce in the **rotating** field B_ω — it is a measure of how magnetized the
+electrons are in the field that is driving them — so for this deck γ = 62.5 and γ/λ = 2.63. That
+is sourced only at abstract level (see the note at the top of this document; the full texts were
+not reachable), but it matters for Phase 3: the two values sit on either side of the O(1)
+coefficient in the threshold condition, so "far above threshold" and "near threshold" are the
+difference between them, and an item-1 scan has to be designed to bracket the transition rather
+than to confirm a side. The numeric coefficient in the Hugrass–Grimm and Milroy threshold could
+not be sourced at all and is deliberately not quoted here.
+
+Two further remarks. β ≈ 50 against the bias field means the initial column is far from any
+equilibrium with that field; that is normal for the formation problem, but the early
+transient is violent and the run is short enough that it is mostly transient. And 1.6 periods
+is too short to see the torque–friction balance the literature describes; this deck exercises
+penetration and initial reversal, not sustainment.
+
+### 3.3 The formation scenario — matches the literature ✓
+
+Uniform column, uniform bias, RMF applied, flux conserver: Milroy 2000's formation problem and
+Guo 2002's description, with the flux conserver providing the compression feedback.
+
+### 3.4 The RMF boundary condition — not physically consistent ✗
+
+This is the central finding. `twoFluidSimplifiedRMFBC` sets, at the plasma edge r = a, the
+ghost state (B_x, B_y) = −B_t(t)(sin ωt, cos(ωt+φ)) — the **vacuum** rotating field.
+
+1. **It prescribes the field the plasma is supposed to be screening.** The TCS observation
+   above is that the field at the plasma edge is "mostly azimuthal … with a very small radial
+   component" because the plasma's own induced currents cancel much of the applied field. A
+   boundary condition that pins B⊥ at the edge to the applied value forbids that response
+   from reaching the edge: it is equivalent to an antenna of infinite stiffness located *at* the
+   plasma surface, one that cannot be loaded by the plasma. The consequences are that
+   penetration is over-driven relative to a real antenna at 3.6 cm, the penetration threshold
+   in B_ω is not the literature's threshold, and the antenna power (torque × ω) is not
+   computable from the simulation because the antenna current is never represented. Every
+   published model that aims to be quantitative puts the drive at the coils and lets the field
+   at the edge be an outcome (Milroy 2000; NIMROD's antenna and discrete-coil boundary
+   conditions).
+
+2. **The axial field E_z has no azimuthal structure.** For a spatially uniform rotating
+   transverse field, Faraday's law with E = E_z ẑ gives ∂E_z/∂x = ∂B_y/∂t and
+   ∂E_z/∂y = −∂B_x/∂t, so E_z = x Ḃ_y − y Ḃ_x (+ const): a field that rotates with B⊥. The
+   code imposes E_z = r·(−Ḃ_t cos ωt − B_t ω sin(ωt+φ)), which is that expression's magnitude
+   with the angular dependence dropped (the unused `theta = atan(y/x)` in the same function is
+   the residue). The boundary E_z drives the oscillating axial currents that — per Hoffman —
+   "create the azimuthal torque", so their θ-structure is the torque's structure. This one is
+   cheap to make exact.
+
+3. **The hyperbolic system is over-specified at the boundary — and it does not matter here.**
+   At a face of the Maxwell system only the incoming characteristics may be imposed; the
+   outgoing ones must come from the interior. The ghost state sets E_z, B_x, B_y, B_z all to
+   prescribed values, which is over-specified. *This assessment originally concluded from that
+   that the imposed B_ω "is not what the plasma sees even by the code's own logic". That was
+   wrong*, and Phase 2 below establishes why.
+
+   `WxPHMaxwellEqn::DGnumericalFlux` is Lax–Friedrichs with λ = max(c, χc, γc). At χ = γ = 1 —
+   what every deck using these conditions sets — every eigenvalue of the flux Jacobian has magnitude
+   c, so |A| = cI and that flux *is* the exact upwind flux, not an average. An upwind flux takes
+   the outgoing characteristics from the interior and ignores whatever the ghost says about
+   them: algebraically it depends on the ghost only through (A − cI)q_ghost, and (A − cI)
+   annihilates exactly the outgoing eigenvectors. The over-specification is therefore invisible.
+   Measured: the two constructions give fluxes agreeing to 2.9e-16 relative.
+
+   It becomes a real defect the moment χ or γ is anything else — the deck exposes both as
+   `DIVE_SPEED` and `DIVB_SPEED` — where the same measurement gives 17% and 25%. It is also real
+   in the slope limiter, which consumes the ghost state directly rather than through a Riemann
+   solve. `twoFluidSimplifiedRMFBC` now takes the characteristic route when the deck supplies
+   `c0`; see Phase 2.
+
+4. **The geometry is inconsistent unless an assumption is stated.** The coil sits at 3.6 cm,
+   *outside* the flux conserver at 3.5 cm. A conducting shell at 795 kHz screens a transverse
+   field completely (copper skin depth ~70 μm), so a coil outside it could drive nothing
+   inside. The configuration is only sensible if the flux conserver is slotted — as TCS's
+   segmented conservers are — so that it passes B⊥ while conserving axial flux. The code
+   silently assumes that; it should say so.
+
+5. **The sibling boundary conditions do not offer a corrected alternative.** `twoFluidRMFBC`
+   uses 0.5·B_ω where the simplified one uses B_ω (an undocumented factor of two between
+   two BCs that claim to impose the same drive); `twoFluidRMFHarmonicsBC` adds a harmonic
+   series but keeps the same prescribed-field philosophy; `twoFluidOMFBC` is the oscillating
+   variant with the flux term commented out; and `twoFluidRMFAntennaBC` — the one whose name
+   suggests the right approach — imposes a purely azimuthal oscillating B and, in `setup()`,
+   never reads `_baxial`, so its flux-conserver formula uses an uninitialised member.
+
+### 3.5 The flux conserver — correct ✓ (with the assumption above)
+
+B_z(a) = [π b² B_bias − Φ] / [π (b² − a²)] is exactly conservation of the total axial flux
+inside an ideal shell at r = b, with the plasma's flux Φ measured each step and the remainder
+assigned to the vacuum annulus. It reproduces the uniform field at t = 0 and the one-step lag is
+harmless. It is what makes this an FRC problem rather than a driven column, and it is the part
+of the boundary treatment that is right. It presumes the annulus a < r < b carries a uniform
+B_z, which is exact only if the annulus is field-free of plasma currents — true here because
+the annulus is not in the domain.
+
+### 3.6 Friction energetics — energy is not conserved ✗ (small on this run)
+
+All four friction sources (`constantResistivity`, `anisotropicResistivity`, `braginskiiFriction`,
+`MomentumXfer2D`) have the same energy terms. With R = −η n² e² (u_e − u_i) the friction on the
+electrons:
+
+```
+electron energy source   s_e = -(R . u_i) - Q_delta
+ion energy source        s_i =              + Q_delta
+```
+
+For total-energy variables, the correct sources are s_e = R·u_e + Q_e and s_i = −R·u_i + Q_i,
+with Q_e + Q_i = −R·(u_e − u_i) = ηJ² ≥ 0 the frictional heat, which Braginskii assigns to the
+electrons (Q_e = ηJ² − Q_Δ, Q_i = Q_Δ). Substituting, s_e = R·u_i − Q_Δ and s_i = −R·u_i + Q_Δ,
+which sum to zero.
+
+So the code has the right structure and the wrong sign on the electron work term, and omits
+the ion work term; the total energy has a spurious source −R·u_i. Two things follow. First, an
+earlier note in `docs/known-issues.md` said Ohmic heating was absent altogether; that was
+wrong for a total-energy formulation — with ions at rest the code and the correct form agree
+(both −Q_Δ), because the friction thermalises the electron drift *within* the electron fluid
+and the ηJ² heating is exactly the kinetic energy the momentum source removes. Second, the
+error is proportional to u_i, so it is negligible on this 2 μs run (ion gyroperiod 11 μs) and
+grows as the ions spin up — which the literature says they do, quickly. Any run long enough to
+reach the torque–friction balance carries it.
+
+Separately, `braginskiiFriction` and `MomentumXfer2D` computed Q_Δ with 3·(m_i/m_e) where the
+Braginskii coefficient is 3·(m_e/m_i) — an overstatement by (m_i/m_e)², about 3.4e6 for hydrogen.
+`constantResistivity`, the source this deck actually uses, always had the right mass scaling.
+Both were corrected in Phase 0 and are covered by `test/cxx/test_friction_sources.cc`.
+
+### 3.7 Resistivity — constant η, no feedback (limitation)
+
+η is a deck constant. Hoffman 2006 notes that "higher temperatures have been noted to reduce the
+effective plasma resistivity", and Milroy 1999 that anisotropic resistivity changes penetration
+qualitatively. With a fixed η, γ and λ are fixed for the whole run, so the simulation cannot
+show the self-consistent penetration the experiments show, and the anomalous absorption ∝ B_ω²
+that Guo 2007 finds dominant at low current is not represented at all. Reasonable for a first
+study; a limitation for comparison with data.
+
+### 3.8 Ions and neutrals (limitation)
+
+No neutral species, so no ion-neutral drag. In the literature that drag (with end-shorting) is
+what limits ion spin-up and preserves the current drive; without it a two-fluid model will spin
+the ions up on the electron-ion collision timescale and lose the drive. Irrelevant at 2 μs;
+decisive for sustainment runs. The multi-fluid machinery for a neutral fluid exists in the code.
+
+### 3.9 Dimensionality (limitation)
+
+r-θ is the right plane for penetration and drive — the classical theory is an infinite cylinder
+— but cannot represent finite antenna length, end-shorting, axial flux compression, or thrust.
+For the xenon deck that means the r-θ model addresses whether the RMF penetrates and drives
+current, not whether the thruster produces thrust.
+
+### 3.10 Reduced speed of light — at its limit, and past it in the state Phase 3 studies ✗
+
+This section previously read "acceptable ✓". Phase 3 measured it and it is not.
+
+What still holds. c/100 with ε₀ rescaled keeps c² = 1/(μ₀ε₀). Light transit across the column is
+10 ns against a 1258 ns RMF period, so the displacement current is negligible for the RMF. ω_pe
+drops to 5.64 × 10⁹ s⁻¹, 5.3× ω_ce, and is resolved: ω_pe Δt = 0.154.
+
+**c is not comfortably above the electron speeds. It is one of them.**
+
+| speed | value | c / speed |
+| --- | --- | --- |
+| v_Te = √(kT_e/m_e) | 2.297 × 10⁶ m/s | 1.31 |
+| v_Te = √(2kT_e/m_e) | 3.249 × 10⁶ m/s | **0.92** |
+| electron sound speed √(γkT_e/m_e) | 2.966 × 10⁶ m/s | 1.012 |
+| ion sound speed | 6.92 × 10⁴ m/s | 43 |
+| Alfvén speed (bias) | 1.31 × 10⁴ m/s | 229 |
+
+The justification this section used to carry — "reduced c is standard in five-moment work; a
+two-fluid study in the search results ran c from 3 to 12 v_Te and found only a minor effect on
+the modeled instabilities" — puts c between 6.9 × 10⁶ and 2.8 × 10⁷ m/s for this deck. At 3.0 × 10⁶ the deck is a factor of 2.3 below the bottom
+of the range its own citation covers. The citation does not support this setting.
+
+**The step count was attributed to the wrong thing.** "73,000 steps for 2 μs" is right — 2 μs /
+2.7366 × 10⁻¹¹ s = 73,086 — but it is not the price of the reduced c. Apollo's step is
+dt = (2/3)·cfl·dtscale·r_min/max‖λ‖ (`wxnodaldg2dmethod.cc:225`), and the largest characteristic
+speed here is `max(c, c_se)`, with c only 1.2% above c_se. Measured, by running the deck at
+LIGHT = 3.0 × 10⁶, 1.0 × 10⁶, 3.0 × 10⁵ and 1.0 × 10⁵ and reading the dt the solver printed:
+
+| LIGHT [m/s] | dt printed [s] |
+| --- | --- |
+| 3.0 × 10⁶ | 2.73658 × 10⁻¹¹ |
+| 1.0 × 10⁶ | 2.76826 × 10⁻¹¹ |
+| 3.0 × 10⁵ | 2.76826 × 10⁻¹¹ |
+| 1.0 × 10⁵ | 2.76826 × 10⁻¹¹ |
+
+A thirtyfold cut in the speed of light buys 1.16% and then nothing at all: the step saturates on
+the electron sound speed, to six significant figures. Reducing c further is not a lever, and the
+cost of any long RMF run here belongs to the electron fluid, not to the field solver.
+`test/test_rmf_scan.py` pins this.
+
+**In the penetrated state the electron fluid outruns the model's light.** The Euler flux's
+Lax–Friedrichs speed is |u| + √(γp/ρ) — the flow *adds* to the sound speed rather than competing
+with it (`wxeulereqn.cc:1110`). Synchronous rotation at the plasma edge is u_θ = ωa =
+1.50 × 10⁵ m/s, so the fastest electron characteristic is |u| + c_se = 3.116 × 10⁶ m/s — 3.9%
+*above* c. Equivalently, 0.70 eV of electron heating, or
+3.4 × 10⁴ m/s of bulk electron flow, crosses it. The penetrated state is exactly what Phase 3
+items 1, 2 and 4 exist to measure, so this is not a corner case: the deck's reduced c is below
+the speeds of the state it is meant to study.
+
+**And it cannot simply be raised, because of an identity.** With v_Te = √(kT_e/m_e),
+
+    λ_D · (c/v_Te) = c/ω_pe = √(m_e/(μ₀ n e²))
+
+whose right-hand side depends on the density alone — not on c, not on T_e. At n = 10²⁰ m⁻³ it is
+0.532 mm. `optimizedCircle2.msh` is essentially uniform — its longest cell edge averages 1.035 mm
+over all 7792 triangles, between 0.576 and 1.428 mm, with **no refinement toward the plasma edge**
+where the RMF physics lives. So c/v_Te and the Debye length trade off exactly against each other:
+
+The table is in the √(kT_e/m_e) convention throughout, which is the one the identity is written
+in. (The deck's λ_D is a single number, 0.407 mm; only the *ratio* c/v_Te depends on which
+convention names it, and an earlier draft of this table mixed the two and so gave the same
+physical configuration two different Debye lengths.)
+
+| c/v_Te | λ_D | λ_D / typical cell | λ_D / finest cell |
+| --- | --- | --- | --- |
+| 1.31 (**this deck**) | 0.407 mm | 0.39 | 0.71 |
+| 2.0 | 0.266 mm | 0.26 | 0.46 |
+| 3.0 (bottom of the cited range) | 0.177 mm | 0.17 | 0.31 |
+| 12.0 (top of it) | 0.044 mm | 0.04 | 0.08 |
+
+Read the "typical cell" column. The Debye length is already under-resolved by a factor of 2.6 in
+the bulk, so the deck's low c/v_Te is not *buying* Debye resolution — it is not resolved either
+way. (An earlier draft compared λ_D against the *finest* cell, 0.576 mm, which is one edge out of
+7792 and flatters every ratio by 1.8×. That column is kept, last, for comparison.)
+
+Buying a defensible c/v_Te costs what is left. With cost ∝ c·h⁻³ there are two different prices,
+and they answer two different questions:
+
+| what is bought | refinement | cost | per RMF period |
+| --- | --- | --- | --- |
+| c = 3 v_Te, **keeping the deck's present λ_D/h** | 2.30× | 27.8× | 6.9 days |
+| c = 3 v_Te, **and λ_D resolved at the typical cell** | 5.84× | 457× | 113 days |
+
+The first is what "raise c and change nothing else" actually costs; the second is what it costs to
+stop under-resolving the Debye length at the same time. Neither is affordable, but they are not
+the same number and an earlier draft quoted only a third one. The remaining way out is a lower
+density, which changes γ and hence the penetration problem being posed.
+
+None of this is a coding defect, and the choice made was the best available on this mesh. But
+"acceptable ✓" was too strong, and the consequence for Phase 3 is the phase's main finding.
+
+### 3.11 Smaller items
+
+- The initial condition computes a Gaussian density profile (`gaus`, `mval`, `value`, `rds`,
+  `beta`) and never uses it; every component is uniform.
+- `coilRadius` and `numberOfHarmonics` are read only by the harmonics BC; in this deck they are
+  ignored.
+- The heavy-ion deck sets `MI = 131*MP` — xenon — under a comment saying "hydrogen".
+- No limiter is active (`#Limiter = [twoFluidLimiter]`); the run relies on Lax–Friedrichs
+  dissipation, which is the most diffusive flux available.
+- Both decks stop at ~1.6 periods; the literature's diagnostics (ζ, torque balance, density
+  compression) need tens of periods.
+
+---
+
+## 4. Plan
+
+Ordered so that each step has a verification and the early ones are cheap.
+
+### Phase 0 — correctness fixes with tests — **DONE**
+
+Implemented; see `test/cxx/` for the tests and the git history for the changes.
+The items below are kept for the record, each annotated with what was done.
+
+#### The items
+
+1. **Friction energy terms** — done, all four sources. `s_e = +R·u_i − Q_Δ`,
+   `s_i = −R·u_i + Q_Δ`. `constantResistivity` additionally had a three-dimensional friction
+   with a two-dimensional work term, which broke conservation on its own; its work term is now
+   3-D too. `test/cxx/test_friction_sources.cc` configures each real class from a real deck
+   fragment and checks: the ion momentum source is exactly −R; the two energy sources sum to
+   zero; each equals the closed form; the frictional heat −R·w is non-negative (which holds
+   even with the anisotropic cross term, since that term does no work); and, for the isotropic
+   law where it can be computed independently, that −R·w equals ηJ². 31 checks.
+2. **Braginskii Q_Δ mass ratio** — done. Both now use `3*_me/_mi`. The cross-check
+   confirmed `constantResistivity`'s `(3/m_i) n² η e²` reduces exactly to `3 (m_e/m_i) n ν_ei`
+   under η = m_e ν_ei/(n e²), so that form was always right; and that the `nue` these two
+   classes compute is an electron–ion collision frequency (within 1.4× of the NRL value at the
+   deck's conditions), so the substitution is like-for-like. Tested by mass-ratio scaling
+   (quadrupling m_i must quarter Q_Δ) and by a physical bound that an inverted ratio overshoots
+   by ~10⁶.
+3. **E_z at the boundary** — done. Now `E_z = x Ḃ_y − y Ḃ_x`, computed from the same
+   B_x(t), B_y(t) the boundary imposes, so it stays consistent with whatever field convention
+   is used. `test/cxx/test_rmf_boundary.cc` checks both Faraday identities by central
+   differences against the shipped class (agreement to 1e-10), and that E_z now varies around
+   the boundary circle where the old form was axisymmetric.
+
+   **Also found and fixed while here:** `phase` was applied to only one of the two transverse
+   components, so it changed the *polarisation* rather than the phase. At `PHASE = PI/2` — the
+   value in the heavyIons deck — the applied field was linearly polarised along a fixed axis
+   with a magnitude swinging between 0 and √2·B_ω: an oscillating field, not a rotating one,
+   and a different experiment (Apollo has `twoFluidOMFBC` for that). The phase is now applied
+   to both components. `PHASE = 0`, the hydrogen deck, is unaffected. The test checks the
+   applied field has constant magnitude over a period and sweeps exactly one full turn, at
+   both phases.
+4. **`twoFluidRMFAntennaBC`** — done; `B_axial` is read in `setup()`, so its flux-conserver
+   expression no longer runs on an uninitialised member.
+5. **Documentation** — done, in the header of `aptwofluidsimplifiedrmfbc.h`: what the BC
+   imposes, the three assumptions (edge-prescribed field, slotted flux conserver,
+   over-specified hyperbolic boundary), and what each sibling BC actually applies. The
+   "0.5·B_ω discrepancy" turned out not to be one: `twoFluidRMFBC` imposes an *azimuthal
+   oscillating* field, not a uniform transverse rotating one, so the two are not alternative
+   spellings of the same drive. The simplified BC is the only one of the group that imposes
+   the classical RMF.
+6. **Decks** — done. The heavy-ion deck says xenon. The dead Gaussian profile (`value` was
+   computed and never referenced by any `exprList` entry) is removed from both decks, with a
+   comment recording that the initial column is deliberately uniform — the literature's
+   formation problem — and how to switch a profile back on.
+
+### Phase 1 — put the drive at the antenna, not the plasma edge — **DONE, with a finding**
+
+Implemented, and it changed the plan. The drive is now a current; the vacuum annulus turned
+out not to be representable in this model, and the reason is quantitative and worth keeping.
+
+**What was built.** `examples/unstructuredDG/multifluid/rmf_frc/antenna/`:
+
+- **The antenna** — `maxwellRMFAntenna` (`src/hyperapps/maxwell/aprmfantennasrc.h`), a rotating
+  m = 1 axial current sheet, which is what the saddle coils of an RMF machine are. It sources
+  `dE_z/dt` with `-J_z/eps0`, the same normalisation the plasma's own current uses
+  (`WxCurrentSrc`), so the field it produces is a solution of Maxwell's equations rather than a
+  prescription. The deck states the field it wants and the class solves for the current,
+  reporting what it arrived at: for the shipped deck, 1190 A peak per coil.
+- **The flux conserver as an actual boundary** — `twoFluidConductingWallBC`, which already
+  existed. It zeroes *both* tangential components of E, so by Faraday's law the axial flux it
+  encloses is conserved exactly. That replaces the area-integral feedback of §3.5 with a local
+  condition that needs no assumption about how the expelled flux distributes itself.
+- **A mesh generator** — `scripts/mkdiscmesh.py`. The `rmf_frc` meshes ship with no `.geo`
+  alongside them (unlike, say, `euler/backwardFacingStep`), so their domain could not be changed
+  at all. It writes graded polar-triangulated discs
+  in gmsh 2.2 ASCII as gmsh itself writes it, with a node ring placed exactly on a chosen
+  radius. Extending the domain from r = 0.03 to r = 0.05 costs 1.54× the cells (11 989 triangles
+  against `optimizedCircle2.msh`'s 7 792) and *nothing* in time step: dt is set by the smallest
+  cell, which is still in the plasma, and is in fact larger on the new mesh — 3.57e-11 s against
+  the shipped mesh's 2.74e-11 s, both measured.
+- **Verification with an exact answer** — `antenna/vacuum.pin` and
+  `test/test_rmf_antenna_field.py`. With the plasma removed, a winding inside a perfectly
+  conducting cylinder produces a uniform transverse field `B_rmf (1 - exp(-t/rise))` rotating at
+  ω, in closed form. The test checks all three of magnitude, uniformity and rotation rate
+  against it, at 5%, 6% and 10%; those tolerances are set by the O((ωb/c)²) ≈ 1% quasi-static
+  correction and by the coarse mesh, not chosen to fit. Measured on the shipped deck, the error
+  in |B| against the closed form falls from 9.8% a quarter of a rise time in to 0.1–1.9% over
+  the seven frames from 1.5 rise times on, the field's variation across the interior from 3.8%
+  to 0.6–3.1%, and the rotation rate over that window matches ω to 0.03%. The test looks only at
+  t ≥ 1.5·RISE; the transient before that is the conducting cylinder's own undamped modes, which
+  nothing absorbs when there is no plasma. This is the Phase 2 test
+  applied to Phase 1's geometry, and it is what makes the antenna trustworthy in the deck where
+  nothing is exact.
+- **The antenna power** — `scripts/rmf_antenna_power.py`, which evaluates
+  P = −∫E·J over the winding from a run's output and the deck's own antenna parameters. This
+  is the second of the two numbers the literature is built on, and it exists only because the
+  drive is a current: a prescribed edge field has no power. It is post-processing rather than an
+  in-solver diagnostic because Apollo's area integrals are not observable — `WxNodalDG2dMethod`
+  reduces them into `_AgregateAreaIntegral` and passes that to boundary conditions only, never
+  logging them and never writing them out. The script cross-checks itself against the solver:
+  it re-derives the antenna current amplitude and gets 16534.8 A/m, the figure the solver
+  prints at setup. It reports a cycle average only when the frames span a whole RMF period, and
+  says so otherwise — most of the instantaneous power is reactive.
+- **Unit tests** — `test/cxx/test_rmf_antenna.cc`. The strongest of them inverts the class:
+  sample `J_z` from `src()`, extract its m = 1 Fourier component shell by shell, superpose the
+  shell fields analytically, and check the result equals the requested `B_rmf`. It agrees to
+  2.6e-11, along a path that shares no arithmetic with `setup()` or `src()`.
+
+**The finding: the plasma–vacuum interface cannot be carried, so there is no annulus.** The plan
+this section replaces proposed the physically right structure — plasma disc r < a, vacuum annulus
+a < r < b, coils, conserver at b — with the annulus as a very-low-density two-fluid region, on
+the grounds that Apollo's density and pressure floors already support one. The floors are not
+the problem. The *edge* is.
+
+Apollo carries explicit charge separation, so the electron dynamics have two scales that must be
+resolved. At the column's density, and with the deck's numbers:
+
+| | value | against the mesh / step |
+|---|---|---|
+| Debye length λ_D = √(ε₀ k T_e / n e²) | 4.07e-4 m | 0.40–0.45 of a cell |
+| plasma period 2π/ω_pe, ω_pe = 5.64e9 rad/s | 1.11e-9 s | 31 time steps |
+
+Both are marginal, and the shipped deck gets away with them only because its state is uniform:
+nothing excites either mode. A density ramp at the column edge excites exactly them, and the
+electron fluid there runs away — the runs diverge at the ramp, at r ≈ 0.035, with electron
+speeds reaching 7e7 m/s and the pressure going negative, with or without the antenna running.
+A hard step fails on the first residual evaluation; a 1.5 mm tanh ramp lasts about 30 steps; a
+3 mm ramp about 150; a 5 mm ramp survived at least 244 before it was stopped. Widening the ramp
+buys steps, not stability, and it cannot be widened far — past a few millimetres the "column
+edge" is the whole gap to the winding. There is no slope limiter to fall back on, because the
+only one in the tree is broken (below).
+
+Two things are worth stating precisely, because the obvious intuitions about them are backwards:
+
+- **The reduced speed of light helps here, it does not hurt.** Rescaling ε₀ up by 10⁴ raises λ_D
+  by 100: at the true speed of light λ_D would be 4.07e-6 m, about 1/200 of a cell, and the mesh
+  would have to shrink by that factor to resolve it. The plasma *period* is a different matter
+  and does not improve — dt is CFL-limited by c, so raising c by 100 shortens the step by 100
+  too and the period stays at about 31 steps either way. It is the Debye length, whose yardstick
+  is the fixed mesh, that the reduced c rescues.
+- **A tenuous region is better resolved, not worse.** λ_D ∝ 1/√n, so the annulus would be the
+  best-resolved part of the domain: at 1e-4 of the column density λ_D is 41 mm against 1.6 mm
+  cells. The barrier is not the annulus; it is the gradient between it and the column, which
+  necessarily passes through the column's own under-resolved density.
+
+For completeness, the transparency requirement the annulus would have had to meet: the
+collisionless skin depth c/ω_pe = 5.32e-4/√f must exceed the 3.5 mm from the column edge to the
+inner edge of the winding, which needs f < 2.3e-2 — or f < 2.3e-4 for a comfortable tenfold
+margin. That is easily satisfiable and was never the binding constraint. (c/ω_pe is independent
+of the c rescaling: c²/ω_pe² = m_e/(μ₀ n e²), in which neither c nor ε₀ appears.)
+
+**What was built instead.** The plasma fills the domain out to the conducting wall and the
+antenna is embedded in it. That keeps everything Phase 1 was for — the drive is a current, the
+field everywhere is an outcome, the plasma screens it, the antenna is loaded, and the absorbed
+power is the ∫E·J over the winding — and gives up only the vacuum gap. Whether the field reaches
+r < 0.03 is now a result of the run rather than a boundary condition, which is the point. It is
+also not an unreasonable machine: RMF thrusters run with plasma filling the tube.
+
+**What would restore the vacuum gap**, in increasing order of work: a working slope limiter; a
+finer mesh in the column, which is what actually buys Debye resolution (λ_D there is fixed by the
+plasma, so the cell has to come down to meet it — roughly a factor of three, at a factor of nine
+in cells and three in time step); or a quasi-neutral or Hall formulation that does not carry
+charge separation at all. The third is the real answer and is what the NIMROD work implies when
+it says "the Hall term is a zeroth order effect".
+
+**What a short run shows.** The transverse field peaks at the winding (2.9e-4 T at t = 3e-8 s)
+and falls about two and a half decades over the centimetre on either side of it — the
+non-penetrated skin state, which is what to expect at t ≪ one RMF period. The peak field at the winding is about 11× below the free-space drive the
+same current would produce, which is the plasma loading the antenna: precisely the effect the
+edge-driven boundary condition forbids by construction. Whether it penetrates over tens of
+periods is Phase 3.
+
+Two resolution caveats before anyone quotes a number from it. The collisionless skin depth,
+c/ω_pe = 0.53 mm, is *below* the 0.9–1.5 mm cells, so the screening layer is only marginally
+represented; and the resistive skin depth δ = 1.26 mm — the length RMF penetration theory is
+written in terms of, through λ = r_s/δ — is resolved at about 1.4 cells. Both want refining
+before a threshold is quoted.
+
+**Bugs found and fixed on the way.** None of these are Phase 1 features; all were blocking it.
+
+1. **Every RMF boundary condition dereferenced a null pointer.** `WxTuAliabadiLimiter::applyBc`
+   passes no area integrals, and all five of `twoFluidSimplifiedRMFBC`, `twoFluidRMFBC`,
+   `twoFluidRMFHarmonicsBC`, `twoFluidRMFAntennaBC` and `twoFluidOMFBC` read `AreaInts[15]`
+   unguarded. Enabling the limiter on any RMF deck segfaulted on the first step.
+2. **A heap buffer overflow in the DG geometry, present in every run.**
+   `wxNodalDGgeometry2D` allocated `_ETETF` with `_Ktotal` rows while indexing it by local cell
+   id up to `_kLocalInt - 1`. `_Ktotal` counts only the cells with three vertices *and* is an
+   `MPI_Allreduce` **sum across ranks**, so on more than one rank it is the global element count
+   rather than a local size at all. On the shipped `rmf_frc` mesh the stratum holds 7984 cells
+   and `_Ktotal` is 7792: the last 192 rows were past the end of the pointer array.
+3. **Ghost cells in the height-0 stratum.** `ApSolver::createMesh` calls
+   `DMPlexConstructGhostCells`, which appends one ghost cell per boundary facet — the whole of
+   the 7984-against-7792 discrepancy, and matching on every mesh checked (3929 triangles + 157
+   boundary lines = 4086 for `vacuumDisc.msh`, 11 989 + 211 = 12 200 for `disc.msh`). They have
+   no geometry, so the DG scheme tolerates them but the limiter asked them for their normals and
+   stopped with "Edge length of 0 found in element 7792".
+   `wxNodalDGgeometry2D::isRealCell()` now reports which cells are real.
+4. **`maxwellRMFSrc` would leak stale source values across the whole plasma interior.**
+   `WxHyperbolicSrc::compSource` keeps `_outValues` as a member, never clears it, and does
+   `sfull[idx] += _outValues[i]`. `ApRMFSrc::src` wrote its three outputs only inside
+   `if (r > _r0)`, so every point inside r₀ would receive the previous quadrature point's values
+   in E_z, B_x and B_y. **Latent, not active:** the `heavyIons` deck is the only one carrying an
+   `RMFsrc` block and it is commented out of that deck's `Sources` list, and
+   `WxHyperbolicSrcSet::setup` instantiates only what `Sources` names — so the class is
+   constructed by no shipped deck and nothing was ever corrupted. Fixed anyway, since Phase 1
+   builds on this file; the class is also now documented as *not* an antenna (it has no current
+   and cannot be loaded) and superseded by `maxwellRMFAntenna`.
+
+**Still broken: the two-fluid slope limiter.** With those three fixes `tuAliabadiLimiter` runs
+instead of crashing, but still produces NaN energy after a few tens of steps — on the shipped
+`rmf_frc` deck as much as on the new one. The remaining fault is in its own numerics and was not
+chased down. It is the only limiter that handles the eighteen-component two-fluid state
+(`eulerLimiterHW` limits the five-component Euler state and is enabled in several shipped Euler
+decks), so with it broken no multifluid case can be limited at all.
+
+### Phase 2 — characteristic-consistent boundary injection — **DONE, and it changed the plan**
+
+The plan asked for boundary conditions that impose only the incoming characteristics, on the
+grounds that writing a whole prescribed field into the ghost state over-specifies a hyperbolic
+system and leaves the plasma seeing something other than the prescribed field. The machinery
+exists now. **The premise does not hold in the shipped configuration**, and establishing that is
+the more useful half of this phase.
+
+**The finding.** `WxPHMaxwellEqn::DGnumericalFlux` is Lax–Friedrichs with λ = max(c, χc, γc).
+At χ = γ = 1 — what every deck that uses these boundary conditions sets, as `DIVE_SPEED` and
+`DIVB_SPEED`; `maxwell/transverseMagnetic` sets neither and takes the 0.0 default — every
+eigenvalue of the flux Jacobian has magnitude c, so |A| = cI and that Lax–Friedrichs flux **is**
+the exact upwind flux. An upwind flux takes the outgoing characteristics from the interior and
+ignores what the ghost says about them; the flux depends on the ghost only through
+(A − cI)q_ghost, and (A − cI) annihilates precisely the outgoing eigenvectors. The
+over-specification is invisible. Measured, over 300 random states and face normals against the
+real equation object:
+
+| χ, γ | max relative difference between the old ghost and the characteristic one |
+|---|---|
+| **1, 1** (every shipped deck) | **2.9e-16** — roundoff |
+| 1.5, 1 | 1.7e-1 |
+| 1, 2 | 2.5e-1 |
+
+Confirmed at solver level, not only at the level of one flux evaluation: the shipped `frc2d.pin`
+run to t = 2e-8 (734 steps of the full two-fluid problem) with and without characteristic
+injection agrees to 5e-15 relative on B, 2e-12 on E and 7e-15 on the densities — roundoff
+accumulated over the run, and nothing more.
+
+So the defect is latent rather than active. It becomes real if a deck changes either cleaning
+speed, and it is real already in the slope limiter, which consumes the ghost state directly
+rather than through a Riemann solve.
+
+**What was built.** `src/hyperapps/maxwell/apmaxwellcharacteristics.h` gives the closed-form
+decomposition and the ghost state. In a frame whose x-axis is the outward face normal, with
+t1 = n turned a quarter turn in the plane and t2 = z:
+
+| outgoing (leaving) | incoming (entering) |
+|---|---|
+| v₁ = E_t1 + c B_t2 (+c) | w₁ = E_t1 − c B_t2 (−c) |
+| v₂ = E_t2 − c B_t1 (+c) | w₂ = E_t2 + c B_t1 (−c) |
+| v₃ = E_n + c φ (+χc) | w₃ = E_n − c φ (−χc) |
+| v₄ = B_n + ψ/c (+γc) | w₄ = B_n − ψ/c (−γc) |
+
+χ and γ scale two of the speeds but not their signs, and only the sign decides what is incoming,
+so they do not enter the construction. The ghost is computed as the interior state plus the
+incoming part of (prescribed − interior) rather than by inverting the invariants: the two are
+algebraically the same, but reconstructing ψ from (v₄ − w₄)c/2 subtracts two numbers each about
+B_n that differ by 2ψ/c, which with the reduced speed of light loses seven digits — enough that
+feeding the interior state back in did not return it. In the difference form both degenerate
+cases come out exact.
+
+`twoFluidSimplifiedRMFBC` takes this route when the deck supplies `c0`, and leaves the old path
+otherwise, so no existing deck changes by even a bit unless it asks.
+
+**Not through `eigenSystem()`.** The plan proposed injecting through the eigenvectors that
+`wxphmaxwelleqn.cc` "already provides". That function is never called — its only caller is
+`WxHyperbolicEqnSet::eigenSystem`, which nothing calls in turn — and it is wrong where it can be
+read: it takes the cleaning speeds from `gamma = q[6]; kappa = q[7]`, which are the cleaning
+*potentials* φ and ψ, not the speeds. It is also axis-aligned, so an unstructured face normal
+would need a rotation around it anyway. See `docs/known-issues.md`.
+
+**Verification.** Two tests, at different levels:
+
+- `test/cxx/test_maxwell_characteristics.cc`, 9 checks. The eight characteristic variables are
+  checked against the flux Jacobian **assembled by calling `WxPHMaxwellEqn::flux` itself**, so a
+  change to the flux cannot silently invalidate the decomposition; |A| = cI is checked as
+  A² = c²I; the ghost's outgoing invariants are checked to be the interior's and its incoming
+  ones the prescribed field's; both degenerate limits come out exactly zero; and the table above
+  is asserted, identical at χ = γ = 1 and materially different away from it.
+- `examples/unstructuredDG/multifluid/rmf_frc/vacuum.pin` with `test/test_rmf_bc_field.py` is the
+  plasma-free run the plan asked for, and it is new coverage rather than a formality: nothing
+  previously checked at solver level that `twoFluidSimplifiedRMFBC` applies the field it says it
+  applies. It checks magnitude, uniformity, the angular structure of the induced E_z, and rotation
+  *sense* (this boundary condition turns clockwise; the antenna turns the other way).
+
+  This entry originally claimed that both Phase 0 defects in that class — the phase applied to one
+  Cartesian component only, and an induced E_z satisfying neither component of Faraday's law —
+  would have failed it. That was written before it was checked, and checking it showed it was
+  false: each defect was reintroduced into the boundary condition, the deck was re-run, and all
+  three checks passed both times. Neither near-miss was fixable by tightening a tolerance.
+
+  - The phase defect is not detectable at `PHASE = 0` **in principle**. `cos(ωt + φ)` with φ = 0
+    and `cos(ωt)` are the same expression; 0 of 300001 field samples differed by a bit. The deck
+    now sets `PHASE = PI/2`.
+  - The E_z defect moves |B| by 0.24%, against a 5% tolerance that cannot be taken below the
+    deck's own 0.25% quasi-static error (see *On "exactly"* below). What it does change is the
+    *shape* of E_z: dropping the azimuthal dependence leaves E_z a function of r alone. The test
+    now asserts angular structure directly — std(E_z)/mean(|E_z|) > 0.3 in a band at mid-radius.
+    The threshold is not fitted: an m = 1 field gives π/(2√2) = 1.11 there (1.115 measured, the
+    excess being the r-dependence across the band) and the defective one gives 0.013, so 0.3 sits
+    3.7× below the first and 23× above the second.
+
+  Both defects were then rebuilt into the boundary condition and the deck re-run against the
+  updated test — the step that was skipped the first time. The phase defect now fails the rotation
+  check (the field sweeps +0.0000 rad where −0.4496 is expected: a linearly polarised field does
+  not turn) and the magnitude check (38.5% error against 5%). The E_z defect fails the new angular
+  check at 0.013 against a threshold of 0.30. Neither is a near miss.
+
+  `test/cxx/test_rmf_boundary.cc` catches both as well, at unit level and in seconds rather than
+  minutes, which is where a defect of this kind should be caught; the deck-level run is what
+  checks that the field reaches the interior of an actual solve.
+
+**What the deck-level tests cost, and what that bought.** Both vacuum runs are in CI on every
+push, so their parameters answer to wall-clock as well as to physics. `vacuum.pin` was 35 minutes
+when first written, which is not a price a push-triggered check can carry; it is now 4.6 minutes.
+Three changes, none of which spends a margin the test depends on:
+
+| | before | after | why it is safe |
+|---|---|---|---|
+| `RISE` | 1.0e-7 s | 6.0e-8 s | 3.7 periods of the j₁₁ cavity mode rather than 6.1 — the ratio the antenna deck was already validated at |
+| `TEND` | 3.0e-7 s | 1.8e-7 s | still 3·RISE, so `settled()` still keeps 7 frames past 1.5·RISE |
+| mesh h | 1.2e-3 m | 1.8e-3 m | 1815 triangles, minimum quality 0.6875 |
+
+Measured over the seven frames of the settled window afterwards: magnitude error 0.19% worst
+against a 5% tolerance, uniformity 0.17% against 6%, rotation 0.25% against 10%, and the E_z
+ratio 1.115 against a floor of 0.30. The ringing the window exists to exclude is real and large —
+17% and 11% at t = 15 ns — so the window, not the tolerances, is what the shorter ramp had to be
+checked against, and it was.
+
+The antenna deck was left at 21 minutes. The same cavity argument pins its ramp at a larger radius
+(b = 0.05 m, a 27 ns period, a 100 ns ramp), so `RISE` is not free there; its remaining knob is the
+mesh, and its tightest margin — uniformity at 3.1% against 6% — is the one a coarser mesh would
+eat first. Trimming it is a measurement, not an argument, and has not been made.
+
+**On "exactly".** The plan said a plasma-free run "must reproduce the applied field exactly". It
+cannot, and the reason bounds the tolerance rather than being a defect: a spatially uniform
+B_perp has curl B = 0, so Ampère would need ∂E/∂t = 0 while the induced E_z rotates. The uniform
+rotating field is the quasi-static limit, good to O((ωa/c)²) — 0.25% at this deck's numbers. The
+same caveat applies to the Phase 1 antenna test and is stated there too.
+
+### Phase 3 — validate against the literature — **item 0 DONE; the rest is instrumented, priced, and blocked**
+
+The plan called this "weeks, mostly compute". That was the optimistic reading. What follows is
+what Phase 3 established, what it built, and what each remaining item now costs — measured rather
+than estimated, because the first thing the phase found is that the usual way of making a run like
+this affordable does not work here.
+
+#### 0. Which way the drive turns — **settled, and it did not need a run**
+
+The plan asked for tens of RMF periods to confirm that the driven B_z on axis moves against the
+bias. It does not need them. The question is a sign, the sign chain is short, and every step of it
+can be checked in code:
+
+1. A drive turning counter-clockwise drags electrons counter-clockwise; in the synchronous limit
+   u_e,θ = ζωr with ζ → 1.
+2. J = Σ q_s n_s u_s, and the electron charge is negative, so counter-clockwise electrons carry a
+   **clockwise** current: J_θ < 0.
+3. Inside an infinite cylinder each shell contributes μ₀J_θ dr to the axial field, so
+   B_z(0) = −μ₀neωζa²/2, **negative** for ζ > 0.
+4. A negative driven B_z opposes a +ẑ bias. That is field reversal.
+
+So forming an FRC against a +ẑ bias requires a counter-clockwise RMF, and
+`test/cxx/test_rmf_rotation_sense.cc` (15 checks) asserts the whole chain plus the sense of each
+shipped drive, measured from the classes rather than read off their source — the antenna's from the m = 1
+Fourier component of the current it emits, the boundary condition's from the direction of the
+field it writes.
+
+| deck | drive | sense | driven B_z at ζ = 1 | against its +60 G bias |
+| --- | --- | --- | --- | --- |
+| `rmf_frc/antenna/frc2d.pin` | `maxwellRMFAntenna` | counter-clockwise | −452 G | **opposes it: field reversal** |
+| `rmf_frc/frc2d.pin` | `twoFluidSimplifiedRMFBC` | clockwise | +452 G | **reinforces it** |
+| `rmf_frc/heavyIons/frc2d.pin` | `twoFluidSimplifiedRMFBC` | clockwise | +452 G | **reinforces it** |
+
+All three carry B_ω = 50 G and B_bias = +60 G, so the pairing is the only thing that differs. Both
+edge-driven decks are the wrong way round, not just the hydrogen one; the xenon deck was not
+mentioned when this was first written. The minimal fix for either is one sign — set
+`Baxial = -60.e-4`, or reverse the drive — since (x, y, z) → (x, −y, −z) is a proper rotation
+carrying a clockwise drive with a +ẑ bias onto a counter-clockwise drive with a −ẑ one. Which of
+the two to change is a question about what the decks are meant to demonstrate, so neither has been
+changed here.
+
+Both are independent of `phase`, which is what "phase" is supposed to mean. The magnitude, 452 G,
+is the μ₀neωa²/2 of §3.2 recovered independently. The analytic expectation the assessment recorded
+was right, and it is now executable: 15 milliseconds instead of tens of periods. The same sign rule
+is asserted from the Python side, on the diagnostic that post-processes a run, in
+`test/test_rmf_diagnostics.py`; both must agree.
+
+What a simulation would still add is the *magnitude* of the reversal and the approach to it — items
+2 and 4 — not the sign.
+
+#### What the rest costs, and why the usual lever is missing
+
+Apollo's step is `dt = (2/3)·cfl·dtscale·r_min / max‖λ‖` (`wxnodaldg2dmethod.cc:225`). The measured
+consequence, and the phase's central finding, is in §3.10: **the largest characteristic speed is
+not the reduced speed of light but the electron sound speed**, which sits 1.2% below it. Cutting c
+by a factor of thirty changes dt by 1.16% and then not at all. The standard way to buy time in a
+reduced-c two-fluid run is unavailable here.
+
+The lever that does work is (T_e, c) together. Under T_e → T_e/s² with c → c/s, every dimensionless
+parameter the penetration literature is written in — γ, λ, ω/ω_ci, ω/ω_ce, B_ω/B_bias, λ_D in
+cells, ω_pe Δt — is invariant, while dt grows by exactly s. Only β moves, by 1/s². That is a real
+change to the plasma and `scripts/rmf_scan.py --speedup` says so rather than hiding it.
+
+**But it makes §3.10's problem worse, and that limits where it may be used.** ω and a are
+untouched, so the drive speed ωa = 1.50 × 10⁵ m/s is fixed while c and c_se both fall by s. The
+ratio ωa/c therefore grows by exactly s:
+
+| s | c | \|u\| + c_se above c | (ωa/c)² |
+| --- | --- | --- | --- |
+| 1 | 3.0 × 10⁶ | +3.9% | 0.25% |
+| 2 | 1.5 × 10⁶ | +8.8% | 1.00% |
+| 3 | 1.0 × 10⁶ | +13.8% | 2.25% |
+| 5 | 6.0 × 10⁵ | +23.8% | 6.24% |
+
+So the scaling is legitimate for **items 1 and 3**, which are about the screened and
+near-threshold states where the electrons are not driven to ωa, and **not for item 2**, the
+penetrated limit — which is exactly the state where the electron fluid already outruns the
+model's light, and the scaling triples the margin by which it does. It is also not for item 4,
+which is about pressure balance and so about β. And "dt grows by exactly s" is a cold-start
+statement: in a penetrated state dt grows by 2.74 at s = 3, not 3, for the same reason.
+
+One RMF period is 45,965 steps. **The step counts are exact and the hours are not**: the timestep
+model reproduces the solver's dt to six significant figures, but the seconds-per-step constant is a
+property of the machine and its load. The same binary on the same mesh measured 0.464 s/step idle,
+0.569 under moderate load and 0.720 under heavy load in one afternoon — a spread of 79%. The table
+below uses the idle figure, 5.9 hours per period; read the days as an order of magnitude and pass
+`--sec-per-step` measured on the machine that will do the work. (There is no separate setup cost to
+subtract: timed directly, a 3-step run of this deck takes 2.6 s and a 41-step run 30 s, which fits
+a fixed cost of 0.4 s.)
+
+| item | run | as shipped | with `--speedup 3` |
+| --- | --- | --- | --- |
+| 1. threshold scan | 5 × B_ω, 5 periods | 6.2 days | 2.1 days |
+| 1. as it must actually be | 8 × B_ω, 5 periods | 9.9 days | 3.3 days |
+| 2. penetrated limit | 1 point, 10 periods | 2.5 days | not applicable (see above) |
+| 3. skin-depth limit | 3 × B_ω, 5 periods | 3.7 days | 1.2 days |
+| 4. formation dynamics | 1 point, 20 periods | 4.9 days | not applicable (β) |
+
+None of these fits in a session, and the solver has no checkpoint/restart (`known-issues` §6), so
+an interrupted run is a lost run. That is why `rmf_scan.py` prints the cost before running anything
+and refuses to start a scan it estimates at over six hours.
+
+And these are the prices at the deck's *present* reduced c. Fixing the physics problem §3.10
+describes — c ≥ 3 v_Te — costs a further factor of 27.8 at the deck's present resolution, about
+6.9 days per RMF period, or 457 and 113 days if the Debye length is to be resolved too. The honest statement is that a properly resolved Phase 3 campaign
+is out of reach of this model configuration, not merely of this machine.
+
+#### The instruments, built and verified
+
+The remaining items are all "measure X from a run and compare it with Y", so the phase's other
+deliverable is the measuring apparatus — verified against closed forms first, the way Phases 1
+and 2 verified theirs, because a diagnostic that has never been checked is not evidence.
+
+- **`scripts/rmf_diagnostics.py`** computes B_z on axis, the electron rotation parameter ζ, the
+  penetration of the transverse field, the current-layer thickness against δ, and the
+  penetrated-limit driven field for a measured ζ(r). The current comes from the fluid momenta,
+  J = Σ (q_s/m_s)(ρu)_s — the same expression `WxCurrentSrc` feeds back into Ampère's law, so it
+  is the current the run actually used, and it needs no derivative of a discontinuous P1 field.
+- **`test/test_rmf_diagnostics.py`**, 41 checks in 0.06 s, feeds each function an analytic field
+  whose answer is known and asserts it comes back. Every guard and sign in the module is checked
+  by mutation — removing it has to break the suite — which is how the R² guard above was found to
+  be doing nothing.
+- **`scripts/rmf_scan.py`** runs a scan, applies the diagnostics, and skips points already
+  complete — the only restart available. **`test/test_rmf_scan.py`**, 12 checks, holds its cost
+  model against six timesteps the solver actually printed, reproducing each to five significant
+  figures.
+
+Both test files run in the fast CI gate, which needed numpy installed there: they had been
+skipping, and a test that skips is not running.
+
+Exercising the pipeline on real output earned its keep twice. The layer-thickness fit reported
+40 mm and 59 mm "skin layers" in a 30 mm column — fits to a switch-on transient that was not
+decaying — and now refuses a length exceeding half the column. An R² test was tried for the
+"is it actually an exponential" half of the job and did not work: R² is about 1 for anything
+monotone once the profile spans decades, so a power law was accepted with R² = 1.00000. It was
+replaced by a consistency test — an exponential has one decay length, so the outer and inner
+halves of the fit window must agree — which refuses that power law at 0.91 against 2.51 mm. And the first
+programmatically generated deck aborted at setup with `std::bad_cast`, because `LIGHT = 1.0e6` had
+been written `1000000` and Apollo's lexer types a literal with no decimal point as an integer. A
+scan writes every one of its decks, so that would have failed at every point, with an error naming
+no key; it is now `known-issues` §12 and is pinned by a test.
+
+#### The items, and where each one stands
+
+0. **Which way the drive turns.** Confirm that the driven B_z on axis moves *against* the bias
+   field, for each of the two decks. — **DONE**, above, analytically and in 15 unit checks. The
+   plan budgeted tens of RMF periods; it needed none.
+1. **Penetration threshold.** At fixed γ and λ, scan B_ω and locate the transition between
+   skin-depth-limited (interior B⊥ ≈ 0, current in a layer of thickness δ) and penetrated
+   (near-synchronous rotation) states. Compare with the Hugrass–Grimm 1981 threshold and
+   Milroy 1999's empirical expression. This is the test the whole subject rests on. —
+   **instrumented and priced**: `penetration_fraction` measures the transition,
+   `rmf_scan.py --param Bomega` runs the sweep. 6.2 days as shipped, 2.1 with `--speedup 3`.
+   Not run.
+
+   Two things about its design, both from §3.2. First, with γ evaluated in B_ω the deck sits at
+   γ/λ = 2.63 — near the threshold rather than far above it — so the scan must **bracket** the
+   transition, not confirm a side of it. Second, the numeric coefficient in the Hugrass–Grimm and
+   Milroy conditions could not be sourced from this environment at all, and is not quoted anywhere
+   in this document. That is not fatal: a scan wide enough to bracket the transition *measures*
+   the coefficient instead of assuming it, which is the better experiment. It does mean the scan
+   has to span roughly B_ω = 10 to 150 G rather than the narrow range a known threshold would
+   allow. Eight points over that range at five periods is 9.9 days, or 3.3 with `--speedup 3`.
+2. **Penetrated limit.** Check the driven field reversal against μ₀ n e ω a²/2 · ζ with ζ
+   measured from the simulation's electron rotation. — **instrumented**:
+   `rotation_parameter` measures ζ(r) and `penetrated_limit_bz` integrates it, both verified
+   against the closed form. 2.5 days for ten periods, and **the `--speedup` lever may not be used
+   here**: it triples the margin by which a penetrated state's electrons outrun the model's light,
+   which is the one thing this item must not do. Not run.
+3. **Skin-depth limit.** At low B_ω, check the current layer thickness against δ. —
+   **instrumented**: `current_layer_thickness`, verified to recover δ from exp(−(a−r)/δ) and to
+   refuse a fit that is not a layer. 3.7 days for three points, 1.2 scaled. Not run. **The mesh, not the run
+   length, is the binding constraint on this item.** δ is 1.26 mm and the mesh is essentially
+   uniform at 1.035 mm per cell edge with no refinement at the plasma edge, so the current layer
+   this item exists to measure is **1.2 cells thick**. A thickness cannot be measured from a layer
+   one cell wide, whatever the run length, and `current_layer_thickness` will correctly refuse
+   most such profiles rather than fit them. Item 3 needs a mesh graded toward r = a before it
+   needs any compute at all.
+4. **Formation dynamics.** Reproduce Guo 2002's sequence — reversal, radial expansion, bias-flux
+   compression, density rise, torque–friction balance — which needs tens of periods and the
+   Phase 0 energy fix. — **not run**, 4.9 days, and the `--speedup` scaling does *not* apply
+   here: it changes β by 1/s², and β is exactly what this item is about.
+5. **Sousa 2016.** Re-run the cases behind the APS 2016 abstract with the corrected boundary and
+   compare instability onset and reversal robustness. — **not started**; sits behind item 1.
+6. **Thruster regime.** For the xenon deck, compare penetration against the Michigan
+   measurements (R = 10 cm, δ = 1 cm, T_e ≈ 9 eV, currents to 2500 A), restricted to what r-θ
+   can say. — **not started**; the xenon deck has its own parameters and has not been priced.
+
+Items 1–4 are runnable in the sense that everything except the compute exists: the decks, the
+diagnostics, the harness, and a cost estimate good to five significant figures. **Run them on the
+antenna deck**, for the reason in the section below: on the edge-driven deck the transverse field
+depends on the divergence-cleaning speed within a few hundred steps. What none of them
+can do until §3.10 is addressed is claim to describe a *penetrated* state, since in that state the
+model's electrons outrun its light. **That is the finding this phase should be read for**, and it
+belongs ahead of any of the comparisons: an item-1 threshold scan run today would produce a
+threshold, and the side of it that matters — the penetrated side — is the side the model cannot
+currently represent.
+
+#### A second blocker, found while looking for the first
+
+§3.10 is about whether the deck's physics is representable. This one is about whether its numerics
+hold still long enough to measure anything, and it lands on the edge-driven deck specifically.
+
+`twoFluidSimplifiedRMFBC` writes the applied transverse field into the ghost state at every
+boundary face, against whatever interior field the run has produced. The resulting jump in the
+normal component of **B** is what the divergence-cleaning potential ψ exists to carry away, and it
+is being fed faster than it can carry: measured over 210 steps of the shipped deck, rms|ψ|/rms|E|
+runs 0.38, 1.76, 3.51, 5.59, 8.84, 12.08, still rising linearly. ψ enters the induction equation in
+the slot **E** occupies, and two runs differing in nothing but `DIVB_SPEED` diverge to 92% of
+rms|B_x| over those same 210 steps — 0.005 of one RMF period.
+
+Three things follow for Phase 3, and the third is the useful one:
+
+- **Items 1–4 should be run on the antenna deck**, not the edge-driven one. Driving with a current
+  never writes a discontinuous **B** into a ghost state, and its ψ/E stays between 0.03 and 0.09
+  over the same 210 steps instead of reaching 12.
+- **B_z is the last quantity to notice**, which is why nothing caught this: over 210 steps the B_z
+  difference is 0.09% of the bias while B_x has diverged completely. Item 0's observable is the
+  most forgiving one in the problem.
+- **Phase 2's characteristic injection is not the remedy**, and this was tested rather than
+  assumed: `c0 = LIGHT` in the boundary condition reproduces the ψ/E figures above to four decimal
+  places, frame for frame. That is the expected answer for the reason Phase 2 recorded — at
+  χ = γ = 1 Lax–Friedrichs is exactly upwind, so the ghost's outgoing part cannot reach the flux.
+  The over-specification Phase 2 removed was real and is not what drives ψ here.
+
+`docs/known-issues.md` §13 carries the numbers and a repro.
+
+#### What would have to change first
+
+Four ways out, in increasing order of how much they cost and decreasing order of how much they
+give up. None is free, and the identity λ_D·(c/v_Te) = c/ω_pe of §3.10 is what makes that so.
+
+1. **Raise c and refine the mesh.** c = 3 v_Te = 6.9 × 10⁶ m/s. Refining only enough to hold the
+   deck's present Debye resolution costs 27.8×, about 6.9 days per RMF period; also resolving
+   λ_D at the typical cell size costs 457×, about 113 days. Either keeps every physical
+   parameter, and either prices Phase 3 out.
+2. **Raise c and accept an under-resolved Debye length.** c = 3 v_Te on the present mesh gives
+   λ_D = 0.17 of a typical cell. Costs 2.3×; whether that matters is a question about this
+   scheme's behaviour at λ_D < h that nobody here has asked. It is worth asking, and it is
+   sharper than it looks: the deck is *already* at λ_D = 0.39 cells, so this is not a step from
+   resolved to unresolved but from one under-resolved state to another.
+3. **Lower the density.** λ_D and c/ω_pe both go as n^(−1/2), so n = 10¹⁹ m⁻³ buys a factor of
+   3.2 in the trade and makes c = 3 v_Te compatible with the present mesh. But with η fixed
+   ν_ei ∝ n, so γ goes from 62.5 to 625: a different point in the penetration diagram, which is
+   the thing being measured. Recovering γ needs η ×10, which moves δ and hence λ. The
+   two literature parameters cannot both be held while n moves.
+4. **Change the model.** The constraint is a five-moment artefact: it exists because the electron
+   fluid carries its own sound wave and the scheme is explicit. An implicit or sub-cycled electron
+   treatment, or a Hall/electron-inertia reduction, removes the electron sound speed from the CFL
+   entirely — which is what would make a validation campaign of this shape affordable. That is a
+   solver project, not a deck change.
+
+Whichever is taken, the first cheap thing to do is settle whether the electron sound speed
+exceeding c actually damages the answer, or merely violates a principle. A plasma-free or
+single-fluid case cannot show it, and neither can a run short enough to stay in the
+skin-depth-limited state; it needs a driven run that reaches ζ of order one, which is item 2. That
+is circular, and the way out of the circle is option 2 above: run item 2 at c = 3 v_Te on the
+present mesh, at 2.3× the cost, and compare it against the same case at the shipped c. If they
+agree, the shipped setting is defensible after all and the rest of the phase can proceed on it. If
+they do not, the disagreement is the measurement of how much this matters. Ten periods each is
+2.47 days at c = 3.0 × 10⁶ and 5.67 days at c = 3 v_Te = 6.89 × 10⁶, so **8.1 days for the pair —
+the single most informative run Phase 3 could buy**, and the one to buy first.
+
+### Phase 4 — physics the literature says matters next
+
+- **η(T_e)** (Spitzer, with lnΛ) so that heating feeds back on penetration; the Phase 0 energy
+  fix is a prerequisite or the feedback is fed wrong numbers.
+- **Anomalous absorption ∝ B_ω²** as an optional resistivity enhancement, to compare with the
+  Guo 2007 power balance.
+- **Neutral fluid with ion-neutral drag**, using the existing multi-fluid machinery, for any run
+  intended to reach sustainment.
+- **r-z or 3-D** for finite antenna length, end-shorting and thrust; out of scope for this
+  example but the reason an r-θ result on the xenon deck is not a thrust prediction.
+
+### What can be compared today
+
+With the antenna deck, the field the plasma sees is an outcome and the antenna current is an
+input, so the two numbers the RMF literature is built on — the penetration threshold in B_ω and
+the absorbed antenna power — are now *measurable* from a run rather than pinned by a boundary
+condition. That is the door Phase 1 opens; walking through it is Phase 3.
+
+Two caveats on any comparison made through that door. There is no vacuum gap between plasma and
+winding (see Phase 1), so the antenna is more heavily loaded than a real one and the threshold
+will not be the experiment's number. And the geometry is r-θ, so nothing about finite antenna
+length, end-shorting or thrust follows.
+
+The original edge-driven deck, `rmf_frc/frc2d.pin`, is unchanged and remains what it was: a
+demonstration of what a two-fluid model with these parameters does when a uniform rotating field
+is imposed at its edge. Both decks are worth keeping.
+
+They differ in **two** things, not one, and the second was not intended. The antenna's current
+goes as cos(θ − ωt − φ), whose field turns counter-clockwise; `twoFluidSimplifiedRMFBC` writes
+B = (−B_t sin(ωt+φ), −B_t cos(ωt+φ)), which turns clockwise. In the synchronous limit the
+electrons are dragged in the sense of the rotation, so J_θ = −e n u_θ takes the opposite sign to
+it: a counter-clockwise RMF drives J_θ < 0, whose axial field opposes a +ẑ bias — field reversal
+— while a clockwise one reinforces it. So the shipped edge-driven deck's pairing of a clockwise
+drive with a +60 G bias is the wrong way round for formation.
+
+This was written as an analytic expectation, with confirming it named as the first thing Phase 3
+should do. Phase 3 did it, and it did not need the "tens of RMF periods" the plan budgeted: the
+whole chain is a sign, and `test/cxx/test_rmf_rotation_sense.cc` now asserts every step of it
+along with the measured sense of each drive, in 15 checks and 15 milliseconds. The expectation
+holds. A run would add the magnitude of the reversal and the approach to it, which is Phase 3
+items 2 and 4, but nothing about the sign.
+
+
+---
+
+## References (as located by search; publisher pages were not fetchable from this environment)
+
+- Jones, I. R. & Hugrass, W. N., "Steady-state solutions for the penetration of a rotating magnetic field into a plasma column", *J. Plasma Phys.* 26, 441 (1981). https://www.cambridge.org/core/journals/journal-of-plasma-physics/article/abs/steadystate-solutions-for-the-penetration-of-a-rotating-magnetic-field-into-a-plasma-column/27A1A38DCB4E3819FF1DD153C6FBD641
+- Hugrass, W. N. & Grimm, R. C., "A numerical study of the generation of an azimuthal current in a plasma cylinder using a transverse rotating magnetic field", *J. Plasma Phys.* 26, 455 (1981).
+- Milroy, R. D., "A numerical study of rotating magnetic fields as a current drive for field reversed configurations", *Phys. Plasmas* 6, 2771 (1999). https://pubs.aip.org/aip/pop/article-abstract/6/7/2771/464976
+- Milroy, R. D., "A magnetohydrodynamic model of rotating magnetic field current drive in a field-reversed configuration", *Phys. Plasmas* 7, 4135 (2000). https://pubs.aip.org/aip/pop/article-abstract/7/10/4135/264692
+- Guo, H. Y., Hoffman, A. L., Brooks, R. D., et al., "Formation and steady-state maintenance of field reversed configuration using rotating magnetic field current drive", *Phys. Plasmas* 9, 185 (2002). https://pubs.aip.org/aip/pop/article/9/1/185/264956
+- Hoffman, A. L., Guo, H. Y., Miller, K. E. & Milroy, R. D., "Principal physics of rotating magnetic-field current drive of field reversed configurations", *Phys. Plasmas* 13, 012507 (2006). https://pubs.aip.org/aip/pop/article-abstract/13/1/012507/896633
+- Guo, H. Y., Hoffman, A. L. & Milroy, R. D., "Rotating magnetic field current drive of high-temperature field reversed configurations with high ζ scaling", *Phys. Plasmas* 14, 112502 (2007). https://pubs.aip.org/aip/pop/article-abstract/14/11/112502/936710
+- Milroy, R. D., Kim, C. C. & Sovinec, C. R., NIMROD simulations of RMF-driven FRCs, *J. Comput. Phys.* 195, 355 (2004); IAEA FEC 2008 IC/P4-3. https://www-pub.iaea.org/mtcd/meetings/fec2008/ic_p4-3.pdf
+- Hoffman, A. L. et al., "The TCS rotating magnetic field FRC current-drive experiment"; "The TCS upgrade: Design, construction, conditioning, and enhanced RMF FRC performance". https://www.researchgate.net/publication/224002692_The_TCS_rotating_magnetic_field_FRC_current-drive_experiment
+- Belova, E. V. et al., "Hybrid magneto-hydrodynamic simulation of a driven FRC", *Phys. Plasmas* 21, 032507 (2014). https://pubs.aip.org/aip/pop/article-abstract/21/3/032507/1032494
+- Sousa, E. M. et al., "Rotating Magnetic Field FRC Formation Studies using the Multi-Fluid Plasma Model", APS DPP 2016, J10.160. https://ui.adsabs.harvard.edu/abs/2016APS..DPPJ10160S/abstract
+- Woods, J. M., Jorns, B. A. et al., "Equivalent Circuit Model for a Rotating Magnetic Field Thruster", AIAA 2021. https://pepl.engin.umich.edu/pdf/2021_AIAA_PE_Woods.pdf
+- Gill, T. M., Woods, J. M., Sercel, C. L., Jorns, B. A., "Experimental investigation into efficiency loss in rotating magnetic field thrusters", *Plasma Sources Sci. Technol.* (2024). https://iopscience.iop.org/article/10.1088/1361-6595/ad107a
+- Sercel, C. L. et al., "Inductive probe measurements in a rotating magnetic field thruster", *Plasma Sources Sci. Technol.* (2023). https://iopscience.iop.org/article/10.1088/1361-6595/acfd5a
+- Hakim, A. & Shumlak, U., "Two-fluid physics and field-reversed configurations", *Phys. Plasmas* 14, 055911 (2007). https://www.aa.washington.edu/sites/aa/files/research/cpdlab/docs/Hakim_PoP2007.pdf

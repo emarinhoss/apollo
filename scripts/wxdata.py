@@ -312,7 +312,7 @@ class WxDGArray:
 
         # construct Legendre polynomials at quadrature points
         xo = compQuadPoints(so)
-        legpol = numpy.zeros((so, so), numpy.float)
+        legpol = numpy.zeros((so, so), numpy.float64)
         for m in range(so):
             for cc in range(so):
                 legpol[m,cc] = Pn(m, xo[cc])
@@ -321,7 +321,7 @@ class WxDGArray:
         Xc = arr.grid.X # cell center X-coordinate
         dx = arr.grid.dx[0] # cell spacing in X
         nx = Xc.shape[0]
-        self.Xq = numpy.zeros((so*nx,), numpy.float)
+        self.Xq = numpy.zeros((so*nx,), numpy.float64)
 
         for j in range(so):
             for i in range(nx):
@@ -335,7 +335,7 @@ class WxDGArray:
             Yc = arr.grid.Y # cell center Y-coordinate
             dy = arr.grid.dx[1] # cell spacing in Y
             ny = Yc.shape[0]
-            self.Yq = numpy.zeros((so*ny,), numpy.float)
+            self.Yq = numpy.zeros((so*ny,), numpy.float64)
 
             for j in range(so):
                 for i in range(ny):
@@ -349,7 +349,7 @@ class WxDGArray:
             Yc = arr.grid.Y # cell center Y-coordinate
             dy = arr.grid.dx[1] # cell spacing in Y
             ny = Yc.shape[0]
-            self.Yq = numpy.zeros((so*ny,), numpy.float)
+            self.Yq = numpy.zeros((so*ny,), numpy.float64)
             
             for j in range(so):
                 for i in range(ny):
@@ -361,7 +361,7 @@ class WxDGArray:
             Zc = arr.grid.Z # cell center Y-coordinate
             dz = arr.grid.dx[2] # cell spacing in Y
             nz = Zc.shape[0]
-            self.Zq = numpy.zeros((so*nz,), numpy.float)
+            self.Zq = numpy.zeros((so*nz,), numpy.float64)
 
             for j in range(so):
                 for i in range(nz):
@@ -375,13 +375,13 @@ class WxDGArray:
         nxso = nx*so
         if ndims==1:
             # allocate memory for interpolated data
-            qres = numpy.zeros((nxso,meqn), numpy.float)
+            qres = numpy.zeros((nxso,meqn), numpy.float64)
             # interpolate solution to each quadrature point
             rng = WxRange( (0,meqn, 0,so) ) # range object
             idx = WxColIndexer(rng)
             for me in range(meqn):
                 for cc in range(so):
-                    qt = numpy.zeros((nx,), numpy.float)
+                    qt = numpy.zeros((nx,), numpy.float64)
                     for m in range(so):
                         qt = qt + legpol[m][cc]*arr[:,idx.index2(me,m)]
                     qres[cc:nxso:so,me] = qt
@@ -389,14 +389,14 @@ class WxDGArray:
         if ndims==2:
             nyso = ny*so
             # allocate memory for interpolated data
-            qres = numpy.zeros((nxso, nyso, meqn), numpy.float)
+            qres = numpy.zeros((nxso, nyso, meqn), numpy.float64)
             # interpolate solution to each quadrature point
             rng = WxRange( (0,meqn, 0,so, 0,so) ) # range object
             idx = WxColIndexer(rng)
             for me in range(meqn):
                 for cx in range(so):
                     for cy in range(so):
-                        qt = numpy.zeros((nx,ny), numpy.float)
+                        qt = numpy.zeros((nx,ny), numpy.float64)
                         for m in range(so):
                             for n in range(so):
                                 qt = qt + legpol[m][cx]*legpol[n][cy]*arr[:,:,idx.index3(me,m,n)]
@@ -406,7 +406,7 @@ class WxDGArray:
             nyso = ny*so
             nzso = nz*so
             # allocate memory for interpolated data
-            qres = numpy.zeros((nxso, nyso, nzso, meqn), numpy.float)
+            qres = numpy.zeros((nxso, nyso, nzso, meqn), numpy.float64)
             # interpolate solution to each quadrature point
             rng = WxRange( (0,meqn, 0,so, 0,so, 0,so) ) # range object
             idx = WxColIndexer(rng)
@@ -414,7 +414,7 @@ class WxDGArray:
                 for cx in range(so):
                     for cy in range(so):
                         for cz in range(so):
-                            qt = numpy.zeros((nx,ny,nz), numpy.float)
+                            qt = numpy.zeros((nx,ny,nz), numpy.float64)
                             for m in range(so):
                                 for n in range(so):
                                     for p in range(so):
@@ -456,7 +456,7 @@ class WxData:
 
         # ensure file exist
         if not os.path.exists(fn):
-            raise "WxData::__init__ : Dump %d of run %s not exist" % (frm, base)
+            raise Exception("WxData::__init__ : Dump %d of run %s not exist" % (frm, base))
 
         self.fh = tables.openFile(fn, "r")
         # read in simulation time
@@ -497,7 +497,7 @@ class WxData:
         try:
             grp = grp._v_groups[cs]
         except:
-            raise "WxData::variables : Group %s does not exist" % cs
+            raise Exception("WxData::variables : Group %s does not exist") % cs
 
         # read all groups which are variables
         vrbls = []
@@ -526,7 +526,7 @@ class WxData:
         try:
             grp = grp._v_groups[cs]
         except:
-            raise "WxData::grids : Group %s does not exist" % cs
+            raise Exception("WxData::grids : Group %s does not exist") % cs
 
         ds = []
         for c in grp._v_children:
@@ -554,7 +554,7 @@ class WxData:
         try:
             grp = grp._v_groups[cs]
         except:
-            raise "WxData::grids : Group %s does not exist" % cs
+            raise Exception("WxData::grids : Group %s does not exist") % cs
 
         for c in grp._v_children:
             if c == gridName:
@@ -562,7 +562,7 @@ class WxData:
                 if child._v_attrs.__getattribute__('vsType') == 'mesh':
                     break
                 else:
-                    raise "Object %s exists but is not a grid" % gridName
+                    raise Exception("Object %s exists but is not a grid") % gridName
                     
         lowerBounds = child._v_attrs.vsLowerBounds
         upperBounds = child._v_attrs.vsUpperBounds
@@ -605,7 +605,7 @@ class WxData:
         """
 
         wxa = self.read(name, comboSolver)
-        return WxDGArray2(wxa, meqn, grid)
+        return WxDGArray(wxa, meqn, grid)
 
     def readDGQuad(self, name, meqn, quad, comboSolver = None):
         r""" readDGOnGrid(name : string, meqn : int, grid) -> WxDGArray
@@ -643,7 +643,7 @@ class WxDGArrayQuad:
 
         # construct Legendre polynomials at quadrature points
         xo = compQuadPoints(quad)
-        legpol = numpy.zeros((so,quad), numpy.float)
+        legpol = numpy.zeros((so,quad), numpy.float64)
         for m in range(so):
             for cc in range(quad):
                 legpol[m,cc] = Pn(m, xo[cc])
@@ -652,7 +652,7 @@ class WxDGArrayQuad:
         Xc = arr.grid.X # cell center X-coordinate
         dx = arr.grid.dx[0] # cell spacing in X
         nx = Xc.shape[0]
-        self.Xq = numpy.zeros((quad*nx,), numpy.float)
+        self.Xq = numpy.zeros((quad*nx,), numpy.float64)
 
         for j in range(quad):
             for i in range(nx):
@@ -666,7 +666,7 @@ class WxDGArrayQuad:
             Yc = arr.grid.Y # cell center Y-coordinate
             dy = arr.grid.dx[1] # cell spacing in Y
             ny = Yc.shape[0]
-            self.Yq = numpy.zeros((quad*ny,), numpy.float)
+            self.Yq = numpy.zeros((quad*ny,), numpy.float64)
 
             for j in range(quad):
                 for i in range(ny):
@@ -680,7 +680,7 @@ class WxDGArrayQuad:
             Yc = arr.grid.Y # cell center Y-coordinate
             dy = arr.grid.dx[1] # cell spacing in Y
             ny = Yc.shape[0]
-            self.Yq = numpy.zeros((quad*ny,), numpy.float)
+            self.Yq = numpy.zeros((quad*ny,), numpy.float64)
 
             for j in range(quad):
                 for i in range(ny):
@@ -692,7 +692,7 @@ class WxDGArrayQuad:
             Zc = arr.grid.Z # cell center Y-coordinate
             dz = arr.grid.dx[2] # cell spacing in Y
             nz = Zc.shape[0]
-            self.Zq = numpy.zeros((quad*nz,), numpy.float)
+            self.Zq = numpy.zeros((quad*nz,), numpy.float64)
 
             for j in range(quad):
                 for i in range(nz):
@@ -706,13 +706,13 @@ class WxDGArrayQuad:
         nxso = nx*quad
         if ndims==1:
             # allocate memory for interpolated data
-            qres = numpy.zeros((nxso,meqn), numpy.float)
+            qres = numpy.zeros((nxso,meqn), numpy.float64)
             # interpolate solution to each quadrature point
             rng = WxRange( (0,meqn, 0,so) ) # range object
             idx = WxColIndexer(rng)
             for me in range(meqn):
                 for cc in range(quad):
-                    qt = numpy.zeros((nx,), numpy.float)
+                    qt = numpy.zeros((nx,), numpy.float64)
                     for m in range(so):
                         qt = qt + legpol[m][cc]*arr[:,idx.index2(me,m)]
                     qres[cc:nxso:quad,me] = qt
@@ -720,14 +720,14 @@ class WxDGArrayQuad:
         if ndims==2:
             nyso = ny*quad
             # allocate memory for interpolated data
-            qres = numpy.zeros((nxso, nyso, meqn), numpy.float)
+            qres = numpy.zeros((nxso, nyso, meqn), numpy.float64)
             # interpolate solution to each quadrature point
             rng = WxRange( (0,meqn, 0,so, 0,so) ) # range object
             idx = WxColIndexer(rng)
             for me in range(meqn):
                 for cx in range(quad):
                     for cy in range(quad):
-                        qt = numpy.zeros((nx,ny), numpy.float)
+                        qt = numpy.zeros((nx,ny), numpy.float64)
                         for m in range(so):
                             for n in range(so):
                                 qt = qt + legpol[m][cx]*legpol[n][cy]*arr[:,:,idx.index3(me,m,n)]
@@ -737,7 +737,7 @@ class WxDGArrayQuad:
             nyso = ny*quad
             nzso = nz*quad
             # allocate memory for interpolated data
-            qres = numpy.zeros((nxso, nyso, nzso, meqn), numpy.float)
+            qres = numpy.zeros((nxso, nyso, nzso, meqn), numpy.float64)
             # interpolate solution to each quadrature point
             rng = WxRange( (0,meqn, 0,so, 0,so, 0,so) ) # range object
             idx = WxColIndexer(rng)
@@ -745,7 +745,7 @@ class WxDGArrayQuad:
                 for cx in range(quad):
                     for cy in range(quad):
                         for cz in range(quad):
-                            qt = numpy.zeros((nx,ny,nz), numpy.float)
+                            qt = numpy.zeros((nx,ny,nz), numpy.float64)
                             for m in range(so):
                                 for n in range(so):
                                     for p in range(so):

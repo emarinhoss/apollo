@@ -51,7 +51,7 @@ template class WxSelfMsgTmpl<int>;
 template class WxSelfMsgTmpl<unsigned int>;
 template class WxSelfMsgTmpl<long>;
 template class WxSelfMsgTmpl<unsigned long>;
-template class WxSelfMsgTmpl<float>;
+//template class WxSelfMsgTmpl<float>;
 template class WxSelfMsgTmpl<double>;
 template class WxSelfMsgTmpl<long double>;
 template class WxSelfMsgTmpl<long long int>;

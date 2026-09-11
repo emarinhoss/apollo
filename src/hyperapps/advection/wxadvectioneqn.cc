@@ -188,7 +188,9 @@ void
 WxAdvectionEqn<REAL>::
 DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
-    REAL *xc, *qaux;
+    // flux() ignores both, but reading an indeterminate pointer value is
+    // undefined behaviour in its own right, and -Wuninitialized flags it.
+    REAL *xc = NULL, *qaux = NULL;
     REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
 
     // evaluate fluxes
@@ -249,5 +251,5 @@ RHS(unsigned N, REAL *geometry, REAL *normals, WxpDGGeometry<REAL> *quad, REAL *
 }
 
 // instantiations
-template class WxAdvectionEqn<float>;
+//template class WxAdvectionEqn<float>;
 template class WxAdvectionEqn<double>;

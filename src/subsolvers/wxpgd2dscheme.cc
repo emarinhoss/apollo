@@ -4,6 +4,7 @@
 #include <wxcreator.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 # include <wxmpimsg.h>
 
@@ -442,5 +443,5 @@ WxpDG2Dscheme<REAL>::isInfinityOrNAN(Vec f, std::string location)
 }
 
 // instantiations
-template class WxpDG2Dscheme<float>;
+//template class WxpDG2Dscheme<float>;
 template class WxpDG2Dscheme<double>;

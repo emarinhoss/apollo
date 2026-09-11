@@ -57,5 +57,5 @@ ApDomainDecompCheck<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 }
 
 // instantiations
-template class ApDomainDecompCheck<float>;
+//template class ApDomainDecompCheck<float>;
 template class ApDomainDecompCheck<double>;

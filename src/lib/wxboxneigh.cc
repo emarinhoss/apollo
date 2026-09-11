@@ -42,5 +42,5 @@ WxBoxNeigh<TYPE>::getNeigh(unsigned n) const
 
 // instantiations
 template class WxBoxNeigh<int>;
-template class WxBoxNeigh<float>;
+//template class WxBoxNeigh<float>;
 template class WxBoxNeigh<double>;

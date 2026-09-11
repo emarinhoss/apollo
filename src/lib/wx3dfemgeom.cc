@@ -169,5 +169,5 @@ Wx3dFEMGeom<REAL>::ijktoelementnumber(int ***rhs, int **rhs2)
 }
 
 // instantiations
-template class Wx3dFEMGeom<float>;
+//template class Wx3dFEMGeom<float>;
 template class Wx3dFEMGeom<double>;

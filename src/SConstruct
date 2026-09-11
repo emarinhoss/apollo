@@ -43,6 +43,39 @@ vars.AddVariables(
         ('boost_base', 'Base directory for BOOST package',''),
         ('boost_includedir', 'include directory for BOOST package',''),
         ('boost_libdir', 'Library directory for BOOST package',''),
+        ('hdf5_base', 'Base directory for the HDF5 package. Needed because '
+                      "PETSc's petscviewerhdf5.h includes <hdf5.h>; leave empty "
+                      'to autodetect.', ''),
+        ('arch', "Value for -march= in the optimized build. 'native' targets the "
+                 "build machine's own ISA and will SIGILL on an older node of a "
+                 "heterogeneous cluster; set an explicit baseline such as 'x86-64-v2' "
+                 "for a portable binary, or 'none' to omit -march/-mtune entirely.",
+                 'native'),
+        ('tune', "Value for -mtune= in the optimized build. Empty means 'native' when "
+                 "arch is native and 'generic' otherwise, because -mtune only accepts "
+                 "CPU names (skylake, znver3, generic) and rejects the ISA levels "
+                 "-march takes, such as x86-64-v2.", ''),
+        BoolVariable('fastmath',
+                     "Compile the optimized build with -ffast-math. Off by default: it "
+                     "implies -ffinite-math-only, which lets the compiler assume no value "
+                     "is ever NaN and so deletes the 'x != x' solution-validity guards in "
+                     "the Euler and nodal-DG kernels. When enabled here, "
+                     "-fno-finite-math-only is added back so those guards keep working.",
+                     'no'),
+        BoolVariable('openmp',
+                     'Compile the optimized build with OpenMP. OFF by default, for a '
+                     'correctness reason rather than a speed one: the one parallelised '
+                     'loop (subsolvers/wxnodaldg2dmethod.cc) calls DMPlexGetConeSize '
+                     'and DMPlexPointLocalRead/Ref once per element, and PETSc is not '
+                     'thread-safe unless it was built --with-threadsafety, which the '
+                     'distribution packages are not - check for '
+                     'PETSC_HAVE_THREADSAFETY in your petscconf.h. Scaling is also '
+                     'poor and non-monotonic: on the bundled isentropicVortex example '
+                     'on 4 cores, 2.64 s on 1 thread, 1.68 s on 2, 4.35 s on 4, since '
+                     'with PETSC_USE_LOG on every PETSc call updates shared counters. '
+                     'Set openmp=yes if you have a thread-safe PETSc; results are '
+                     'identical across thread counts.',
+                     'no'),
 )
 
 #uhg, PGI compiler is not even working for me right now, and I don't see how to work this into this_host_config.py
@@ -64,32 +97,272 @@ warpMConstructionEnv['CPPPATH'] = ['']
 if not warpMConstructionEnv.GetOption('clean'):
 	# setup build for external libraries
 	SConscript('buildconf/config_mpi.py',     exports='warpMConstructionEnv')
+	SConscript('buildconf/config_hdf5.py',    exports='warpMConstructionEnv')
 	SConscript('buildconf/config_petsc.py',   exports='warpMConstructionEnv')
-#        SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
-#        SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
+	SConscript('buildconf/config_blas.py',   exports='warpMConstructionEnv')
+
+	# Eigen3 and Boost are hard requirements of the multifluid module
+	# (hyperapps/multifluid/MathX.h includes <Eigen/Dense>, myIO.h includes
+	# <boost/format.hpp>), so the build fails without them on every platform,
+	# not just macOS. Both ship as headers under a versioned subdirectory that
+	# is not on the default include path.
+	# buildconf/eigen_paths.py, so the decision is testable: this list once
+	# omitted conda, which is what environment.yml tells people to use.
+	from buildconf.eigen_paths import eigen_candidates
+	eigenCandidates = eigen_candidates()
+
+	for eigen_include in eigenCandidates:
+		if os.path.isfile(os.path.join(eigen_include, 'Eigen', 'Dense')):
+			warpMConstructionEnv.AppendUnique(CPPPATH=[eigen_include])
+			print("Added Eigen3 include path:", eigen_include)
+			break
+	else:
+		# <Eigen/Dense> may still resolve if Eigen was installed unversioned.
+		if not os.path.isfile('/usr/include/Eigen/Dense'):
+			print("WARNING: Eigen3 not found; hyperapps/multifluid will fail to "
+			      "compile with 'fatal error: Eigen/Dense'. Looked in:")
+			for candidate in eigenCandidates:
+			    print("           ", candidate)
+			print("         Install it with 'sudo apt-get install libeigen3-dev' "
+			      "(Debian/Ubuntu), 'sudo dnf install eigen3-devel' "
+			      "(RHEL/Fedora), 'brew install eigen' (macOS) or "
+			      "'conda install -c conda-forge eigen', or point "
+			      "EIGEN3_INCLUDE_DIR at the directory CONTAINING Eigen/Dense "
+			      "- note that is the eigen3 directory, not its parent.")
+
+	SConscript('buildconf/config_boost.py',   exports='warpMConstructionEnv')
+
+	# Never hand the compiler its own default include directories with -I: that
+	# promotes them above the toolchain's sysroot and breaks any compiler
+	# carrying its own libc headers. See buildconf/include_paths.py - this is
+	# what made a conda GCC 15 build fail on _Float128.
+	# Inside a conda environment, link against it: SConstruct scrubs the
+	# environment, so conda's own LDFLAGS never arrive. See
+	# buildconf/conda_paths.py - without this the build compiles against the
+	# environment's headers and links against the system's libraries.
+	from buildconf.conda_paths import conda_link_paths
+	_condaLibs, _condaLinkFlags = conda_link_paths()
+	if _condaLibs:
+		warpMConstructionEnv.PrependUnique(LIBPATH=_condaLibs)
+		warpMConstructionEnv.AppendUnique(LINKFLAGS=_condaLinkFlags)
+		print("Conda environment detected; linking against", _condaLibs[0],
+		      "and recording it as an rpath")
+
+	from buildconf.include_paths import (drop_default_system_includes,
+	                                     drop_default_system_libs)
+	_kept, _dropped = drop_default_system_includes(
+		warpMConstructionEnv.get('CPPPATH', []))
+	if _dropped:
+		warpMConstructionEnv.Replace(CPPPATH=_kept)
+		print("Dropped from the include path (the compiler searches these "
+		      "already, and -I would put them ahead of its own sysroot):",
+		      ', '.join(str(d) for d in _dropped))
+	_keptL, _droppedL = drop_default_system_libs(
+		warpMConstructionEnv.get('LIBPATH', []))
+	if _droppedL:
+		warpMConstructionEnv.Replace(LIBPATH=_keptL)
+		print("Dropped from the library path (same reason, one stage later):",
+		      ', '.join(str(d) for d in _droppedL))
 
 # generate help messages specific to the build variables
 Help(vars.GenerateHelpText(warpMConstructionEnv))
+
+# Build provenance. A simulation result is only reproducible if the binary that
+# produced it can be identified, and Apollo previously reported
+# "Version XXX from svn revision YYY". Read the revision here so both variants
+# get the same value, and degrade gracefully outside a git checkout.
+def _gitDescribe():
+    import subprocess
+    def run(cmd):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=10,
+                                 cwd=Dir('#').abspath)
+        except (OSError, subprocess.SubprocessError):
+            return ''
+        return out.stdout.strip() if out.returncode == 0 else ''
+
+    sha = run(['git', 'rev-parse', '--short=12', 'HEAD'])
+    if not sha:
+        return 'unknown', 'unknown'
+    describe = run(['git', 'describe', '--tags', '--always', '--dirty']) or sha
+    # `git describe --dirty` only reports tracked modifications; ask explicitly.
+    if not describe.endswith('-dirty') and run(['git', 'status', '--porcelain']):
+        describe += '-dirty'
+    return describe, sha
+
+apolloDescribe, apolloSha = _gitDescribe()
+print("Apollo version:", apolloDescribe)
+warpMConstructionEnv.AppendUnique(CPPDEFINES=[
+    ('APOLLO_GIT_DESCRIBE', '\\"%s\\"' % apolloDescribe),
+    ('APOLLO_GIT_SHA', '\\"%s\\"' % apolloSha),
+])
 
 # configure number of compiler processes for scons
 import buildconf.getNumCores as getNumCores
 try:
 	numberOfBuildCores = min(getNumCores.determineNumberOfCPUs(), 12) #12 reasonalble ceiling due to compiler memory footprint
 except:
-	print "getNumCores raised an exception.  Using default 2 cores"
+	print("getNumCores raised an exception.  Using default 2 cores")
 	numberOfBuildCores = 2
 SetOption('num_jobs', numberOfBuildCores)
-print "running with -j", GetOption('num_jobs')
+print("running with -j", GetOption('num_jobs'))
+
+
+# Detect compiler to use appropriate OpenMP flags
+# This needs to happen before creating debug/optimized environments
+import subprocess
+compiler_test = warpMConstructionEnv['CXX']
+is_clang = False
+try:
+    # Check if compiler is Clang
+    result = subprocess.run([compiler_test, '--version'],
+                          capture_output=True, text=True, timeout=5)
+    if 'clang' in result.stdout.lower() or 'clang' in result.stderr.lower():
+        is_clang = True
+        print("Detected Clang compiler - using Clang-specific OpenMP flags")
+    else:
+        print("Detected GCC or GCC-compatible compiler")
+except:
+    print("Could not detect compiler type, assuming GCC-compatible")
+
+# Detect libomp paths (needed for both debug and optimized builds to find omp.h)
+libomp_include_path = []
+libomp_lib_path = []
+
+if is_clang:
+    # Clang on macOS requires libomp
+    homebrew_prefix = '/opt/homebrew'  # Apple Silicon default
+    if not os.path.isdir(homebrew_prefix):
+        homebrew_prefix = '/usr/local'  # Intel Mac default
+
+    # Add libomp paths
+    libomp_include = os.path.join(homebrew_prefix, 'opt', 'libomp', 'include')
+    libomp_lib = os.path.join(homebrew_prefix, 'opt', 'libomp', 'lib')
+
+    if os.path.isdir(libomp_include) and os.path.isdir(libomp_lib):
+        print(f"Found libomp at {homebrew_prefix}/opt/libomp")
+        libomp_include_path = [libomp_include]
+        libomp_lib_path = [libomp_lib]
+    else:
+        print("WARNING: libomp not found. Install with: brew install libomp")
+        print("Some source files require omp.h header.")
 
 
 # DEBUG target
 # build with debug symbols and range checking turned on.
-debugEnv     = warpMConstructionEnv.Clone(CCFLAGS = '-g -Wall' + ' -D_DO_RANGE_CHECK_' )
+#
+# USE_BLAS must match the optimized build: lib/wxcubature2d.cc computes the
+# cubature matrix product through cblas_dgemm when it is defined and through a
+# hand-rolled triple loop when it is not. Leaving it out of the debug build
+# means a discrepancy reproduced under the debugger is not the discrepancy the
+# production binary produced.
+debugFlags = ['-g', '-Wall', '-D_DO_RANGE_CHECK_']
+if bool(warpMConstructionEnv.get('APOLLO_HAVE_BLAS')):
+    debugFlags.append('-DUSE_BLAS')
+
+debugEnv     = warpMConstructionEnv.Clone(
+    CCFLAGS = ' '.join(debugFlags),
+    CXXFLAGS = '-std=c++14'  # C++ specific flags
+)
+
+# Add libomp paths to debug environment so omp.h can be found
+if libomp_include_path:
+    debugEnv.AppendUnique(CPPPATH=libomp_include_path)
+if libomp_lib_path:
+    debugEnv.AppendUnique(LIBPATH=libomp_lib_path)
+
 env = debugEnv
 debugEnv.SConscript('SConscript', variant_dir='build-debug', duplicate=0, exports='env')
 
-# OPTIMIZED target, due to the march flag, this product will only run on the architecture of the build machine. To do otherwise, will need to set specific march, not native.
-march = 'native'
-optimizedEnv = warpMConstructionEnv.Clone(CCFLAGS = '-O3 -funroll-loops -Wall')
+# OPTIMIZED target.
+
+# Base optimization flags (common to both C and C++)
+optimizationFlags = [
+    '-O3',                    # Highest optimization level
+    '-funroll-loops',         # Loop unrolling
+    '-ftree-vectorize',       # Auto-vectorization with SIMD
+    '-fno-math-errno',        # Don't set errno for math functions. Safe here:
+                              # nothing in Apollo reads errno after a math call.
+    '-Wall',                  # All warnings
+]
+
+# Architecture tuning. 'native' produces a binary that only runs on CPUs at least
+# as capable as the build machine, which is the wrong default when the login node
+# of a cluster is newer than its compute nodes (the binary dies with SIGILL). It
+# stays the default for continuity, but is now selectable.
+arch = warpMConstructionEnv['arch']
+if arch and arch != 'none':
+    tune = warpMConstructionEnv['tune']
+    if not tune:
+        # -mtune takes CPU names only, so an ISA level like x86-64-v2 that is
+        # perfectly valid for -march is rejected for -mtune.
+        tune = 'native' if arch == 'native' else 'generic'
+    optimizationFlags += ['-march=%s' % arch, '-mtune=%s' % tune]
+    print("optimized build: -march=%s -mtune=%s" % (arch, tune))
+else:
+    print("optimized build: no -march/-mtune (portable binary)")
+
+# Floating-point model. -ffast-math implies -ffinite-math-only, under which the
+# compiler may assume no operand is ever NaN and therefore folds `x != x` to
+# false. Apollo guards its solution vectors with exactly that idiom
+# (hyperapps/euler/wxeulereqn.cc:1408+, hyperapps/euler/apeulerentropyeqn.cc:507+,
+# subsolvers/wxnodaldg2dmethod.cc:505) and reports NaN through PETSc's
+# PetscIsInfOrNanReal, so -ffast-math silently deletes every check that would
+# stop a diverged run before it writes physically meaningless output. It is
+# therefore opt-in, and even then finite-math is excluded so the guards survive.
+if warpMConstructionEnv['fastmath']:
+    # -DAPOLLO_FASTMATH because GCC predefines __FAST_MATH__ only when every
+    # sub-option is on, and this combination deliberately turns one back off, so
+    # the binary could not otherwise report how it was built.
+    optimizationFlags += ['-ffast-math', '-fno-finite-math-only',
+                          '-DAPOLLO_FASTMATH']
+    print("optimized build: -ffast-math enabled "
+          "(NaN guards preserved via -fno-finite-math-only)")
+
+# BLAS is used by lib/wxcubature2d.cc behind #ifdef USE_BLAS, which pulls in
+# <cblas.h>. Defining it unconditionally breaks the build wherever no BLAS was
+# found, and defining it for only one variant makes build-opt and build-debug
+# evaluate the same cubature product by different code paths. config_blas.py
+# records what it actually found; both variants now follow it.
+haveBlas = bool(warpMConstructionEnv.get('APOLLO_HAVE_BLAS'))
+if haveBlas:
+    optimizationFlags.append('-DUSE_BLAS')
+    print("optimized build: using BLAS for cubature matrix products")
+else:
+    print("optimized build: no BLAS found, using the built-in matrix product")
+
+# C++ specific flags
+cxxFlags = [
+    '-std=c++14',             # C++14 standard (required for Boost 1.87+ and Eigen 3.4+)
+]
+
+# Add OpenMP compilation flags based on compiler (for optimized build only)
+openmp_linkflags = ''
+
+if not warpMConstructionEnv['openmp']:
+    print("optimized build: OpenMP disabled (openmp=no)")
+elif is_clang:
+    # Clang on macOS requires special OpenMP flags
+    if libomp_include_path:  # Only add OpenMP if libomp was found
+        optimizationFlags.extend([
+            '-Xpreprocessor', '-fopenmp',  # Clang-specific OpenMP compile flags
+        ])
+        openmp_linkflags = '-lomp'  # Link against libomp
+else:
+    # GCC uses -fopenmp for both compiling and linking
+    optimizationFlags.append('-fopenmp')
+    openmp_linkflags = '-fopenmp'
+
+optimizedEnv = warpMConstructionEnv.Clone(
+    CCFLAGS = ' '.join(optimizationFlags),      # Common flags for C and C++
+    CXXFLAGS = ' '.join(cxxFlags),              # C++ specific flags
+    LINKFLAGS = openmp_linkflags
+)
+
+# Add libomp paths to environment if using Clang
+if libomp_include_path:
+    optimizedEnv.AppendUnique(CPPPATH=libomp_include_path)
+if libomp_lib_path:
+    optimizedEnv.AppendUnique(LIBPATH=libomp_lib_path)
 env = optimizedEnv
 optimizedEnv.SConscript('SConscript', variant_dir='build-opt', duplicate=0, exports='env')

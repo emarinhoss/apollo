@@ -4,8 +4,13 @@
 #include <wxcreator.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 # include <wxmpimsg.h>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // std includes
 #include <vector>
@@ -249,7 +254,10 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     if(_calculateGradients){
         VecDuplicate(in,&gradients);
         calculateGradients(in,gradients);
-        isInfinityOrNAN(in, "NAN/INF encountered in gradient vector of DG step-function.\n");
+        // Check the gradients, not `in`: `in` was already checked above, and
+        // testing it here means a NaN produced by calculateGradients goes
+        // unnoticed - which is the one thing this call exists to catch.
+        isInfinityOrNAN(gradients, "NAN/INF encountered in gradient vector of DG step-function.\n");
     }
 
     WxStepperStatus<REAL> status;
@@ -264,10 +272,18 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     DMGetLocalVector(dataManage, &local_in);
     DMGetLocalVector(dataManage, &local_out);
 
-    // zero entries of the vectors that will be used to store
-    // information
-//    VecZeroEntries(local_in);
-//    VecZeroEntries(local_out);
+    // Zero the output before filling it. The element loop below skips any cell
+    // whose cone size is not 3 - Gmsh boundary line elements arrive as
+    // 2-vertex cells, 80 of them in the isentropic vortex mesh - and never
+    // writes their entries. DMGetLocalVector hands back a vector from PETSc's
+    // pool with no guarantee about its contents, and the DMLocalToGlobal below
+    // uses INSERT_VALUES, so whatever was in those slots is copied into the
+    // global RHS. Zeroing makes the skipped cells contribute nothing, which is
+    // what "skip" was meant to mean.
+    //
+    // local_in needs no zeroing: DMGlobalToLocal overwrites it entirely with
+    // INSERT_VALUES on the next line.
+    VecZeroEntries(local_out);
 
     // get local values of the global vector in into locX
     DMGlobalToLocalBegin(dataManage, in, INSERT_VALUES, local_in);
@@ -287,38 +303,53 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
     int Ncubature= _cub->numCubaturePoints(); // Number of cubature points
     int Ngauss = _cub->numGaussianPoints(); // Number of Gaussian points per edge/face
 
-    /**
-     * Allocate memory for all vectors
-     */
-    // Coordinates
-    REAL xcoord[NpE], ycoord[NpE];
-    REAL xc[5]; xc[0]=t; xc[4] = dt; // coordinates
-    REAL nx[2]; // normals
-    int connect[2*NfE]; // connectivity information element-to-element-to-edge
-
-    // Volume integral
-    REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
-    REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn],
-            ISrc_vol[Ncubature*_meqn], Iarea_vol[Ncubature*_meqn];
-    REAL IXcoords[Ncubature], IYcoords[Ncubature];
-
-    // Surface integral
-    REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
-    REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn],
-            Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
-    REAL qgtemp[NfE*Ngauss*_meqn];
-
-    // to evaluate the fluxes at each cubature point
-    REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn], AreaIntegrals[_meqn];
-
-    //
+    // Total area integrals (accumulated from all elements)
     REAL TotalAreaInt[_meqn];
     for(unsigned eqs=0; eqs<_meqn; eqs++)
         TotalAreaInt[eqs] = 0.0;
 
-    PetscScalar *qVal;
+    // OpenMP parallelization of element loop
+    // Each element computation is independent, making this embarrassingly parallel
+    #pragma omp parallel for reduction(max:maxSpeed) reduction(+:TotalAreaInt[:_meqn]) schedule(static)
     for(unsigned kelem=kStart; kelem<kEndInterior; kelem++)
     {
+        // Skip non-triangular cells (boundary line elements with 2 vertices)
+        PetscInt coneSize;
+        DMPlexGetConeSize(dataManage, kelem, &coneSize);
+        if (coneSize != 3) continue;  // Only process triangular cells
+
+        // Thread-local temporary arrays (all arrays are now private to each thread)
+        REAL xcoord[NpE], ycoord[NpE];
+        REAL xc[5]; xc[0]=t; xc[4] = dt;
+        REAL nx[2];
+        int connect[2*NfE];
+
+        REAL q_vol[NpE*_meqn], vec_rhs[NpE*_meqn], volInt[NpE*_meqn];
+        REAL Iq_vol[Ncubature*_meqn], If_vol[Ncubature*_meqn], Ig_vol[Ncubature*_meqn],
+                ISrc_vol[Ncubature*_meqn], Iarea_vol[Ncubature*_meqn];
+        REAL IXcoords[Ncubature], IYcoords[Ncubature];
+
+        REAL qtemp[NpE*_meqn], q_surf[NpE*_meqn];
+        REAL QP[NfE*Ngauss*_meqn], QM[NfE*Ngauss*_meqn], numFlux[NfE*Ngauss*_meqn],
+                Xcrd[NfE*Ngauss], Ycrd[NfE*Ngauss];
+        REAL qgtemp[NfE*Ngauss*_meqn];
+
+        REAL Qvar[_meqn], Qvaraux[_meqn], Fflux[_meqn], Gflux[_meqn], AreaIntegrals[_meqn];
+
+        // These six buffers used to be the class members _qM, _qP, _qauxM,
+        // _numericalFLux, _src and _areaInts. Each is a single scratch array
+        // shared by the whole object, so once this loop became an OpenMP
+        // parallel region every thread was reading and writing the same
+        // _meqn doubles at the same time. The race corrupts the numerical
+        // flux, which shows up downstream as spurious negative pressure on a
+        // problem that is smooth when run single-threaded. They are per-element
+        // temporaries, so they belong on the stack next to the others.
+        REAL qM[_meqn], qP[_meqn], qauxM[_meqn], numericalFlux[_meqn];
+        REAL src[_meqn], areaInts[_meqn];
+        REAL geoFacts[5], normals[3*NfE];
+
+        PetscScalar *qVal, *rhs;
+
         // get coordinates of all nodes
         for(unsigned nodes=0; nodes<NpE; nodes++)
         {
@@ -332,7 +363,6 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             q_vol[kk] = qVal[kk];
 
         // calculate edge normals and element Jacobian
-        REAL geoFacts[5], normals[3*NfE];
         _geom->GeometricFactors2d(kelem,geoFacts); // [drdx, dsdx, drdy, dsdy, J]
         _geom->Normals2d(kelem,normals); // [nx_edge1,ny_edge1,length_edge1, nx_edge2, ny_edge2 ...]
 
@@ -361,15 +391,15 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 //            REAL AA = Qvar[15];
             _eqnSet.flux(0, xc, Qvar, Qvaraux, Fflux);
             _eqnSet.flux(1, xc, Qvar, Qvaraux, Gflux);
-            _srcSet.sourceTerms(xc, Qvar, Qvaraux, _src);
-            _areaSet.areaTerms(xc, Qvar, Qvaraux, _areaInts);
+            _srcSet.sourceTerms(xc, Qvar, Qvaraux, src);
+            _areaSet.areaTerms(xc, Qvar, Qvaraux, areaInts);
 
             for(unsigned component=0; component<_meqn; component++)
             {
                   If_vol[point*_meqn+component] = Fflux[component];
                   Ig_vol[point*_meqn+component] = Gflux[component];
-                ISrc_vol[point*_meqn+component] = _src[component];
-               Iarea_vol[point*_meqn+component] = _areaInts[component];
+                ISrc_vol[point*_meqn+component] = src[component];
+               Iarea_vol[point*_meqn+component] = areaInts[component];
             }
         }
 
@@ -413,12 +443,12 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
                     nx[1] = normals[3*edge+1];
 
                     for(unsigned cmp=0; cmp<_meqn; cmp++)
-                        _qM[cmp] = QM[(edge*Ngauss+gpoint)*_meqn+cmp];
+                        qM[cmp] = QM[(edge*Ngauss+gpoint)*_meqn+cmp];
 
-                    applyBc(abs(edgeNum), xc, nx, _qM, _qauxM, _AgregateAreaIntegral, _qP);
+                    applyBc(abs(edgeNum), xc, nx, qM, qauxM, _AgregateAreaIntegral, qP);
 
                     for(unsigned comp=0; comp<_meqn; comp++)
-                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = _qP[comp];
+                        QP[(edge*Ngauss+gpoint)*_meqn+comp] = qP[comp];
                 }
             }
             else
@@ -446,8 +476,8 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             int curEdge = kk/Ngauss;
 
             for(unsigned comp=0; comp<_meqn; comp++){
-                _qM[comp] = QM[kk*_meqn+comp];
-                _qP[comp] = QP[kk*_meqn+comp];}
+                qM[comp] = QM[kk*_meqn+comp];
+                qP[comp] = QP[kk*_meqn+comp];}
 
             REAL lambda; // Fastest propagating wave speed
 
@@ -457,7 +487,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 
             // Evaluate the numerical flux and get the speed of the
             // fastest propagating wave
-            _eqnSet.DGnumericalFlux(nx,_qM,_qP,_numericalFLux,&lambda);
+            _eqnSet.DGnumericalFlux(nx,qM,qP,numericalFlux,&lambda);
             lambda = sqrt(lambda*lambda);
 
             // find maximum propagation speed in the entire domain;
@@ -465,7 +495,7 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
             maxSpeed = dmax(maxSpeed,lambda);
 
             for(unsigned comp=0; comp<_meqn; comp++)
-                numFlux[kk*_meqn+comp] = _numericalFLux[comp]*normals[3*curEdge+2];
+                numFlux[kk*_meqn+comp] = numericalFlux[comp]*normals[3*curEdge+2];
         }
 
         // Compute surface integral contribution to all nodes
@@ -538,6 +568,11 @@ WxNodalDG2dMethod<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 //    REAL AD = AC-AB;
     VecDestroy(&local_out);
     VecDestroy(&local_in);
+    // VecDuplicate above allocates a full solution vector; without this the
+    // leak is one such vector per RHS evaluation, so several per timestep for
+    // an SSP-RK scheme, for the whole run.
+    if(_calculateGradients)
+        VecDestroy(&gradients);
     return status;
 }
 
@@ -577,6 +612,12 @@ WxNodalDG2dMethod<REAL>::applyLimiter(Vec Qin, Vec Qlimited)
 {
     // apply limiters
     ApSubSolver<REAL>* ss = this->getParent()->getSubSolver( _limiterSubSolvers.at(0));
+    // The limiter calls boundary conditions, which read the time out of the
+    // coordinate array it hands them. Nothing else sets its clock - the
+    // solver-sequence loop in ApSolver only does so for the subsolvers it steps
+    // - so without this the limiter's idea of the time is whatever it was
+    // constructed with.
+    ss->setCurrentTime(this->getCurrentTime());
     // cast this to the limiter and call step function
     dynamic_cast<WxNodalDGLimiter<REAL>* >(ss)->applyToVector(_geom,_cub,Qin,Qlimited);
 }
@@ -592,5 +633,5 @@ WxNodalDG2dMethod<REAL>::calculateGradients(Vec Qin, Vec Qgrads)
 }
 
 // instantiations
-template class WxNodalDG2dMethod<float>;
+//template class WxNodalDG2dMethod<float>;
 template class WxNodalDG2dMethod<double>;

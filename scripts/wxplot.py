@@ -4,6 +4,7 @@ r"""Provides a general interface to plot warpx results quickly.
 """
 
 import os
+import sys
 from pylab import *
 import wxdata
 import wxinteractiveplot
@@ -88,7 +89,7 @@ def make1Dplot(q, options):
         yl = '%s' % options.transformVariable
         pass
     else:
-        raise NameError, "Must specify component to plot or transform file for variable %s" % options.variable
+        raise NameError("Must specify component to plot or transform file for variable %s" % options.variable)
 
     plot(q.grid.X, data)
     title('Time = %g' % d.time)
@@ -126,7 +127,7 @@ def make2Dplot(q, options):
         yl = '%s' % options.transformVariable
         pass
     else:
-        raise NameError, "Must specify component to plot or transform file for variable %s" % options.variable
+        raise NameError("Must specify component to plot or transform file for variable %s" % options.variable)
     
     XX, YY = meshgrid(q.grid.X, q.grid.Y)
     if options.contour:
@@ -167,7 +168,7 @@ d = wxdata.WxData(options.inputFile, frame)
 
 # print list of variable if requested
 if options.showVariables:
-    print d.variables()
+    print(d.variables())
     d.close()
     exit()
 
@@ -176,16 +177,16 @@ if options.showTransfromVariables:
     # compile and evaluate transforms file
     sys.path.append(os.path.abspath('.'))
     mod = __import__(options.transformsFile)
-    print mod.transformregistry.keys()
+    print(mod.transformregistry.keys())
     d.close()
     exit()
 
 # print information about variable if requested
 if options.variableInfo:
     q = d.read(options.variableInfo)
-    print 'Variable "%s" lives on grid "%s" with ' % (options.variableInfo, q.onGrid)
-    print q.grid
-    print 'No of components is ', q.numComponents
+    print('Variable "%s" lives on grid "%s" with ') % (options.variableInfo, q.onGrid)
+    print(q.grid)
+    print('No of components is '), q.numComponents
     d.close()
     exit()
 
@@ -202,10 +203,9 @@ try:
     elif q.grid.ndims == 2:
         make2Dplot(q, options)
     elif q.grid.ndims == 3:
-        raise "3D plots not currently supported"
-except NameError, strerror:
-    print strerror
-
+        raise Exception("3D plots not currently supported")
+except NameError as strerror:
+    print(strerror)
 if options.interactive:
     ip = wxinteractiveplot.WxInteractivePlot(options)
     ip.cmdloop()

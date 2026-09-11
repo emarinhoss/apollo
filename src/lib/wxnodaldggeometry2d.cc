@@ -6,6 +6,7 @@
 #include <wxlogstream.h>
 #include "wxpnodaldgfunctions.h"
 #include "wxNodalDGMatrices.h"
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 template <typename REAL>
 wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Spor)
@@ -21,11 +22,25 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
     DMPlexGetHeightStratum(_dm, 0, &eStart, &eEnd);
     DMPlexGetDepthStratum(_dm, 0, &vStart, &vEnd);
     DMPlexGetHybridBounds(dm, &eEndInterior, NULL, NULL, NULL);
+
+    // Count only triangular cells (cells with 3 vertices)
+    // This filters out any 1D line elements that may have been imported
+    PetscInt triangleCount = 0;
+    _isRealCell.assign(eEndInterior - eStart, 0);
+    for (PetscInt c = eStart; c < eEndInterior; c++) {
+        PetscInt coneSize;
+        DMPlexGetConeSize(_dm, c, &coneSize);
+        if (coneSize == 3) {  // Triangle has 3 vertices
+            triangleCount++;
+            _isRealCell[c - eStart] = 1;
+        }
+    }
+
     _Klocal = eEnd - eStart;
-    _kLocalInt = eEndInterior - eStart;
+    _kLocalInt = eEndInterior - eStart;  // Allocate for full range to match cell IDs
     _Vlocal = vEnd - vStart;
 
-    MPI_Allreduce(&_kLocalInt, &_Ktotal, 1, MPI_INT, MPI_SUM, PetscObjectComm((PetscObject)_dm));
+    MPI_Allreduce(&triangleCount, &_Ktotal, 1, MPI_INT, MPI_SUM, PetscObjectComm((PetscObject)_dm));  // Report triangle count
 
     infStrm << "** The grid has " << _Ktotal << " elements. **\n"
             << std::endl;
@@ -83,7 +98,20 @@ wxNodalDGgeometry2D<REAL>::wxNodalDGgeometry2D(DM dm, unsigned meqn, unsigned Sp
 
     /* find element to element connections */
     _EtoV   = alloc_2d_c<int>(_kLocalInt,3);
-    _ETETF  = alloc_2d_c<int>(_Ktotal,2*_NfE);
+    // _kLocalInt, not _Ktotal. _ETETF is indexed by LOCAL cell id - by
+    // _ETETF[cells[0]] and _ETETF[elem1[kk]] in FacePair2d below, and by
+    // ElementTOElementANDFace(K) from the schemes - and those ids run over the
+    // whole height-0 stratum, the same range every other array here is sized
+    // for. _Ktotal is neither: it counts only the cells with three vertices,
+    // and it is an MPI_Allreduce SUM, so on more than one rank it is the global
+    // element count rather than a local size at all. The stratum also holds the
+    // ghost cells DMPlexConstructGhostCells appends, one per boundary facet,
+    // which _Ktotal's cone-size filter excludes: on the shipped rmf_frc mesh
+    // the stratum is 7984 cells against _Ktotal 7792, so the last 192 rows were
+    // past the end of the pointer array - a heap overflow on every run, which
+    // surfaced as a segfault only once the slope limiter read far enough past
+    // it to leave the mapped page.
+    _ETETF  = alloc_2d_c<int>(_kLocalInt,2*_NfE);
     FacePair2d(_dm);
     debStrm << "** done -- Creating face-to-face connections. **" << std::endl;
 
@@ -123,6 +151,7 @@ wxNodalDGgeometry2D<REAL>::petscMatTOArray(Mat A, REAL *array)
         MatGetRow(A,kk,&ncols,&cols,&vals);
         for(int kx=0; kx<ncols; kx++)
             array[sk++] = vals[kx];
+        MatRestoreRow(A,kk,&ncols,&cols,&vals);
     }
 }
 
@@ -140,7 +169,7 @@ wxNodalDGgeometry2D<REAL>::~wxNodalDGgeometry2D()
     free_2d_c(_xcoord, _kLocalInt, _NpE);
     free_2d_c(_ycoord, _kLocalInt, _NpE);
     free_2d_c(_EtoV, _kLocalInt, 3);
-    free_2d_c(_ETETF, _Ktotal, 2*_NfE);
+    free_2d_c(_ETETF, _kLocalInt, 2*_NfE);
     MatDestroy(&_IVand);
 }
 
@@ -148,31 +177,39 @@ template <typename REAL>
 void
 wxNodalDGgeometry2D<REAL>::invertMatrix(Mat A, Mat *invA)
 {
-    Mat inpA, B;
-    IS is;
+    Mat fact, B;
     MatFactorInfo iluinfo;
     PetscInt ncols;
     const PetscInt    *cols;
     const PetscScalar *vals;
 
-    MatDuplicate(A,MAT_COPY_VALUES,&inpA);
-
-    // begin by creating a dense matrix B and fill it with the identity matrix
+    // begin by creating a dense matrix B and fill it with the identity matrix.
+    // Every MatGetRow must be matched by a MatRestoreRow before the matrix is
+    // touched again; the row is only wanted for its width.
     MatGetRow(A,0,&ncols,&cols,&vals);
-    MatCreateSeqDense(PETSC_COMM_SELF,ncols,ncols,PETSC_NULL,&B);
-    for (int k=0; k<ncols;k++)
+    PetscInt n = ncols;
+    MatRestoreRow(A,0,&ncols,&cols,&vals);
+
+    MatCreateSeqDense(PETSC_COMM_SELF,n,n,PETSC_NULL,&B);
+    for (PetscInt k=0; k<n; k++)
         MatSetValue(B,k,k,1.0,INSERT_VALUES);
     MatAssemblyBegin(B,MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(B,MAT_FINAL_ASSEMBLY);
 
-    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&inpA);
-    MatLUFactorSymbolic(inpA,A,is,is,&iluinfo);
-    MatLUFactorNumeric(inpA,A,&iluinfo);
-//    MatLUFactor(invA,is,is,&iluinfo);
-    // Calculate inverse
-    MatMatSolve(inpA,B,*invA);
+    // MatFactorInfo is a plain struct with no constructor: PETSc requires it to
+    // be initialised, or the factorisation runs against whatever fill, pivoting
+    // and shift parameters happened to be on the stack.
+    MatFactorInfoInitialize(&iluinfo);
 
-    MatDestroy(&inpA);
+    MatGetFactor(A,"petsc",MAT_FACTOR_LU,&fact);
+    // NULL row/column orderings mean the natural ordering. The previous code
+    // passed an uninitialised `IS is` here, twice.
+    MatLUFactorSymbolic(fact,A,NULL,NULL,&iluinfo);
+    MatLUFactorNumeric(fact,A,&iluinfo);
+    // Calculate inverse
+    MatMatSolve(fact,B,*invA);
+
+    MatDestroy(&fact);
     MatDestroy(&B);
 }
 
@@ -194,9 +231,19 @@ wxNodalDGgeometry2D<REAL>::CalculateNodeCoordinates2d(DM dm)
 
     DMPlexUninterpolate(dm,&unint);
 
+    // Get bounds for cell iteration
+    PetscInt cStart, cEnd, cEndInt;
+    DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd);
+    DMPlexGetHybridBounds(dm, &cEndInt, NULL, NULL, NULL);
+
     VecGetArray(coordinates, &coords);
-    for(unsigned K=0; K<_kLocalInt; K++)
+    for(PetscInt K = cStart; K < cEndInt; K++)
     {
+        // Only process triangular cells (3 vertices)
+        PetscInt coneSize;
+        DMPlexGetConeSize(unint, K, &coneSize);
+        if (coneSize != 3) continue;  // Skip non-triangular cells
+
         //DMPlexVecGetClosure(dm, coordSection, coordinates, K, &coordSize, &coords);
         //PetscSectionGetOffset(defaultSec, K, &off);
         // coords is returned as coords[x1,y1,x2,y2,x3,y3]
@@ -242,6 +289,11 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     DMPlexUninterpolate(dm,&unint);
     for(PetscInt K=0; K<_kLocalInt; K++)
     {
+        // Skip non-triangular cells
+        PetscInt coneSize;
+        DMPlexGetConeSize(unint, K, &coneSize);
+        if (coneSize != 3) continue;
+
         const PetscInt *vertex;
         DMPlexGetCone(unint, K, &vertex);
         for(unsigned vert=0; vert<3; vert++){
@@ -263,12 +315,20 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     int vn[3][2] = {{0,1},{1,2},{2,0}};
     int sk = 0;
     for(unsigned elem=0; elem<_kLocalInt; elem++)
+    {
+        // Skip non-triangular cells (check if EtoV was filled)
+        // Non-triangular cells were skipped above, so EtoV[elem] is uninitialized
+        PetscInt coneSize;
+        DMPlexGetConeSize(dm, elem, &coneSize);
+        if (coneSize != 3) continue;
+
         for(unsigned face=0; face<_NfE; face++)
         {
             for(unsigned node=0; node<2; node++)
                 MatSetValue(FtoV, sk, _EtoV[elem][vn[face][node]]-1, 1, INSERT_VALUES);
             sk++;
         }
+    }
     MatAssemblyBegin(FtoV, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(FtoV, MAT_FINAL_ASSEMBLY);
 
@@ -333,7 +393,9 @@ wxNodalDGgeometry2D<REAL>::FacePair2d(DM dm)
     }
 
     // Make all values -1. Only the faces not at physical boundaries are changed.
-    for(unsigned k1=0; k1<_Ktotal; k1++)
+    // Over _kLocalInt, matching the allocation: the tail rows were previously
+    // both unallocated and uninitialised.
+    for(unsigned k1=0; k1<_kLocalInt; k1++)
         for(unsigned f1=0; f1<2*_NfE; f1++)
         {
             _ETETF[k1][f1] = -1;
@@ -456,5 +518,5 @@ wxNodalDGgeometry2D<REAL>::multiplyBYinverseMassMatrix(REAL* input, REAL* output
 }
 
 // instantiations
-template class wxNodalDGgeometry2D<float>;
+//template class wxNodalDGgeometry2D<float>;
 template class wxNodalDGgeometry2D<double>;

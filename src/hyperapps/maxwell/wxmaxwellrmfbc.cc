@@ -55,5 +55,5 @@ WxMaxwellRMFBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Are
 }
 
 // instantiations
-template class WxMaxwellRMFBC<float>;
+//template class WxMaxwellRMFBC<float>;
 template class WxMaxwellRMFBC<double>;

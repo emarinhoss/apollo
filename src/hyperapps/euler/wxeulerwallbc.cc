@@ -22,5 +22,5 @@ WxEulerWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Area
 }
 
 // instantiations
-template class WxEulerWallBC<float>;
+//template class WxEulerWallBC<float>;
 template class WxEulerWallBC<double>;

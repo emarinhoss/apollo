@@ -1,0 +1,386 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast gate: no compiler, no PETSc, runs in well under a minute. Catches the
+  # class of breakage that once left every post-processing script unrunnable.
+  python-tooling:
+    name: Python tooling (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    # Two interpreters, because a one-version gate hid a real bug. The deck
+    # preprocessor relied on exec() writes into locals() persisting on the
+    # frame; PEP 667 ended that in 3.13, substitution silently stopped, and
+    # every deck reached the solver with its arithmetic unevaluated. It was
+    # invisible on 3.11 and fatal on 3.13, which is what Colab runs.
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # numpy is not a linter: the Phase 3 diagnostics tests
+      # (test_rmf_diagnostics.py, test_rmf_scan.py) check the post-processing
+      # against closed forms and need no solver, so they belong in this fast
+      # gate - but they skip themselves without numpy, and a test that skips is
+      # a test that is not running.
+      - name: Install linters and numpy
+        run: python -m pip install --upgrade pip pyflakes numpy
+
+      - name: Byte-compile every Python file
+        run: |
+          python -m compileall -q scripts src/buildconf src/this_host_config.py test
+
+      # Discovery also finds test_vortex_accuracy.py, test_rmf_antenna_field.py
+      # and test_rmf_bc_field.py, which skip here: they need a built solver and
+      # are run in the build job below.
+      - name: Regression tests
+        run: python -m unittest discover -s test -v
+
+      # Belt and braces: `discover` reports success when it finds nothing, so a
+      # renamed file would silently take these with it. Naming them makes that a
+      # failure instead.
+      - name: Phase 3 diagnostics and cost model
+        run: |
+          python test/test_rmf_diagnostics.py -v
+          python test/test_rmf_scan.py -v
+          python test/test_rmf_cleaning_check.py -v
+
+      # Needs a C++ compiler but no PETSc: it compiles petsc_compat.h against a
+      # stub <petsc.h> that declares what each PETSc release declares, so the
+      # version guards are checked across the whole supported range rather than
+      # only against whatever the build job happens to install.
+      - name: PETSc compatibility guards
+        run: python test/test_petsc_compat.py -v
+
+      # The .pin -> .inp path, which is what every run in examples/ depends on.
+      # Named rather than left to discovery for the same reason as the others.
+      - name: Deck preprocessing
+        run: python test/test_deck_preprocess.py -v
+
+      # The .vtu reader every diagnostic depends on. Builds both of the layouts
+      # PETSc writes, so it needs no PETSc of its own.
+      - name: VTU reader
+        run: python test/test_vtu_reader.py -v
+
+      # Where the build looks for Eigen. Pure function of the environment, so
+      # it needs no compiler: the list once omitted conda, which is what
+      # environment.yml tells people to use, and the gap could only surface as
+      # a failed build on a machine nobody here had.
+      - name: Eigen search paths
+        run: python test/test_eigen_paths.py -v
+
+      # That the build does not hand the compiler its own default search
+      # directories. -I/usr/include is redundant on a distribution and fatal on
+      # a toolchain with its own sysroot, which is why CI alone cannot catch it.
+      - name: System include and library paths
+        run: python test/test_include_paths.py -v
+
+      # Linking against the conda environment the build runs inside. CI builds
+      # from distribution packages, so this path is never exercised there —
+      # which is exactly why it needs a test that does not require conda.
+      - name: Conda link paths
+        run: python test/test_conda_paths.py -v
+
+  # The SCons scripts are Python too, and a syntax error in one of them breaks
+  # the build for everybody. Reading them requires no toolchain.
+  build-scripts:
+    name: Build scripts parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Syntax-check SConstruct and SConscripts
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          bad = []
+          targets = [pathlib.Path('src/SConstruct')]
+          targets += sorted(pathlib.Path('src').rglob('SConscript'))
+          targets += sorted(pathlib.Path('src/buildconf').glob('*.py'))
+          for path in targets:
+              try:
+                  compile(path.read_text(), str(path), 'exec')
+              except SyntaxError as exc:
+                  bad.append(f'{path}:{exc.lineno}: {exc.msg}')
+          print(f'checked {len(targets)} build scripts')
+          if bad:
+              print('\n'.join(bad))
+              sys.exit(1)
+          PY
+
+  # The real thing: build Apollo against distribution packages and run its own
+  # examples. Everything here is apt-installable, so no PETSc source build.
+  build-and-smoke:
+    name: Build and smoke-test
+    # Pinned, not ubuntu-latest. This job's value is that it tests a KNOWN PETSc:
+    # 24.04 ships 3.19.6. When the label rolls to the next LTS the PETSc under it
+    # changes with no diff and no announcement, and the version matrix this
+    # workflow is built around quietly stops meaning anything. Bump this line
+    # deliberately, and update the version claims in README.md when you do.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          # The runner image carries third-party apt repositories Apollo never
+          # installs from. When one of them serves a bad index - dl.google.com
+          # returned a hash-sum mismatch on 2026-09-09 - `apt-get update` exits
+          # 100 and takes the whole job with it, although every package below
+          # comes from the Ubuntu archive. Let update report and carry on: the
+          # install is the real gate and fails loudly with "Unable to locate
+          # package" if an index Apollo actually needs is the one that is missing.
+          sudo apt-get update \
+            || echo 'apt-get update reported errors; continuing - the install below is the gate'
+          sudo apt-get install -y --no-install-recommends \
+            libopenmpi-dev openmpi-bin \
+            libpetsc-real-dev \
+            libhdf5-openmpi-dev \
+            libopenblas-dev \
+            libgsl-dev \
+            libboost-dev \
+            libeigen3-dev
+          python -m pip install --upgrade pip scons
+
+      # Printed rather than assumed, same as the 22.04 job: if the runner image
+      # moves to a different PETSc, this job stops testing what its name says
+      # and the log is the only place that would show it.
+      - name: Report PETSc version
+        run: |
+          sed -n 's/#define PETSC_VERSION_\(MAJOR\|MINOR\|SUBMINOR\) *//p' \
+            /usr/lib/petsc/include/petscversion.h | paste -sd. -
+
+      - name: Build (optimized)
+        working-directory: src
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          # The runner's CPU is not the CPU any other machine has, and -march=native
+          # would make the cache useless as GitHub rotates hardware.
+          SCONSFLAGS: ''
+        run: scons build-opt arch=x86-64-v2
+
+      - name: Build (debug)
+        working-directory: src
+        env:
+          PETSC_DIR: /usr/lib/petsc
+        run: scons build-debug
+
+      # These need the built objects, so they belong here rather than in the
+      # toolchain-free job above.
+      # Every shared library the binary needs must actually resolve. A build can
+      # link happily and still produce something that will not start: a cluster
+      # build ended up needing libgfortran.so.3, from an explicit -lgfortran that
+      # resolved against an old system copy, while the transitive dependency
+      # brought in libgfortran.so.5 from the environment. `ldd` says "not found"
+      # for exactly that, and nothing else in CI was looking.
+      - name: No unresolved shared libraries
+        run: |
+          ldd src/build-opt/apollo
+          if ldd src/build-opt/apollo | grep -q "not found"; then
+            echo "::error::the binary has unresolved shared libraries"
+            exit 1
+          fi
+      - name: Unit tests (friction sources, RMF boundary, antenna, characteristics)
+        env:
+          PETSC_DIR: /usr/lib/petsc
+        run: make -C test/cxx
+
+      # The verification tests skip themselves without numpy or a binary, which
+      # is why running them in the python-only job above was silently a no-op.
+      # Each runs the solver against a case whose answer is known: the
+      # isentropic vortex for the Euler operator, the RMF antenna in vacuum for
+      # the Maxwell operator plus the antenna source, and the RMF boundary
+      # condition in vacuum for the field it claims to apply at the edge.
+      # Run the files directly rather than through `unittest discover -p`,
+      # which exits 0 with "Ran 0 tests ... OK" when its glob matches nothing -
+      # so a renamed or moved file would leave the build green with the only
+      # end-to-end check of the solver silently not running.
+      - name: Verification tests (exact solutions)
+        env:
+          APOLLO_BIN: src/build-opt/apollo
+        run: |
+          python -m pip install numpy
+          python test/test_vortex_accuracy.py -v
+          python test/test_rmf_antenna_field.py -v
+          python test/test_rmf_bc_field.py -v
+
+      # The work directory is named so the read-back step below can use the
+      # output these runs already produced instead of running the 209-second
+      # maxwell case a second time.
+      - name: Solver smoke tests
+        env:
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples-serial
+        run: test/run_examples.sh -b src/build-opt/apollo
+
+      - name: Solver smoke tests under MPI (2 ranks)
+        env:
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples-mpi
+        run: test/run_examples.sh -b src/build-opt/apollo -j 2
+
+      # The .vtu layout is PETSc's, not Apollo's: the length prefix before each
+      # appended block is 4 bytes on 3.15 and 8 on 3.19, and every diagnostic in
+      # scripts/ goes through test/vtu.py. Until now this read-back ran ONLY in
+      # the 22.04 job, so the single check that the reader matches its writer
+      # was performed against exactly one PETSc - the oldest one, and the one
+      # least like anything a user is likely to have. Run it on both.
+      # Reads what the smoke tests above already wrote. The first version of
+      # this step re-ran maxwell-circular-pulse itself, which cost 209 s per
+      # CI run for output that was already sitting on disk.
+      - name: Read back the .vtu files this PETSc wrote
+        run: |
+          python -m pip install numpy
+          APOLLO_EXAMPLES_WORK=${{ runner.temp }}/examples-serial python - <<'PY'
+          import glob, os, sys
+          sys.path.insert(0, 'test')
+          import vtu
+          work = os.environ['APOLLO_EXAMPLES_WORK']
+          files = sorted(glob.glob(os.path.join(work, '*', '*.vtu')))
+          if not files:
+              sys.exit('no .vtu produced under %s' % work)
+          for path in files:
+              arrays = vtu.read(path)
+              if not arrays:
+                  sys.exit('%s: reader returned no arrays' % path)
+              if 'Position' not in arrays:
+                  sys.exit('%s: no Position array; got %s'
+                           % (path, sorted(arrays)))
+          print('read %d .vtu file(s) written by this PETSc; '
+                'first has %d arrays' % (len(files), len(vtu.read(files[0]))))
+          PY
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            src/config.log
+            src/.sconf_temp/**
+          if-no-files-found: ignore
+
+  # The same build against the PETSc an older distribution ships. This job
+  # exists because it would have caught a real bug: two compatibility shims
+  # named 3.18 as the release that removed their symbols when the answer was
+  # 3.13 and 3.14, so Apollo compiled on 24.04 (PETSc 3.19) and did not compile
+  # at all on 22.04 (PETSc 3.15). Every job above ran ubuntu-latest, so nothing
+  # noticed until someone tried to build it in Google Colab, which is 22.04.
+  #
+  # Building alone is the point here; the smoke tests stay on the newer runner.
+  build-old-petsc:
+    name: Build on Ubuntu 22.04 (PETSc 3.15)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          # The runner image carries third-party apt repositories Apollo never
+          # installs from. When one of them serves a bad index - dl.google.com
+          # returned a hash-sum mismatch on 2026-09-09 - `apt-get update` exits
+          # 100 and takes the whole job with it, although every package below
+          # comes from the Ubuntu archive. Let update report and carry on: the
+          # install is the real gate and fails loudly with "Unable to locate
+          # package" if an index Apollo actually needs is the one that is missing.
+          sudo apt-get update \
+            || echo 'apt-get update reported errors; continuing - the install below is the gate'
+          sudo apt-get install -y --no-install-recommends \
+            libopenmpi-dev openmpi-bin \
+            libpetsc-real-dev \
+            libhdf5-openmpi-dev \
+            libopenblas-dev \
+            libgsl-dev \
+            libboost-dev \
+            libeigen3-dev
+          python -m pip install --upgrade pip scons
+
+      # Printed rather than assumed: if the distribution moves to a different
+      # PETSc, this job stops testing what its name says and the log says so.
+      - name: Report PETSc version
+        run: |
+          sed -n 's/#define PETSC_VERSION_\(MAJOR\|MINOR\|SUBMINOR\) *//p' \
+            /usr/lib/petsc/include/petscversion.h | paste -sd. -
+
+      - name: Build (optimized)
+        working-directory: src
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          SCONSFLAGS: ''
+        run: scons build-opt arch=x86-64-v2
+
+      # Every shared library the binary needs must actually resolve. A build can
+      # link happily and still produce something that will not start: a cluster
+      # build ended up needing libgfortran.so.3, from an explicit -lgfortran that
+      # resolved against an old system copy, while the transitive dependency
+      # brought in libgfortran.so.5 from the environment. `ldd` says "not found"
+      # for exactly that, and nothing else in CI was looking.
+      - name: No unresolved shared libraries
+        run: |
+          ldd src/build-opt/apollo
+          if ldd src/build-opt/apollo | grep -q "not found"; then
+            echo "::error::the binary has unresolved shared libraries"
+            exit 1
+          fi
+      - name: Unit tests
+        env:
+          PETSC_DIR: /usr/lib/petsc
+        run: make -C test/cxx
+
+      # The step that makes this job worth its minutes. Apollo does not write
+      # .vtu itself - PETSc's viewer does - so the on-disk layout follows the
+      # PETSc version: 3.15 writes a 4-byte length prefix and declares no
+      # header_type, 3.19 writes 8 bytes and declares UInt64. test/vtu.py
+      # assumed the 8-byte form, so on this PETSc it could not read a run's
+      # output at all, and every diagnostic in scripts/ goes through it.
+      # Building proves nothing about that; something has to read a file THIS
+      # PETSc produced.
+      - name: Read back a .vtu written by this PETSc
+        env:
+          PETSC_DIR: /usr/lib/petsc
+          APOLLO_EXAMPLES_WORK: ${{ runner.temp }}/examples
+        run: |
+          python -m pip install numpy
+          test/run_examples.sh -b src/build-opt/apollo maxwell-circular-pulse
+          python - <<'PY'
+          import glob, os, sys
+          sys.path.insert(0, 'test')
+          import vtu
+          work = os.environ['APOLLO_EXAMPLES_WORK']
+          files = sorted(glob.glob(os.path.join(work, '*', '*.vtu')))
+          if not files:
+              sys.exit('no .vtu produced under %s' % work)
+          for path in files:
+              arrays = vtu.read(path)
+              if not arrays:
+                  sys.exit('%s: reader returned no arrays' % path)
+              if 'Position' not in arrays:
+                  sys.exit('%s: no Position array; got %s'
+                           % (path, sorted(arrays)))
+          print('read %d .vtu file(s) written by this PETSc; '
+                'first has %d arrays' % (len(files), len(vtu.read(files[0]))))
+          PY

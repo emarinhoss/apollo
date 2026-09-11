@@ -270,7 +270,7 @@ public:
     HDV inline void set(type  v)  {  for(int i=0;i<N1*N0;i++) A[i] = v; }
     HDV inline void set(type *B)  {  for(int i=0;i<N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1; }
-    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; }
+    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index2D indices(int p)
     {
@@ -411,7 +411,7 @@ public:
     HDV inline void set(type  v)  {  for(int i=0;i<N2*N1*N0;i++) A[i] = v; }
     HDV inline void set(type *B)  {  for(int i=0;i<N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2; }
-    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; }
+    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index3D indices(int p)
     {
@@ -561,7 +561,7 @@ public:
     HDV inline void set(type  v)  {  for(int i=0;i<N3*N2*N1*N0;i++) A[i] = v; }
     HDV inline void set(type *B)  {  for(int i=0;i<N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3; }
-    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3; }
+    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index4D indices(int p)
     {
@@ -724,7 +724,7 @@ public:
     HDV inline void set(type *B)  {  for(int i=0;i<N4*N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3*N4; }
     HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3;
-                                    if(d==4) return N4; }
+                                    if(d==4) return N4; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index5D indices(int p)
     {
@@ -898,7 +898,7 @@ public:
     HDV inline void set(type *B)  {  for(int i=0;i<N5*N4*N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3*N4*N5; }
     HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3;
-                                    if(d==4) return N4; if(d==5) return N5; }
+                                    if(d==4) return N4; if(d==5) return N5; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index6D indices(int p)
     {
@@ -1083,7 +1083,7 @@ public:
     HDV inline void set(type *B)  {  for(int i=0;i<N6*N5*N4*N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3*N4*N5*N6; }
     HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3;
-                                    if(d==4) return N4; if(d==5) return N5; if(d==6) return N6; }
+                                    if(d==4) return N4; if(d==5) return N5; if(d==6) return N6; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index7D indices(int p)
     {
@@ -1383,7 +1383,7 @@ public:
     HDV inline void set(type  v)  {  for(int i=0;i<N1*N0;i++) A[i] = v; }
     HDV inline void set(type *B)  {  for(int i=0;i<N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1; }
-    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; }
+    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index2D indices(int p)
     {
@@ -1521,7 +1521,7 @@ public:
     HDV inline void set(type  v)  {  for(int i=0;i<N2*N1*N0;i++) A[i] = v; }
     HDV inline void set(type *B)  {  for(int i=0;i<N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2; }
-    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; }
+    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index3D indices(int p)
     {
@@ -1671,7 +1671,7 @@ public:
     HDV inline void set(type  v)  {  for(int i=0;i<N3*N2*N1*N0;i++) A[i] = v; }
     HDV inline void set(type *B)  {  for(int i=0;i<N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3; }
-    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3; }
+    HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index4D indices(int p)
     {
@@ -1832,7 +1832,7 @@ public:
     HDV inline void set(type *B)  {  for(int i=0;i<N4*N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3*N4; }
     HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3;
-                                    if(d==4) return N4; }
+                                    if(d==4) return N4; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index5D indices(int p)
     {
@@ -2005,7 +2005,7 @@ public:
     HDV inline void set(type *B)  {  for(int i=0;i<N5*N4*N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3*N4*N5; }
     HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3;
-                                    if(d==4) return N4; if(d==5) return N5; }
+                                    if(d==4) return N4; if(d==5) return N5; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index6D indices(int p)
     {
@@ -2188,7 +2188,7 @@ public:
     HDV inline void set(type *B)  {  for(int i=0;i<N6*N5*N4*N3*N2*N1*N0;i++) A[i] = B[i]; }
     HDV inline int size() {  return N0*N1*N2*N3*N4*N5*N6; }
     HDV inline int length(int d) {  if(d==0) return N0; if(d==1) return N1; if(d==2) return N2; if(d==3) return N3;
-                                    if(d==4) return N4; if(d==5) return N5; if(d==6) return N6; }
+                                    if(d==4) return N4; if(d==5) return N5; if(d==6) return N6; return 0; }
     HDV inline type& at(int p) {  return A[p]; }
     HDV inline index7D indices(int p)
     {

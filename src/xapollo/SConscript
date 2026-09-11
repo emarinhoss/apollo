@@ -10,6 +10,7 @@ Import('env')# objs')
 sources = [
     'xapollo.cc',
     'apsimulation.cc',
+    'apversion.cc',
            ]
 
 ##

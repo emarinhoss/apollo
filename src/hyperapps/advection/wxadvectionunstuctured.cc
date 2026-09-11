@@ -346,5 +346,5 @@ eigenSystem(unsigned d, REAL *q, REAL *ev, REAL **lev, REAL **rev)
 }
 
 // instantiations
-template class WxAdvectionUnstructuredEqn<float>;
+//template class WxAdvectionUnstructuredEqn<float>;
 template class WxAdvectionUnstructuredEqn<double>;

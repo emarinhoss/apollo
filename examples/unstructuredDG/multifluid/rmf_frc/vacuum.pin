@@ -1,0 +1,191 @@
+# -*- python -*-
+#
+# The edge-driven RMF boundary condition in vacuum: does it apply the field it
+# says it applies?
+#
+# frc2d.pin beside this file prescribes a rotating transverse field at the
+# plasma edge with twoFluidSimplifiedRMFBC. Nothing tested, at solver level,
+# that the field inside the domain is then the field the deck asked for - and
+# two defects in that class (the phase applied to one component only, and an
+# induced E_z that satisfied neither component of Faraday's law) went unnoticed
+# until they were found by reading it.
+#
+# This run catches both, but only because it was built to. That claim was made
+# before it was checked, and when checked it was false: reintroducing each
+# defect and running this deck left every check passing. The phase defect is
+# invisible at PHASE = 0 - the two expressions are identical there - and the
+# E_z defect moves |B| by 0.24% against a 5% tolerance, which is the size of the
+# deck's own quasi-static error and so cannot be separated by tightening it.
+# PHASE is therefore PI/2 below, and test_rmf_bc_field.py checks the ANGULAR
+# STRUCTURE of E_z rather than a magnitude. Both defects were then rebuilt and
+# re-run against the updated test - the step that was skipped the first time.
+# The phase defect fails the rotation check (0.0000 rad swept against -0.4496
+# expected) and the magnitude check (38.5% against 5%); the E_z defect fails the
+# angular check at 0.013 against a floor of 0.30, where the correct field gives
+# 1.115. test/cxx/test_rmf_boundary.cc catches them too, at unit level.
+#
+# Remove the plasma and every source that couples the fluids to the field, and
+# the answer is known: inside a domain whose edge carries a spatially uniform
+# transverse field of magnitude B_rmf(1 - exp(-t/rise)) rotating at omega, the
+# field is that same uniform rotating field. test/test_rmf_bc_field.py checks
+# magnitude, uniformity and rotation rate against it.
+#
+# NOT exact, and the reason bounds the tolerance. A uniform rotating B_perp with
+# its induced E_z satisfies Faraday exactly but not Ampere: curl B = 0 for a
+# spatially uniform field, so dE/dt would have to vanish, and E_z rotates. It is
+# the quasi-static limit, good to O((omega a/c)^2) = (5.0e6*0.03/3.0e6)^2, about
+# 0.25% here. The test allows a few percent, which is that plus the mesh.
+#
+# c0 below switches the boundary condition to characteristic injection - only
+# the incoming characteristics imposed, the outgoing ones taken from the
+# interior. At chi = gamma = 1 that changes nothing (see
+# src/hyperapps/maxwell/apmaxwellcharacteristics.h), and this deck asks for it
+# so that the path is exercised by a run rather than only by a unit test.
+#
+# Mesh: uniform and coarse - there is no plasma to resolve.
+#
+#   python3 scripts/mkdiscmesh.py -o vacuumDisc.msh --outer 0.03 --h-inner 1.8e-3
+#
+import math
+PI = math.pi
+
+MU0   = PI*4.0e-7
+LIGHT = 3.0e6      # as in frc2d.pin: c/100, with eps0 rescaled to match
+EPS0  = 1.0/(MU0*LIGHT*LIGHT)
+GAMMA = 1.66666666667
+
+MEQN  = 18
+P_ORDER = 1
+DIVB_SPEED = 1.0
+DIVE_SPEED = 1.0
+
+Bomega = 50.e-4   # T, the transverse field the boundary applies
+Baxial = 60.e-4   # T, bias field, held by the flux-conserver term
+omega  = 7.95e5   # Hz
+# PI/2, not 0, and the choice is load-bearing. One of the two defects this run
+# is meant to guard against applied the phase to a single Cartesian component;
+# at PHASE = 0 the defective and correct expressions are the SAME expression -
+# adding +0.0 is bit-exact - so no run of this deck could ever tell them apart.
+# At PI/2 the defective form is linearly polarised, swinging |B| between 0 and
+# sqrt(2)*Bomega, which fails the magnitude check by a wide margin. Every
+# expectation in test/test_rmf_bc_field.py is phase-independent, so this costs
+# nothing.
+PHASE  = PI/2.    # rads
+# frc2d.pin uses 30 ns. The lowest cavity mode an m = 1 drive can excite in a
+# conducting circle of radius a is j_11 c/a = 3.8317*3.0e6/0.03 = 3.83e8 rad/s,
+# a 16 ns period, and nothing damps it with no plasma present. 60 ns is 3.7 of
+# those - the same ratio the antenna deck was validated at - and the ringing
+# falls below the test's tolerances; 30 ns does not. Kept as short as that
+# ratio allows because this run is in CI on every push.
+RISE   = 6.0e-8
+
+RAD_PLASMA = 0.030
+RAD_fluxCo = 0.035
+
+RHO0 = 1.e-20
+P0   = 1.e-20
+
+TEND = 1.8e-7
+OUT  = 12
+
+<warpx>
+
+ Simulation = vacuum
+ Verbosity = info
+
+ <vacuum>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND]
+   Output_files = OUT
+   Dt = 0.01
+   Dimensions = 2
+   Gridname = 'vacuumDisc.msh'
+   NumFields = 1
+
+   <hyperbolic>
+     Type = ApSubSolver
+     Kind = nodalDG2d
+
+     Equations = [eulerElc, eulerIon, maxwell]
+     boundaryConditions = [coil1]
+     # No Sources key at all: no Lorentz force, no plasma current, no charge
+     # source, no resistivity. That is what makes the interior field the
+     # boundary's. (The deck parser rejects an empty list, so the key is
+     # omitted rather than left empty.)
+
+     polynomialOrder = P_ORDER
+     cfl = 1.0/((2.*(P_ORDER+1)-1))
+
+     DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)//2]
+
+     <InitialCondition>
+       Type = WxFunction
+       Kind = exprFunc
+
+       gm1  = GAMMA-1.
+       rho0 = RHO0
+       p0   = P0
+       Bz   = Baxial
+       progn = ["energy = p0/gm1"]
+       exprList = ["rho0","0.0","0.0","0.0","energy", \
+                   "rho0","0.0","0.0","0.0","energy", \
+                   "0.0","0.0","0.0", \
+                   "0.0","0.0","Bz", \
+                   "0.0","0.0" ]
+     </InitialCondition>
+
+     <eulerElc>
+       Type = WxHyperbolicEqn
+       Kind = eulerEqn
+       gas_gamma = GAMMA
+       minPressure = 1.e-30
+       minDensity = 1.e-30
+     </eulerElc>
+
+     <eulerIon>
+       Type = WxHyperbolicEqn
+       Kind = eulerEqn
+       gas_gamma = GAMMA
+       minPressure = 1.e-30
+       minDensity = 1.e-30
+     </eulerIon>
+
+     <maxwell>
+       Type = WxHyperbolicEqn
+       Kind = phMaxwellEqn
+       c0 = LIGHT
+       gamma = DIVB_SPEED
+       chi = DIVE_SPEED
+     </maxwell>
+
+   </hyperbolic>
+
+   <coil1>
+      Type = ApSubSolver
+      Kind = twoFluidSimplifiedRMFBC
+
+      frequency = omega
+      B_axial = Baxial
+      B_rmf = Bomega
+      phase = PHASE
+      rise_time = RISE
+      plasma_radius = RAD_PLASMA
+      flux_conserver_radius = RAD_fluxCo
+      # Present: impose only the incoming characteristics.
+      c0 = LIGHT
+   </coil1>
+
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </vacuum>
+</warpx>
