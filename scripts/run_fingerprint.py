@@ -43,18 +43,6 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'test'))
 
-# Arrays that describe the mesh rather than the solution, reported separately so
-# a real difference in the fields is not buried among them.
-#
-# THESE DO NOT ALL BEHAVE THE SAME ACROSS RANK COUNTS, and getting that wrong
-# makes the tool useless for the one comparison known-issues 15 is about.
-# PETSc writes one <Piece> per rank, and a vertex on a partition boundary
-# appears in every piece that touches it - so the concatenated point list is
-# LONGER on more ranks (measured: 18303 points on 1 rank, 18588 on 2, same
-# mesh) while the cell data is not duplicated and its length is identical
-# (11989 in both). A first draft of this file treated any length difference
-# here as "the mesh differs" and refused, which reported a partitioning
-# difference as two different problems.
 # Bumped whenever the comparison MATH changes, so two machines running
 # different copies of this script say so instead of silently disagreeing.
 #
@@ -76,6 +64,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 #   2  sorted_sum measured against abs_sorted_sum
 COMPARISON_VERSION = 2
 
+# Arrays that describe the mesh rather than the solution, reported separately so
+# a real difference in the fields is not buried among them.
+#
+# THESE DO NOT ALL BEHAVE THE SAME ACROSS RANK COUNTS, and getting that wrong
+# makes the tool useless for the one comparison known-issues 15 is about.
+# PETSc writes one <Piece> per rank, and a vertex on a partition boundary
+# appears in every piece that touches it - so the concatenated point list is
+# LONGER on more ranks (measured: 18303 points on 1 rank, 18588 on 2, same
+# mesh) while the cell data is not duplicated and its length is identical
+# (11989 in both). A first draft of this file treated any length difference
+# here as "the mesh differs" and refused, which reported a partitioning
+# difference as two different problems.
 TOPOLOGY_ARRAYS = ('Position', 'connectivity', 'offsets', 'types')
 # Deliberately its own category: 'Rank' is the rank that owns each cell, so it
 # differs between a 1-rank and a 2-rank run by construction. That is not a
