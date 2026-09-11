@@ -32,7 +32,7 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**175 Python tests, and 3 of them are 72% of the runtime.** Measured on a
+**179 Python tests, and 3 of them are 72% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
@@ -40,10 +40,10 @@ environment on a cluster.
 | `test_rmf_antenna_field.py` | 3 | 645 s |
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
-| everything else (12 modules) | 166 | **3.0 s** |
-| whole suite | 175 | ~895 s |
+| everything else (12 modules) | 170 | **3.9 s** |
+| whole suite | 179 | ~895 s |
 
-So run the 166 while you work and the whole suite before you push. The 166 need
+So run the 170 while you work and the whole suite before you push. The 170 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
@@ -53,7 +53,7 @@ cd test && python3 -m unittest \
     test_mkdiscmesh test_python_tooling test_deck_preprocess \
     test_vtu_reader test_eigen_paths test_include_paths \
     test_conda_paths test_petsc_compat test_run_fingerprint
-# Ran 166 tests in 3.004s -- OK
+# Ran 170 tests in 3.8s -- OK
 ```
 
 `cd test` first. From the repository root the stdlib's own `test` package wins
@@ -65,7 +65,7 @@ compiler but no PETSc.
 
 The 9 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 175 tests` and no skips.
+suite reports `Ran 179 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 

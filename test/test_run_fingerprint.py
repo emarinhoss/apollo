@@ -200,6 +200,55 @@ class TestRunFingerprint(unittest.TestCase):
         self.assertEqual(code, AGREE, out)
         self.assertNotIn('MESH DIFFERS', out)
 
+    # ---- bad input must be named, not raised -----------------------------
+    #
+    # The reference fingerprint is normally written on one machine and read on
+    # another, so "the file is not here" is the most likely thing a user hits.
+    # The first version raised a bare FileNotFoundError traceback pointing at
+    # a line of argparse handling, which says nothing about what to do.
+
+    def _run(self, *paths):
+        done = subprocess.run([sys.executable, TOOL, '--compare'] + list(paths),
+                              capture_output=True, text=True)
+        return done.returncode, done.stdout + done.stderr
+
+    def test_missing_fingerprint_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            here = os.path.join(tmp, 'here.json')
+            with open(here, 'w') as h:
+                json.dump(_fingerprint(), h)
+            code, out = self._run(os.path.join(tmp, 'absent.json'), here)
+        self.assertEqual(code, 1, out)
+        self.assertIn('no such fingerprint', out)
+        self.assertNotIn('Traceback', out)
+
+    def test_directory_where_a_json_was_expected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out = self._run(tmp, tmp)
+        self.assertEqual(code, 1, out)
+        self.assertIn('is a directory', out)
+        self.assertNotIn('Traceback', out)
+
+    def test_a_file_that_is_not_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = os.path.join(tmp, 'bad.json')
+            with open(bad, 'w') as h:
+                h.write('not json at all')
+            code, out = self._run(bad, bad)
+        self.assertEqual(code, 1, out)
+        self.assertIn('not valid JSON', out)
+        self.assertNotIn('Traceback', out)
+
+    def test_json_that_is_not_a_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            wrong = os.path.join(tmp, 'wrong.json')
+            with open(wrong, 'w') as h:
+                json.dump({'something': 'else'}, h)
+            code, out = self._run(wrong, wrong)
+        self.assertEqual(code, 1, out)
+        self.assertIn('not a fingerprint', out)
+        self.assertNotIn('Traceback', out)
+
     # ---- the banner is what tells you which build produced which side ----
 
     def test_both_banners_are_printed(self):

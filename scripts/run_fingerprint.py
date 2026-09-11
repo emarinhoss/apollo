@@ -282,6 +282,40 @@ def _report(left, right, tolerance, limit):
     return 1
 
 
+def _load(path):
+    """Read a fingerprint, refusing legibly rather than raising a traceback.
+
+    The three ways this goes wrong in practice are a file that is not there
+    (the reference was written on another machine and never copied over), a
+    directory passed where a .json was expected, and a file that is not a
+    fingerprint at all. A stack trace names none of them.
+    """
+    if os.path.isdir(path):
+        raise SystemExit(
+            '%s is a directory. Either drop --compare to fingerprint two run\n'
+            'directories directly, or pass the .json files written with -o.'
+            % path)
+    if not os.path.exists(path):
+        raise SystemExit(
+            'no such fingerprint: %s\n'
+            'Fingerprints are not produced by this flag - write one first on\n'
+            'the machine that holds the run:\n'
+            '    python3 scripts/run_fingerprint.py <results-dir> -o %s\n'
+            'and copy it here if the two runs are on different machines.'
+            % (path, os.path.basename(path)))
+    try:
+        with open(path) as handle:
+            loaded = json.load(handle)
+    except ValueError as exc:
+        raise SystemExit('%s is not valid JSON: %s' % (path, exc))
+    if not isinstance(loaded, dict) or 'frames' not in loaded:
+        raise SystemExit(
+            '%s is not a fingerprint - it has no "frames". Fingerprints are\n'
+            'written by this script with -o; this looks like something else.'
+            % path)
+    return loaded
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(
         description=__doc__.split('\n\n')[0],
@@ -304,11 +338,8 @@ def main(argv=None):
     if args.compare:
         if len(args.paths) != 2:
             p.error('--compare takes exactly two fingerprint files')
-        with open(args.paths[0]) as h:
-            left = json.load(h)
-        with open(args.paths[1]) as h:
-            right = json.load(h)
-        return _report(left, right, args.tolerance, args.limit)
+        return _report(_load(args.paths[0]), _load(args.paths[1]),
+                       args.tolerance, args.limit)
 
     if len(args.paths) == 2 and all(os.path.isdir(x) for x in args.paths):
         left = fingerprint(args.paths[0], args.frames)
