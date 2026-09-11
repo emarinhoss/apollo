@@ -121,11 +121,42 @@ def fingerprint(directory, frames=None):
     return out
 
 
-def _relative(a, b):
-    """Relative difference, falling back to absolute when both are tiny."""
+def _relative(a, b, scale=None):
+    """Difference between two statistics, as a fraction of *scale*.
+
+    WHY scale IS AN ARGUMENT, and why getting this wrong produced a false
+    alarm on a 140-hour decision.
+
+    `sorted_sum` of a near-zero-mean field is a catastrophic-cancellation
+    quantity. Measured on the RMF antenna gate deck, frame 1, the cleaning
+    potential phi: the sum of its 11989 values is 6.82e-10 while the sum of
+    their magnitudes is 3.75e-06 - the sum is a 1.8e-04 residual of what went
+    into it, 99.98% having cancelled.
+
+    Normalising a difference in that sum BY THAT SUM therefore multiplies it by
+    1/1.8e-04 = 5498. A real cross-build drift of 6.56e-08 was reported as
+    3.608e-04 and tripped a 1e-10 tolerance, on a quantity whose absolute
+    disagreement was 2.46e-13. Every one of the twelve worst entries was
+    `sorted_sum`; not one `min`, `max` or `abs_sorted_sum` appeared, which is
+    precisely the signature of cancellation rather than of a different answer.
+
+    So a sum is measured against the magnitudes it was built from, not against
+    the residue left after they cancelled. `min`, `max` and `abs_sorted_sum`
+    do not cancel and keep their own scale.
+
+    This is NOT a way of making the tool quieter: the absolute difference and
+    the amplification are both reported, the cancellation-free statistics are
+    still compared at full strength against the same tolerance, and a genuine
+    difference moves min/max/abs_sorted_sum too. Verified against a case known
+    to differ - the same deck at one rank and at two, which known-issues 15
+    says gives a different answer - where the difference shows up at 1.9 on the
+    sum AND 2.2e-02 of the magnitude, i.e. in both columns at once.
+    """
     if a is None or b is None:
         return None
-    scale = max(abs(a), abs(b))
+    if scale is None:
+        scale = max(abs(a), abs(b))
+    scale = abs(scale)
     if scale == 0.0:
         return 0.0
     # Below this the two are both numerically zero and a ratio is meaningless.
@@ -173,9 +204,21 @@ def compare(left, right, tolerance):
                 refusals.append(
                     'frame %d, %s: non-finite values present (%s vs %s)'
                     % (i, name, ls.get('n_nonfinite'), rs.get('n_nonfinite')))
-            diffs = {k: _relative(ls[k], rs[k])
+            # The field's own magnitude, used as the yardstick for the
+            # cancelling statistic. See _relative().
+            magnitude = max(ls.get('abs_sorted_sum') or 0.0,
+                            rs.get('abs_sorted_sum') or 0.0)
+            diffs = {k: _relative(ls[k], rs[k],
+                                  magnitude if k == 'sorted_sum' else None)
                      for k in ('min', 'max', 'sorted_sum', 'abs_sorted_sum')}
-            got = max((d for d in diffs.values() if d is not None), default=0.0)
+            # Kept so the report can say how much the old normalisation would
+            # have amplified this, rather than silently dropping the number.
+            diffs['_sorted_sum_selfnorm'] = _relative(ls['sorted_sum'],
+                                                      rs['sorted_sum'])
+            diffs['_absdiff'] = abs((ls['sorted_sum'] or 0.0)
+                                    - (rs['sorted_sum'] or 0.0))
+            got = max((d for k, d in diffs.items()
+                       if d is not None and not k.startswith('_')), default=0.0)
             rows.append((i, name, got, diffs))
             if worst is None or got > worst[2]:
                 worst = (i, name, got, diffs)
@@ -266,6 +309,34 @@ def _report(left, right, tolerance, limit):
     top = fields[0][2]
     print('worst over %d solution arrays: %.3e  (frame %d, %s)'
           % (len(fields), top, fields[0][0], fields[0][1]))
+
+    # Say which statistic produced that number and how big the disagreement
+    # actually is. Without this the reader cannot tell a cancelling sum from a
+    # moved extreme, and those mean opposite things.
+    worst_diffs = fields[0][3]
+    driving = max(((k, v) for k, v in worst_diffs.items()
+                   if v is not None and not k.startswith('_')),
+                  key=lambda kv: kv[1])[0]
+    print('  driven by:      %s' % driving)
+    if driving == 'sorted_sum':
+        raw = worst_diffs.get('_sorted_sum_selfnorm')
+        absd = worst_diffs.get('_absdiff')
+        if absd is not None:
+            print('  absolute:       %.3e' % absd)
+        if raw and top > 0:
+            print('  note:           this is a SUM over a field that largely')
+            print('                  cancels. Measured against the sum itself')
+            print('                  rather than the magnitudes behind it, the')
+            print('                  same difference reads %.3e - %.0fx larger.'
+                  % (raw, raw / top))
+            print('                  The magnitudes are the honest yardstick.')
+    moved = [k for k in ('min', 'max', 'abs_sorted_sum')
+             if (worst_diffs.get(k) or 0.0) > tolerance]
+    if driving == 'sorted_sum' and not moved:
+        print('  and:            min, max and abs_sorted_sum all agree within')
+        print('                  the tolerance. A different ANSWER moves those')
+        print('                  too; only round-off moves the cancelling sum')
+        print('                  alone.')
     if blocked:
         print('NOT COMPARABLE - see the refusals above. The number just')
         print('printed covers only the arrays that lined up, so it is not')
@@ -275,8 +346,24 @@ def _report(left, right, tolerance, limit):
         print('within the %.1e tolerance: the two runs agree to round-off.'
               % tolerance)
         return 0
-    print('ABOVE the %.1e tolerance. These are not the same answer.'
-          % tolerance)
+    print('ABOVE the %.1e tolerance.' % tolerance)
+    if driving == 'sorted_sum' and not moved:
+        # Do not decide this for the reader: give them the two regimes and the
+        # number, and let them say which comparison they are making.
+        print()
+        print('WHICH REGIME IS THIS? The default tolerance assumes the two runs')
+        print('should be bit-identical, which holds only for the same binary on')
+        print('the same machine. Across a different compiler, BLAS or PETSc,')
+        print('every operation reorders and round-off accumulates: on this')
+        print('solver, ~1e-8 relative over a few hundred steps is ordinary.')
+        print('So read it this way:')
+        print('  same build, same machine  -> anything above 0 is a real bug')
+        print('  different build or BLAS   -> ~1e-8 is expected; 1e-3 is not')
+        print('Re-run with --tolerance if you are making the second comparison.')
+        print('The absolute difference above is the number to judge, not this')
+        print('ratio.')
+        return 1
+    print('These are not the same answer.')
     print('This is the signal the comparison exists to produce - do not')
     print('explain it away without finding the cause.')
     return 1

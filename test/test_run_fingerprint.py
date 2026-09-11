@@ -249,6 +249,87 @@ class TestRunFingerprint(unittest.TestCase):
         self.assertIn('not a fingerprint', out)
         self.assertNotIn('Traceback', out)
 
+    # ---- cancellation: the false alarm that cost a real investigation ----
+    #
+    # Numbers below are measured, from the RMF antenna gate deck run on PETSc
+    # 3.19.6 and on 3.25.5. phi (the E-field cleaning potential) at frame 1:
+    # the sum of its 11989 values is 6.8217e-10 while the sum of their
+    # magnitudes is 3.7506e-06 - 99.98% cancels. The two builds disagreed by
+    # 2.461e-13 in absolute terms. Normalised by the cancelled sum that reads
+    # 3.608e-04 and trips the default tolerance; normalised by the magnitudes
+    # it reads 6.562e-08, which is ordinary cross-BLAS round-off.
+    #
+    # All twelve worst entries were sorted_sum. Not one min, max or
+    # abs_sorted_sum. That signature is the point of these tests.
+
+    PHI_SUM = 6.8217e-10        # sum of phi over the cells
+    PHI_MAGNITUDE = 3.7506e-06  # sum of |phi|, the honest yardstick
+    PHI_ABS_DIFF = 2.461e-13    # what the two builds actually disagreed by
+
+    def _cancelling_pair(self):
+        """Two fingerprints differing only in a heavily-cancelling sum."""
+        left = _fingerprint()
+        for frame in left['frames']:
+            frame['arrays']['solutiondg.16'] = {
+                'n': 11989, 'n_nonfinite': 0,
+                'min': -8.424762e-09, 'max': 1.000096e-08,
+                'sorted_sum': self.PHI_SUM,
+                'abs_sorted_sum': self.PHI_MAGNITUDE,
+            }
+        right = copy.deepcopy(left)
+        for frame in right['frames']:
+            frame['arrays']['solutiondg.16']['sorted_sum'] += self.PHI_ABS_DIFF
+        return left, right
+
+    def test_a_cancelling_sum_is_measured_against_the_magnitudes(self):
+        """6.562e-08, not 3.608e-04. The 5498x is the cancellation, not drift."""
+        left, right = self._cancelling_pair()
+        code, out = self._compare(left, right)
+        worst = [l for l in out.split('\n') if l.startswith('worst over')]
+        self.assertTrue(worst, out)
+        value = float(worst[0].split(':')[1].split('(')[0])
+        self.assertLess(value, 1e-7, out)
+        self.assertGreater(value, 1e-8, out)
+        self.assertEqual(code, DIFFER, out)   # still reported, not silenced
+
+    def test_the_amplification_is_reported_not_hidden(self):
+        """The old number must still be shown, or this is just a quieter tool."""
+        left, right = self._cancelling_pair()
+        code, out = self._compare(left, right)
+        self.assertIn('driven by:      sorted_sum', out)
+        self.assertIn('absolute:', out)
+        self.assertIn('x larger', out)
+        self.assertIn('2.461e-13', out)
+
+    def test_a_moved_extreme_is_not_excused_as_cancellation(self):
+        """The guard against making the alarm quieter: min/max keep full weight."""
+        left, right = self._cancelling_pair()
+        for frame in right['frames']:
+            frame['arrays']['solutiondg.16']['max'] *= 1.05
+        code, out = self._compare(left, right)
+        self.assertEqual(code, DIFFER, out)
+        worst = [l for l in out.split('\n') if l.startswith('worst over')]
+        value = float(worst[0].split(':')[1].split('(')[0])
+        self.assertGreater(value, 1e-2, out)
+        self.assertIn('driven by:      max', out)
+
+    def test_cross_build_drift_passes_at_a_cross_build_tolerance(self):
+        """6.562e-08 is a pass at 1e-6 and a fail at the bit-identical default."""
+        left, right = self._cancelling_pair()
+        with tempfile.TemporaryDirectory() as tmp:
+            lp, rp = os.path.join(tmp, 'l.json'), os.path.join(tmp, 'r.json')
+            for path, fp in ((lp, left), (rp, right)):
+                with open(path, 'w') as h:
+                    json.dump(fp, h)
+            strict = subprocess.run([sys.executable, TOOL, '--compare', lp, rp],
+                                    capture_output=True, text=True)
+            loose = subprocess.run([sys.executable, TOOL, '--compare', lp, rp,
+                                    '--tolerance', '1e-6'],
+                                   capture_output=True, text=True)
+        self.assertEqual(strict.returncode, DIFFER, strict.stdout)
+        self.assertIn('WHICH REGIME IS THIS', strict.stdout)
+        self.assertEqual(loose.returncode, AGREE, loose.stdout)
+
     # ---- the banner is what tells you which build produced which side ----
 
     def test_both_banners_are_printed(self):
