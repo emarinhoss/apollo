@@ -335,6 +335,43 @@ class TestRunFingerprint(unittest.TestCase):
         self.assertIn('WHICH REGIME IS THIS', strict.stdout)
         self.assertEqual(loose.returncode, AGREE, loose.stdout)
 
+    # ---- the output must identify which maths produced it ----------------
+    #
+    # A user ran a pre-fix copy of the script against a post-fix analysis and
+    # got 3.608e-04 where the fixed copy gives 6.562e-08. Nothing in the output
+    # said which was running; the only tell was the ABSENCE of a line. A tool
+    # for comparing two machines has to notice it is itself two versions.
+
+    def test_the_comparison_version_is_printed(self):
+        code, out = self._compare(_fingerprint(), _fingerprint())
+        self.assertIn('comparison version', out)
+
+    def test_an_older_fingerprint_is_read_not_rejected(self):
+        """The file format did not change; only the arithmetic did.
+
+        v1 and v2 store the same five statistics, so refusing an unstamped
+        .json would be a false alarm that sends people off to re-run a solver
+        for nothing.
+        """
+        old = _fingerprint()
+        old.pop('comparison_version', None)
+        for frame in old['frames']:
+            frame['arrays']['solutiondg.16'] = {
+                'n': 11989, 'n_nonfinite': 0,
+                'min': -8.424762e-09, 'max': 1.000096e-08,
+                'sorted_sum': self.PHI_SUM,
+                'abs_sorted_sum': self.PHI_MAGNITUDE,
+            }
+        new = copy.deepcopy(old)
+        new['comparison_version'] = 2
+        for frame in new['frames']:
+            frame['arrays']['solutiondg.16']['sorted_sum'] += self.PHI_ABS_DIFF
+        code, out = self._compare(old, new)
+        self.assertNotIn('MISMATCH', out)
+        worst = [l for l in out.split('\n') if l.startswith('worst over')]
+        value = float(worst[0].split(':')[1].split('(')[0])
+        self.assertLess(value, 1e-7, out)   # conditioned, not the 3.6e-04
+
     # ---- the banner is what tells you which build produced which side ----
 
     def test_both_banners_are_printed(self):

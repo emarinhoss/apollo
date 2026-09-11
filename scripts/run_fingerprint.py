@@ -55,6 +55,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 # (11989 in both). A first draft of this file treated any length difference
 # here as "the mesh differs" and refused, which reported a partitioning
 # difference as two different problems.
+# Bumped whenever the comparison MATH changes, so two machines running
+# different copies of this script say so instead of silently disagreeing.
+#
+# This is not hypothetical bookkeeping. The normalisation fix below changed the
+# headline figure for one comparison from 3.608e-04 to 6.562e-08. A user ran the
+# pre-fix copy against a post-fix analysis and got the old number with no
+# indication why; the only tell was the absence of a line in the output. A tool
+# whose whole purpose is comparing two machines should notice when the two
+# machines are running different versions of it.
+#
+# The stamp is reported in the header of every comparison, so a pasted result
+# identifies which maths produced it. It is deliberately NOT used to reject an
+# older fingerprint file: v1 and v2 store the same five statistics, so an old
+# .json is read correctly by a new script. Only the arithmetic moved, and that
+# lives in the script, not the data - which is exactly why the output has to
+# say so.
+#
+#   1  self-normalised statistics (the cancellation bug)
+#   2  sorted_sum measured against abs_sorted_sum
+COMPARISON_VERSION = 2
+
 TOPOLOGY_ARRAYS = ('Position', 'connectivity', 'offsets', 'types')
 # Deliberately its own category: 'Rank' is the rank that owns each cell, so it
 # differs between a 1-rank and a 2-rank run by construction. That is not a
@@ -101,7 +122,9 @@ def fingerprint(directory, frames=None):
                 % (sorted(want), len(files)))
         files = chosen
 
-    out = {'source': os.path.abspath(directory), 'frames': []}
+    out = {'source': os.path.abspath(directory),
+           'comparison_version': COMPARISON_VERSION,
+           'frames': []}
     for path in files:
         arrays = vtu.read(path)
         out['frames'].append({
@@ -259,7 +282,14 @@ def _report(left, right, tolerance, limit):
 
     for side, fp in (('left ', left), ('right', right)):
         print('%s: %s' % (side, fp.get('banner', fp.get('source', '?'))))
+    print('comparison version %d' % COMPARISON_VERSION)
     print()
+
+    # Deliberately NOT warning when a fingerprint carries an older stamp. The
+    # file format has not changed - v1 and v2 store the same five statistics -
+    # so an old .json is read correctly by a new script and needs no rewriting.
+    # Only the COMPARISON math changed, and that lives in whichever copy of this
+    # script is running, which is what the version line above reports.
 
     if refusals:
         blocked = True
