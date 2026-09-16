@@ -850,9 +850,11 @@ a fixed cost of 0.4 s.)
 | 3. skin-depth limit | 3 × B_ω, 5 periods | 3.7 days | 1.2 days |
 | 4. formation dynamics | 1 point, 20 periods | 4.9 days | not applicable (β) |
 
-None of these fits in a session, and the solver has no checkpoint/restart (`known-issues` §6), so
-an interrupted run is a lost run. That is why `rmf_scan.py` prints the cost before running anything
-and refuses to start a scan it estimates at over six hours.
+None of these fits in a session. That used to make an interrupted run a lost run; the solver now
+checkpoints every output frame and resumes with `-r` (`known-issues` §6), so an interruption costs
+one output interval rather than everything — about 7 minutes of item 4's 4.9 days. `rmf_scan.py`
+still prints the cost before running anything and still refuses to start a scan it estimates at
+over six hours, because a resumable run is not a cheap one.
 
 And these are the prices at the deck's *present* reduced c. Fixing the physics problem §3.10
 describes — c ≥ 3 v_Te — costs a further factor of 27.8 at the deck's present resolution, about

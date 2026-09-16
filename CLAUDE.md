@@ -32,16 +32,17 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**192 Python tests, and 3 of them are 72% of the runtime.** Measured on a
+**200 Python tests, and 4 modules are 99% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
 | --- | --- | --- |
 | `test_rmf_antenna_field.py` | 3 | 645 s |
+| `test_restart.py` | 8 | 260 s |
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
-| everything else (12 modules) | 176 | **4.0 s** |
-| whole suite | 192 | ~895 s |
+| everything else (13 modules) | 183 | **6 s** |
+| whole suite | 200 | ~1150 s |
 
 So run the 183 while you work and the whole suite before you push. The 183 need
 no solver, and naming them is the only reliable way to select them — a glob is
@@ -64,9 +65,9 @@ that is plainly sitting there. Use `discover -s test`, or `cd test` and name the
 modules as above. `test_petsc_compat` is in the fast set; it needs a C++
 compiler but no PETSc.
 
-The 9 that do need a solver skip themselves without one, so **a green run does
+The 17 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 192 tests` and no skips.
+suite reports `Ran 200 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 
@@ -120,7 +121,15 @@ result. The ones that bite hardest while editing:
   that the reader matches its writer was performed against exactly one PETSc,
   the oldest one; and that runner is being deprecated, which would have taken
   the check with it.
-- **There is no checkpoint or restart.** An interrupted run is a lost run. (§6)
+- **Restart exists now; use it on anything long.** A run writes
+  `<runName>.checkpoint` at every output frame and `-r <file>` resumes from it,
+  reproducing a straight-through run *exactly* — `0.000e+00` across all 378
+  solution arrays, asserted by `test/test_restart.py`. It costs one rolling
+  file (5.27 MB on the phase3 mesh), and it refuses rather than resuming into a
+  different mesh, a different `Output_files`, or a finished run. This entry used
+  to read "an interrupted run is a lost run", which cost someone 12 hours of a
+  140-hour formation run. Frames written before the feature existed cannot be
+  resumed from. (§6)
 - **The two-fluid slope limiter produces NaN** after a few tens of steps, so no
   multifluid case can be limited. (§2)
 - **On PETSc 3.22 and newer the Euler limiter silently does nothing.** The

@@ -74,26 +74,23 @@ ApSimulation<REAL>::init()
   solver->init();
 }
 
-//template <typename REAL>
-//void
-//ApSimulation<REAL>::load(WxIoBase& io, const WxIoNodeType& grpNode)
-//{
-//  // open timeData group
-//  WxIoNodeType timeGrp = io.openGroup(grpNode, "timeData");
-//  // get time at which we are restarting
-//  REAL tstart;
-//  io.readAttribute<REAL>(timeGrp, "time", tstart);
-//  solver->setCurrentTime(tstart);
-//  // get frame from which we are starting
-//  unsigned frame;
-//  io.readAttribute<unsigned>(timeGrp, "step", frame);
-//  solver->setStartFrame(frame);
-
-//  // open solver group
-//  WxIoNodeType solverGrp = io.openGroup(grpNode, solver->getSolverName());
-//  // load solver into memory
-//  solver->load(io, solverGrp);
-//}
+template <typename REAL>
+void
+ApSimulation<REAL>::restart(const std::string& file)
+{
+  // init() FIRST, then overwrite the state. It creates the solution vector,
+  // lays down the initial condition and - the part that matters - sizes the
+  // timestep from that initial condition, which is where the original run's
+  // timestep came from too. A resumed run has to integrate with the same dt as
+  // the run it claims to continue, and Apollo sizes dt once and never revisits
+  // it (apsolver.cc, _dt = fmin(_dt, suggestedDt) sits in setup, not in the
+  // time loop).
+  //
+  // This replaces a commented-out load() that called into an HDF5 checkpoint
+  // Apollo never wrote, and that ran INSTEAD of init() rather than after it.
+  solver->init();
+  solver->loadCheckpoint(file);
+}
 
 template <typename REAL>
 void

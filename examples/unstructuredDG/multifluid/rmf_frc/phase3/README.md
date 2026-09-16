@@ -160,12 +160,23 @@ be had here once §15 is understood. It is not available yet.
 domain. With the reader fixed it should not fire on a multi-rank run; if it does,
 that is a genuine gap in the output.
 
-### 3. There is no checkpoint or restart.
+### 3. Resume an interrupted run; do not start it over.
 
-A run that is interrupted is a run that is lost
-([`known-issues.md`](../../../../../docs/known-issues.md) §6). Size your job's
-wall-clock limit against the estimate **plus a wide margin**, and prefer several
-shorter runs to one long one where the physics allows it.
+Every run writes `<runName>.checkpoint` beside its frames, and `-r` picks it up:
+
+```bash
+./run_one.sh 03-formation/formation.pin              # dies at hour 12
+apollo -i formation.inp -r formation.checkpoint      # continues from the last frame
+```
+
+A resumed run reproduces a straight-through run *exactly*
+([`known-issues.md`](../../../../../docs/known-issues.md) §6). The checkpoint is
+rolling — one file, rewritten each frame — so a loss is capped at one output
+interval, which on `03-formation` is about 7 minutes of a 140-hour run.
+
+This entry used to say an interrupted run was a lost run, and that was true
+until it cost twelve hours. Still size the wall-clock limit generously: a
+checkpoint caps what a wall-clock kill costs, it does not stop the kill.
 
 ---
 

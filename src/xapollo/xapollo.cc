@@ -50,18 +50,6 @@ apolloMain(int argc, char **argv)
        MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
-  if (sim.isRestarting())
-  { // The restart machinery was never finished: the load() branch below is
-    // commented out, so -r is accepted and then ignored, and the run silently
-    // starts from the initial condition instead of the checkpoint. For a job
-    // being resumed that is worse than refusing.
-    if (msg.rank() == 0)
-      std::cerr << "Apollo: --restart is not implemented. The option is parsed "
-                   "but no checkpoint is ever read, so the run would silently "
-                   "start from the initial condition." << std::endl;
-    MPI_Abort(MPI_COMM_WORLD, 1);
-  }
-
   try
   {
     // create cryptset for complete simulation
@@ -70,19 +58,11 @@ apolloMain(int argc, char **argv)
     //step 1: setup the class using its cryptset
     sim.setup(inputSet);
 
-    //step 2: run init() or load().
-//    if (sim.isRestarting())
-//    { // restarting old simulation
-//      std::string rf = sim.getRestartFile();
-//      // open H5 file
-//      WxIoNodeType h5f = io.openFile(rf, "r");
-//      WxIoNodeType rootGrp = io.openGroup(h5f, "/");
-//      sim.load(io, rootGrp);
-//    }
-//    else
-//    { // starting new simulation
+    //step 2: run init(), or init() followed by the checkpoint on a restart.
+    if (sim.isRestarting())
+      sim.restart(sim.getRestartFile());
+    else
       sim.init();
-//    }
 
     // simulation is now fully constructed: run it!
        sim.simulate();

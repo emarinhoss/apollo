@@ -18,8 +18,10 @@ actually forming — but because it is the one most exposed to everything else:
   §3.10 says the model represents least well. Run `01-c-sensitivity` first; if
   those two disagree, this run inherits the disagreement over twenty periods
   rather than ten.
-- At 140 h with no checkpoint or restart, it is the run with the most to lose to
-  a wall-clock limit. Size the job generously.
+- At 140 h it is the longest run in the campaign, so size the job's wall-clock
+  limit generously. It now checkpoints every frame, so an interruption costs one
+  output interval (~7 minutes) rather than everything — resume with
+  `apollo -i formation.inp -r formation.checkpoint`.
 
 ```bash
 ./../run_one.sh formation.pin

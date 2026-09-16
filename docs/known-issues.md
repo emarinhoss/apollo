@@ -203,13 +203,66 @@ PY
 
 ---
 
-## 6. There is no checkpoint/restart
+## 6. Checkpoint/restart — FIXED, and here is how to use it
 
-`--restart` now fails with a message rather than being silently ignored, but the
-feature itself does not exist: the load path in `apolloMain()` is commented out,
-and the HDF5 I/O layer that would back it is in the unreachable set above (§5).
-For a code that runs multi-day fusion simulations this is the largest missing
-capability.
+**This entry used to say there was no restart and that an interrupted run was a
+lost run.** That was true and it cost someone twelve hours: a 20-period
+formation run died 1.73 periods in, and the whole thing had to be paid again.
+
+A run now writes a checkpoint at every output frame, and `-r` resumes from it:
+
+```bash
+apollo -i formation.inp                      # writes <runName>.checkpoint each frame
+apollo -i formation.inp -r formation.checkpoint    # picks up where it stopped
+```
+
+**A resumed run reproduces a straight run exactly.** Not closely - the
+fingerprint of a twice-interrupted, twice-resumed gate run against the same deck
+run straight through is `0.000e+00` across all 378 solution arrays and all seven
+frames. `test/test_restart.py` asserts that, and it is the assertion that
+matters: a restart that changes the answer is worse than no restart.
+
+**What it costs.** One file, rewritten each frame, holding one solution vector -
+5.27 MB on the phase3 mesh, against 5.4 MB for a single `.vtu`. A per-frame
+checkpoint would have been 1.2 GB over 240 frames and doubled what the run
+already writes, so the file is deliberately rolling. The price of that choice:
+a crash *during* the checkpoint write loses the checkpoint. The write is
+ordered after the `.vtu` so the frames stay the record of last resort.
+
+**Why PETSc binary and not the `.vtu`.** The frames hold the same numbers, and
+reading one back would let you resume a run that predates this feature. But
+`VecView`/`VecLoad` round-trip a `Vec` bit-exactly and handle a different rank
+count on the way in, whereas parsing our own output means re-deriving the DMPlex
+ordering by hand - and getting that subtly wrong yields a plausible wrong answer
+rather than an error. Frames written before this feature existed cannot be
+resumed from; that is the accepted cost.
+
+**Why the state is reloaded *after* `init()`, not instead of it.** `init()`
+creates the solution vector, lays down the initial condition, and sizes `_dt`
+from it — and Apollo sizes `dt` once and never revisits it
+(`apsolver.cc`, `_dt = fmin(_dt, suggestedDt)` sits in setup, not in the time
+loop). A resumed run must integrate with the same `dt` as the run it continues,
+so `init()` has to happen. The old commented-out `load()` branch called
+*instead* of `init()` and would have left `dt` unsized.
+
+**It refuses rather than resuming into a different problem.** Each of these is
+tested, and each would otherwise produce numbers that look like a continuation
+and are not:
+
+| the checkpoint | the refusal |
+| --- | --- |
+| a state of a different length | `holds a state of N values but this problem has M` |
+| a different `Output_files` | `was written by a run with Output_files = N` — the frame spacing would differ |
+| a frame outside `0..OUT` | `names frame N, which is outside 0..OUT` |
+| a frame equal to `OUT` | `that run already finished` |
+| no `.meta` sidecar | `no checkpoint metadata beside <path>` |
+
+**Resuming twice works**, which is not free: the first implementation recorded
+the *running* interval count rather than the deck's, so resuming at frame 2 of 6
+wrote `nout 4`, and resuming from that compared 4 against the deck's 6 and
+refused. One resume worked and a second did not. `_noutDeck` is now kept apart
+from `_nout` for exactly this reason, and `test_restart.py` interrupts and
+resumes twice.
 
 ---
 
