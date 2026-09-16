@@ -458,9 +458,35 @@ def deck_parameters_from_text(text, what='deck'):
 
 
 def deck_parameters(path):
-    """deck_parameters_from_text for a file on disk."""
-    with open(path) as fh:
-        return deck_parameters_from_text(fh.read(), what=path)
+    """deck_parameters_from_text for a file on disk.
+
+    The arguments are (deck, frames...) and the easy mistake is to pass only
+    the frames, so that the first .vtu lands here as the deck. A .vtu is binary,
+    and reading it as text died with
+
+        UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf8 ...
+          File "<frozen codecs>", line 325, in decode
+
+    which names a codec rather than the mistake. Reported from a cluster by
+    someone holding the only 20 frames of a run that had just cost 12 hours.
+    """
+    try:
+        with open(path) as fh:
+            text = fh.read()
+    except UnicodeDecodeError:
+        hint = ''
+        try:
+            with open(path, 'rb') as fh:
+                head = fh.read(512)
+            if b'VTKFile' in head or path.endswith('.vtu'):
+                hint = ('\nThat looks like a .vtu output frame, not a deck. '
+                        'The deck comes FIRST:\n'
+                        '    rmf_diagnostics.py <deck.pin> <frames...vtu>')
+        except OSError:
+            pass
+        raise SystemExit('%s is not text, so it cannot be a deck.%s'
+                         % (path, hint))
+    return deck_parameters_from_text(text, what=path)
 
 
 def frame_time(index, params):

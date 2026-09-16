@@ -22,11 +22,13 @@ written in a comment is one refactor from being wrong. Here it is executable.
 
 import math
 import os
+import subprocess
 import sys
+import tempfile
 import unittest
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts'))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, 'scripts'))
 
 try:
     import numpy as np
@@ -690,6 +692,47 @@ class TestCoverage(unittest.TestCase):
         x, y = disc()
         r, _c, _s = rd.polar(x, y)
         self.assertIn('no axis', rd.coverage_warning(r[r > 0.2 * A], A, 100))
+
+
+
+class TestDeckArgumentIsDiagnosable(unittest.TestCase):
+    """Passing a .vtu where the deck belongs must say so.
+
+    The signature is (deck, frames...), so the easy mistake is to glob only the
+    frames and let the first one land in the deck slot. That died with a
+    UnicodeDecodeError naming <frozen codecs>, which points at Python's text
+    layer rather than at the argument order.
+    """
+
+    def _run(self, path):
+        done = subprocess.run(
+            [sys.executable,
+             os.path.join(ROOT, 'scripts', 'rmf_diagnostics.py'), path, path],
+            capture_output=True, text=True)
+        return done.returncode, done.stdout + done.stderr
+
+    def test_a_vtu_in_the_deck_slot_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frame = os.path.join(tmp, 'run_0.vtu')
+            with open(frame, 'wb') as h:
+                h.write(b'<VTKFile type="UnstructuredGrid">\xf8\x00binary')
+            code, out = self._run(frame)
+        self.assertEqual(code, 1, out)
+        self.assertIn('cannot be a deck', out)
+        self.assertIn('deck comes FIRST', out)
+        self.assertNotIn('UnicodeDecodeError', out)
+        self.assertNotIn('frozen codecs', out)
+
+    def test_other_binary_still_refuses_without_the_vtu_hint(self):
+        """The hint must be earned, not printed at everything that is binary."""
+        with tempfile.TemporaryDirectory() as tmp:
+            blob = os.path.join(tmp, 'mesh.bin')
+            with open(blob, 'wb') as h:
+                h.write(b'\xf8\x00 not a vtu at all')
+            code, out = self._run(blob)
+        self.assertEqual(code, 1, out)
+        self.assertIn('cannot be a deck', out)
+        self.assertNotIn('deck comes FIRST', out)
 
 
 if __name__ == '__main__':
