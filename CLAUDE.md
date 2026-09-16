@@ -32,7 +32,7 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**187 Python tests, and 3 of them are 72% of the runtime.** Measured on a
+**192 Python tests, and 3 of them are 72% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
@@ -41,9 +41,9 @@ environment on a cluster.
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
 | everything else (12 modules) | 176 | **4.0 s** |
-| whole suite | 187 | ~895 s |
+| whole suite | 192 | ~895 s |
 
-So run the 178 while you work and the whole suite before you push. The 178 need
+So run the 183 while you work and the whole suite before you push. The 183 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
@@ -52,8 +52,9 @@ cd test && python3 -m unittest \
     test_rmf_diagnostics test_rmf_scan test_rmf_cleaning_check \
     test_mkdiscmesh test_python_tooling test_deck_preprocess \
     test_vtu_reader test_eigen_paths test_include_paths \
-    test_conda_paths test_petsc_compat test_run_fingerprint
-# Ran 178 tests in 4.0s -- OK
+    test_conda_paths test_petsc_compat test_run_fingerprint \
+    test_run_growth
+# Ran 183 tests in 4.3s -- OK
 ```
 
 `cd test` first. From the repository root the stdlib's own `test` package wins
@@ -65,7 +66,7 @@ compiler but no PETSc.
 
 The 9 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 187 tests` and no skips.
+suite reports `Ran 192 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 
@@ -182,4 +183,7 @@ Tools: `scripts/rmf_diagnostics.py` (what a run produced),
 `scripts/rmf_make_phase3_runs.py` (regenerates the run folders),
 `scripts/run_fingerprint.py` (reduces a run to a few kB so two builds can be
 compared - use it before trusting a long run on a PETSc this repository has not
-executed, which today means anything above 3.19).
+executed, which today means anything above 3.19),
+`scripts/run_growth.py` (per-frame max|value| for all 18 components - what to
+reach for when a run DIES, because rmf_diagnostics answers "what physics did
+this produce" and its radial bins can read healthy to the last frame).
