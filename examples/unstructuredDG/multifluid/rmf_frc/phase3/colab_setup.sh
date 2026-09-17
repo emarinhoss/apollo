@@ -18,9 +18,15 @@
 #
 # It cannot run the campaign. The shortest long run in these folders is 35 hours
 # on one core, against a Colab session that is capped around 12 and disconnects
-# sooner if the tab is idle. There is no checkpoint/restart, so a disconnect is
-# not a pause, it is a loss. Use a cluster for 01, 02 and 03 — slurm_array.sh is
-# a starting point.
+# sooner if the tab is idle.
+#
+# A disconnect is no longer automatically a loss - the solver checkpoints at
+# every output frame and run_one.sh resumes from it with APOLLO_RESUME=1 (this
+# paragraph used to say there was no restart and that a disconnect was a loss;
+# that stopped being true). But the checkpoint has to outlive the session, and
+# Colab's local disk does not: write the results to a mounted Drive if you mean
+# to continue. Even then 35 hours is three or four sessions of babysitting.
+# Use a cluster for 01, 02 and 03 — slurm_array.sh is a starting point.
 
 set -euo pipefail
 

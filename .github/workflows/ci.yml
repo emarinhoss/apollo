@@ -71,6 +71,12 @@ jobs:
       - name: Deck preprocessing
         run: python test/test_deck_preprocess.py -v
 
+      # run_one.sh's refusal to overwrite a checkpoint. It needs no solver - a
+      # stub binary records how it was called - and what it guards is hours of
+      # somebody's compute, so it is named here rather than left to discovery.
+      - name: Phase 3 runner refuses to overwrite a checkpoint
+        run: python test/test_run_one.py -v
+
       # The .vtu reader every diagnostic depends on. Builds both of the layouts
       # PETSc writes, so it needs no PETSc of its own.
       - name: VTU reader

@@ -162,11 +162,26 @@ that is a genuine gap in the output.
 
 ### 3. Resume an interrupted run; do not start it over.
 
-Every run writes `<runName>.checkpoint` beside its frames, and `-r` picks it up:
+Every run writes `<runName>.checkpoint` beside its frames, and `run_one.sh`
+picks it up:
 
 ```bash
-./run_one.sh 03-formation/formation.pin              # dies at hour 12
-apollo -i formation.inp -r formation.checkpoint      # continues from the last frame
+./run_one.sh 03-formation/formation.pin                  # dies at hour 12
+APOLLO_RESUME=1 ./run_one.sh 03-formation/formation.pin  # continues from the last frame
+```
+
+Re-running without `APOLLO_RESUME` is **refused**, because a fresh run would
+overwrite frame 0 and the checkpoint with it; the refusal prints both commands.
+`APOLLO_RESUME=0` discards and starts over. `slurm_array.sh` sets
+`APOLLO_RESUME=1` for you, so resubmitting the same array after a wall-clock
+kill continues every task where it stopped.
+
+Underneath, that is the solver's own `-r`, which you can also use directly —
+from inside the results directory, where `run_one.sh` put the expanded deck:
+
+```bash
+cd results/03-formation/formation
+apollo -i formation.inp -r formation.checkpoint
 ```
 
 A resumed run reproduces a straight-through run *exactly*
@@ -176,7 +191,10 @@ interval, which on `03-formation` is about 7 minutes of a 140-hour run.
 
 This entry used to say an interrupted run was a lost run, and that was true
 until it cost twelve hours. Still size the wall-clock limit generously: a
-checkpoint caps what a wall-clock kill costs, it does not stop the kill.
+checkpoint caps what a wall-clock kill costs, it does not stop the kill. And a
+run the solver stopped on its own — a NaN, not a signal — resumes straight back
+into whatever stopped it; `run_one.sh` says which of the two happened and runs
+`scripts/run_growth.py` over the frames when it was the former.
 
 ---
 

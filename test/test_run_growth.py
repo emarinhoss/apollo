@@ -148,6 +148,42 @@ class TestRunGrowth(unittest.TestCase):
         self.assertEqual(rank[0], 'phi', out)
         self.assertLess(rank.index('phi'), rank.index('psi'), out)
 
+    def test_an_argument_with_no_frame_number_is_refused_legibly(self):
+        """A traceback is a poor answer when the run you were watching died.
+
+        The frames are ordered by the N in `<run>_N.vtu`, and the first version
+        read it with an unguarded rsplit: every argument that did not carry one
+        - `--help` included - died with an IndexError naming neither the
+        argument nor the reason.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            odd = os.path.join(tmp, 'formation.vtu')     # no _N
+            _vtu(odd, {PHI: 1.0})
+            code, out = _run([odd])
+        self.assertNotEqual(code, 0, out)
+        self.assertNotIn('Traceback', out)
+        self.assertIn('formation.vtu', out)
+        self.assertIn('cannot tell which frame', out)
+
+    def test_help_prints_usage_rather_than_failing(self):
+        code, out = _run(['--help'])
+        self.assertEqual(code, 0, out)
+        self.assertIn('usage: run_growth.py', out)
+        self.assertNotIn('Traceback', out)
+
+    def test_frames_are_ordered_by_number_not_by_name(self):
+        """Frame 10 sorts between 1 and 2 by name, which measures the growth
+        across the wrong pair of frames."""
+        with tempfile.TemporaryDirectory() as tmp:
+            series = [{PHI: 0.0}] + [{PHI: 1.0e-5 * (1.7 ** i)} for i in range(11)]
+            frames = self._write(tmp, series)
+            self.assertTrue(any(f.endswith('_10.vtu') for f in frames), frames)
+            code, out = _run(list(reversed(frames)))     # argv order must not matter
+        self.assertEqual(code, 0, out)
+        rows = [l for l in out.split('\n') if l[:1].isdigit()]
+        phis = [float(r.split()[2 + PHI]) for r in rows]
+        self.assertEqual(phis, sorted(phis), out)
+
     def test_non_finite_values_are_counted(self):
         """A frame holding NaN must say so rather than be summarised."""
         with tempfile.TemporaryDirectory() as tmp:

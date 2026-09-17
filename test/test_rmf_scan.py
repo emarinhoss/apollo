@@ -5,7 +5,8 @@ scripts/rmf_scan.py refuses to start a scan it estimates at more than a few
 hours, and prints what a scan would cost before running it. Both depend on a
 model of Apollo's timestep, and a cost model that is wrong in the cheap
 direction is worse than none: it would talk someone into launching a run that
-cannot finish, on a solver with no checkpoint/restart.
+cannot finish. Restart softens that - the run can be picked up again - but it
+does not make the hours cheaper, and the hours are what the estimate is for.
 
 So the model is checked here against timesteps the solver actually chose. The
 reference values below were measured by running

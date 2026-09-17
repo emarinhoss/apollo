@@ -609,11 +609,13 @@ class TestCycleAverage(unittest.TestCase):
 class TestFrameTiming(unittest.TestCase):
     """Frame times come from the deck's OUT, not from how many frames exist.
 
-    The solver has no checkpoint/restart, so a partial set of frames is the
-    normal thing to be handed. Timing them by their own count would stretch them
-    to fill TEND: the last frame of an interrupted run would be reported at the
-    end time it never reached, and every cycle average taken from it would be
-    over the wrong window.
+    A partial set of frames is the normal thing to be handed: a run still in
+    progress, a run that was interrupted, a run that died. (This used to say
+    "the solver has no checkpoint/restart, so" - it has one now, and a partial
+    set is no less normal for it.) Timing them by their own count would stretch
+    them to fill TEND: the last frame of an interrupted run would be reported at
+    the end time it never reached, and every cycle average taken from it would
+    be over the wrong window.
     """
 
     PARAMS = {'TEND': 2.0e-6, 'OUT': 10}

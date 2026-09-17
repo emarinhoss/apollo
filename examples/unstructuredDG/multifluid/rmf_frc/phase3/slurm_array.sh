@@ -9,6 +9,10 @@
 # The array index picks the deck, so set the range to match the folder: nine
 # decks means --array=0-8. The script tells you the count if you get it wrong.
 #
+# RESUMABLE. Each task checkpoints at every output frame and resumes from the
+# last one, so a task killed by --time is not lost: resubmit the same array and
+# it continues. Add --requeue to have SLURM do that for you on a preemption.
+#
 # ONE CORE PER TASK, AND THAT IS STILL THE POINT. The reason used to be that a
 # frame held only 1/N of the cells on N ranks; that was a reader bug and it is
 # fixed. The reason now is that the solver's answer depends on the rank count
@@ -50,6 +54,14 @@ export APOLLO
 export APOLLO_BIN="${APOLLO_BIN:-$APOLLO/src/build-opt/apollo}"
 export APOLLO_RANKS=1
 
+# Resume rather than start over. A task that hits --time is killed with
+# SIGTERM, run_one.sh leaves the checkpoint where it is, and resubmitting the
+# same array picks each task up from its last output frame. With this unset,
+# run_one.sh REFUSES to overwrite an unfinished checkpoint - which is the right
+# default at a prompt and the wrong one for a batch job nobody is watching.
+# Set APOLLO_RESUME=0 in the environment to discard and re-run instead.
+export APOLLO_RESUME="${APOLLO_RESUME:-1}"
+
 FOLDER="${1:-02-threshold-scan}"
 [[ -d "$HERE/$FOLDER" ]] || { echo "no such folder: $HERE/$FOLDER" >&2; exit 2; }
 
@@ -74,10 +86,16 @@ if [[ ! -x "$APOLLO_BIN" ]]; then
     exit 2
 fi
 
-# There is no checkpoint/restart, so a task that runs out of wall clock is a
-# task whose work is gone. Say so where it will be read: in the log, at the top.
-echo "NOTE: no checkpoint/restart. If this task hits its --time limit the run is"
-echo "      lost, not resumable. Estimate first:"
+# THESE THREE LINES USED TO SAY THE OPPOSITE, and they were printed at the top
+# of every task log: "no checkpoint/restart ... the run is lost, not resumable".
+# That was true when they were written and is not true now - the solver writes
+# <run>.checkpoint at every output frame - and a stale warning of that kind is
+# worse than none, because somebody who hits the wall clock reads it and throws
+# away a run that was sitting on disk, resumable.
+echo "NOTE: this task checkpoints at every output frame. If it hits its --time"
+echo "      limit, resubmit the SAME array and it continues where it stopped"
+echo "      (APOLLO_RESUME=$APOLLO_RESUME). Estimate first anyway, because a"
+echo "      resume still has to pay the remaining hours:"
 echo "      python3 $APOLLO/scripts/rmf_scan.py $DECK --dry-run"
 
 exec "$HERE/run_one.sh" "$DECK" "$HERE/results/$FOLDER/$(basename "$DECK" .pin)"

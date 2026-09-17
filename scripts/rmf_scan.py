@@ -9,18 +9,21 @@ the result.
 
 ITS FIRST JOB IS TO REFUSE TO SURPRISE YOU. `--dry-run` prints what the scan
 would cost and stops. That is not a courtesy: one RMF period of the shipped deck
-is about 46,000 steps and takes hours, a scan is several runs of several
-periods, and the solver has no checkpoint/restart (docs/known-issues.md section
-6), so a run that is interrupted is a run that is lost. The cost model below is
-measured, not guessed, and is checked against real timings in
-test/test_rmf_scan.py.
+is about 46,000 steps and takes hours, and a scan is several runs of several
+periods. The solver does now checkpoint and resume (docs/known-issues.md section
+6) - this paragraph used to end "so a run that is interrupted is a run that is
+lost", which is no longer true - but a resume still has to pay the hours that
+are left, so knowing the total before you start is worth as much as it ever was.
+The cost model below is measured, not guessed, and is checked against real
+timings in test/test_rmf_scan.py.
 
     python3 scripts/rmf_scan.py deck.pin --param Bomega \\
         --values 10e-4,20e-4,30e-4,50e-4 --periods 5 --dry-run
 
 Drop --dry-run to run it. Points already completed in the output directory are
 skipped, so an interrupted scan can be restarted and will only redo what is
-missing. That is the only form of restart available here.
+missing. That is restart at the level of the SCAN; a single point interrupted
+part-way is resumed from its own checkpoint by run_one.sh (APOLLO_RESUME=1).
 
 THE COST MODEL
 

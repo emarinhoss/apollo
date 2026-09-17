@@ -21,7 +21,9 @@ actually forming — but because it is the one most exposed to everything else:
 - At 140 h it is the longest run in the campaign, so size the job's wall-clock
   limit generously. It now checkpoints every frame, so an interruption costs one
   output interval (~7 minutes) rather than everything — resume with
-  `apollo -i formation.inp -r formation.checkpoint`.
+  `APOLLO_RESUME=1 ./run_one.sh 03-formation/formation.pin`, or with
+  `apollo -i formation.inp -r formation.checkpoint` from inside the results
+  directory.
 
 ```bash
 ./../run_one.sh formation.pin

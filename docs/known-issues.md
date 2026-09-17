@@ -264,6 +264,30 @@ refused. One resume worked and a second did not. `_noutDeck` is now kept apart
 from `_nout` for exactly this reason, and `test_restart.py` interrupts and
 resumes twice.
 
+**Through the phase3 runner.** `examples/.../rmf_frc/phase3/run_one.sh` puts
+each run in its own directory, so the checkpoint is there too:
+
+```bash
+./run_one.sh 03-formation/formation.pin                  # dies at hour 12
+APOLLO_RESUME=1 ./run_one.sh 03-formation/formation.pin  # continues it
+```
+
+Plain `./run_one.sh` on a directory that already holds an unfinished checkpoint
+**refuses**, exit 3, and prints both commands. That refusal is the point: a
+fresh run writes frame 0 and the checkpoint before anything else, so re-running
+by reflex is what destroys the thing you would have resumed from.
+`APOLLO_RESUME=0` discards it deliberately. `slurm_array.sh` sets
+`APOLLO_RESUME=1`, so resubmitting an array after a wall-clock kill continues
+every task where it stopped. `test/test_run_one.py` pins all of it against a
+stub solver, in under a second and with no PETSc.
+
+`run_one.sh` also now survives the solver returning non-zero, which `set -e`
+used to turn into a silent exit: it says whether the run was **interrupted**
+(status ≥ 128, a signal — resume it) or **stopped by the solver itself**
+(the NaN guard at `wxnodaldg2dmethod.cc:530` calls `exit(1)` — a resume lands
+back in the same place), and runs `scripts/run_growth.py` over the frames. The
+run that most needed analysing was the one that got none.
+
 ---
 
 ## 7. Error paths bypass MPI

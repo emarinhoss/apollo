@@ -31,7 +31,7 @@ frame to the last written:
 which names the divergence cleaning of E, and rules out the fluid and the
 drive, from twenty frames that the physics diagnostics called uneventful.
 """
-import glob, os, sys
+import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 os.pardir, 'test'))
 import numpy as np, vtu
@@ -40,8 +40,36 @@ NAMES = ['e-rho','e-rhou','e-rhov','e-rhow','e-E',
          'i-rho','i-rhou','i-rhov','i-rhow','i-E',
          'E_x','E_y','E_z','B_x','B_y','B_z','phi','psi']
 
+def frame_number(path):
+    """The N in `<run>_N.vtu`, or a refusal naming the file.
+
+    The frames have to be ordered by their number and not by their name, or
+    frame 10 sorts between 1 and 2 and every growth ratio below is measured
+    across the wrong pair. But the first version read the number with
+
+        int(os.path.basename(p).rsplit('_', 1)[1].split('.')[0])
+
+    which raises IndexError on any argument that is not `<something>_<n>.vtu` -
+    a traceback naming neither the argument nor what was wrong with it, on the
+    tool you reach for when a run has just died. `--help` did it. So did a
+    shell glob that matched nothing and was passed through literally.
+    """
+    stem = os.path.basename(path).rsplit('.', 1)[0]
+    if '_' in stem:
+        tail = stem.rsplit('_', 1)[1]
+        if tail.isdigit():
+            return int(tail)
+    raise SystemExit(
+        "run_growth.py: cannot tell which frame '%s' is.\n"
+        "  The frames have to be ordered by number, and the number comes from\n"
+        "  the name the solver writes: <run>_0.vtu, <run>_1.vtu, ... This\n"
+        "  argument does not carry one, so the frames cannot be put in order.\n"
+        "  Pass the .vtu files of one run:  run_growth.py <results-dir>/*.vtu"
+        % path)
+
+
 def main(paths):
-    files = sorted(paths, key=lambda p: int(os.path.basename(p).rsplit('_',1)[1].split('.')[0]))
+    files = sorted(paths, key=frame_number)
     rows = []
     for p in files:
         a = vtu.read(p)
@@ -105,7 +133,20 @@ def main(paths):
         a, b = rows[i-1][1].get(c, 0.0), rows[i][1].get(c, 0.0)
         print('  %2d -> %2d   %11.3e   %s' % (i-1, i, b, ('x%.3f' % (b/a)) if a else '-'))
 
+USAGE = '''usage: run_growth.py <frames...vtu>
+
+Per-frame max|value| for each of the 18 components, and which of them grew.
+Reach for this when a run DIED: rmf_diagnostics.py answers "what physics did
+this produce", and its radial bins can read healthy to the last frame.
+
+    python3 scripts/run_growth.py results/03-formation/formation/*.vtu
+'''
+
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        raise SystemExit('usage: growth.py <frames...vtu>')
-    main(sys.argv[1:])
+    args = sys.argv[1:]
+    if not args or args[0] in ('-h', '--help'):
+        # --help used to reach the frame-number parser and die with an
+        # IndexError, which is a poor answer to a request for the usage.
+        print(USAGE, end='')
+        raise SystemExit(0 if args else 2)
+    main(args)

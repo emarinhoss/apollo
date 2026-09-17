@@ -32,7 +32,7 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**200 Python tests, and 4 modules are 99% of the runtime.** Measured on a
+**213 Python tests, and 4 modules are 99% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
@@ -41,10 +41,10 @@ environment on a cluster.
 | `test_restart.py` | 8 | 260 s |
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
-| everything else (13 modules) | 183 | **6 s** |
-| whole suite | 200 | ~1150 s |
+| everything else (14 modules) | 196 | **5 s** |
+| whole suite | 213 | ~1150 s |
 
-So run the 183 while you work and the whole suite before you push. The 183 need
+So run the 196 while you work and the whole suite before you push. The 196 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
@@ -54,8 +54,8 @@ cd test && python3 -m unittest \
     test_mkdiscmesh test_python_tooling test_deck_preprocess \
     test_vtu_reader test_eigen_paths test_include_paths \
     test_conda_paths test_petsc_compat test_run_fingerprint \
-    test_run_growth
-# Ran 183 tests in 4.3s -- OK
+    test_run_growth test_run_one
+# Ran 196 tests in 4.8s -- OK
 ```
 
 `cd test` first. From the repository root the stdlib's own `test` package wins
@@ -67,7 +67,7 @@ compiler but no PETSc.
 
 The 17 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 200 tests` and no skips.
+suite reports `Ran 213 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 
@@ -129,7 +129,10 @@ result. The ones that bite hardest while editing:
   different mesh, a different `Output_files`, or a finished run. This entry used
   to read "an interrupted run is a lost run", which cost someone 12 hours of a
   140-hour formation run. Frames written before the feature existed cannot be
-  resumed from. (§6)
+  resumed from. For the phase3 folders, `APOLLO_RESUME=1 ./run_one.sh <deck>`
+  continues a run and plain `./run_one.sh` **refuses** to overwrite an
+  unfinished one; `slurm_array.sh` sets it, so resubmitting an array after a
+  wall-clock kill picks every task up where it stopped. (§6)
 - **The two-fluid slope limiter produces NaN** after a few tens of steps, so no
   multifluid case can be limited. (§2)
 - **On PETSc 3.22 and newer the Euler limiter silently does nothing.** The
