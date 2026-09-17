@@ -42,7 +42,7 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**216 Python tests, and 4 modules are 99% of the runtime.** Measured on a
+**226 Python tests, and 4 modules are 99% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
@@ -51,10 +51,10 @@ environment on a cluster.
 | `test_restart.py` | 8 | 260 s |
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
-| everything else (14 modules) | 199 | **6 s** |
-| whole suite | 216 | ~1150 s |
+| everything else (15 modules) | 209 | **8 s** |
+| whole suite | 226 | ~1150 s |
 
-So run the 199 while you work and the whole suite before you push. The 199 need
+So run the 209 while you work and the whole suite before you push. The 209 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
@@ -64,8 +64,8 @@ cd test && python3 -m unittest \
     test_mkdiscmesh test_python_tooling test_deck_preprocess \
     test_vtu_reader test_eigen_paths test_include_paths \
     test_conda_paths test_petsc_compat test_run_fingerprint \
-    test_run_growth test_run_one
-# Ran 199 tests in 5.6s -- OK
+    test_run_growth test_run_one test_where_peak
+# Ran 209 tests in 7.5s -- OK
 ```
 
 `cd test` first. From the repository root the stdlib's own `test` package wins
@@ -77,7 +77,7 @@ compiler but no PETSc.
 
 The 17 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 216 tests` and no skips.
+suite reports `Ran 226 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 
@@ -208,4 +208,9 @@ compared - use it before trusting a long run on a PETSc this repository has not
 executed, which today means anything above 3.19),
 `scripts/run_growth.py` (per-frame max|value| for all 18 components - what to
 reach for when a run DIES, because rmf_diagnostics answers "what physics did
-this produce" and its radial bins can read healthy to the last frame).
+this produce" and its radial bins can read healthy to the last frame),
+`scripts/where_peak.py` (WHERE each component peaks - at the conducting wall, at
+the antenna winding, or in the column. run_growth says which component is
+growing and not where, and on this deck those are different failures with
+indistinguishable growth tables: a peak at the winding is the drive loading up,
+a peak in a wall cell is an unresolved electron sheath that kills the run).
