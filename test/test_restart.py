@@ -32,7 +32,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-APOLLO = os.environ.get('APOLLO_BIN', os.path.join(ROOT, 'src', 'build-opt', 'apollo'))
+# Absolute, always. Every solver invocation below runs with cwd= a temporary
+# directory, so a RELATIVE binary path resolves against that temp dir and not
+# against the repository. CI sets APOLLO_BIN=src/build-opt/apollo - relative -
+# and the whole file errored with
+#     FileNotFoundError: [Errno 2] No such file or directory: 'src/build-opt/apollo'
+# while passing locally, where the default below is already absolute.
+APOLLO = os.path.abspath(
+    os.environ.get('APOLLO_BIN', os.path.join(ROOT, 'src', 'build-opt', 'apollo')))
 DECK_DIR = os.path.join(ROOT, 'examples', 'unstructuredDG', 'multifluid',
                         'rmf_frc', 'phase3', '00-divergence-gate')
 DECK = os.path.join(DECK_DIR, 'antenna-cleaning-on.pin')

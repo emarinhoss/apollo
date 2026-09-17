@@ -240,6 +240,12 @@ jobs:
         env:
           APOLLO_BIN: src/build-opt/apollo
         run: |
+          # pipefail, because `python ... | tee` reports TEE's exit status and
+          # the first version of this step therefore passed a run whose tests
+          # had errored outright. The skip guard below is the second line of
+          # defence, not the first - a FAILED run has to fail the job on its
+          # own.
+          set -o pipefail
           python test/test_restart.py -v 2>&1 | tee restart.log
           if grep -qE 'skipped=[1-9]|OK \(skipped' restart.log; then
             echo "::error::restart tests SKIPPED - they need a built solver and"
