@@ -9,9 +9,9 @@ cleaning potentials φ and ψ at 16 and 17.
 ## Build and test
 
 ```bash
-cd src && scons build-opt                        # 85 objects, about 40 s on 4 cores
-PETSC_DIR=/usr/lib/petsc make -C ../test/cxx     # C++ unit tests, 86 checks
-cd .. && python3 -m unittest discover -s test    # Python tests
+cd src && PETSC_DIR=/usr/lib/petsc scons build-opt   # 85 objects, ~40 s on 4 cores
+PETSC_DIR=/usr/lib/petsc make -C ../test/cxx        # C++ unit tests, 86 checks
+cd .. && python3 -m unittest discover -s test       # Python tests
 ```
 
 **Mind the working directory.** Those three lines run in sequence, and only the
@@ -26,13 +26,23 @@ first is from `src/`. Get it wrong and neither failure points at the cause:
 
 Both verified by running them.
 
-`PETSC_DIR` defaults to `/usr/lib/petsc`; inside a conda environment it is
+**`PETSC_DIR` on the scons line is not optional**, and this file used to say it
+was: "`PETSC_DIR` defaults to `/usr/lib/petsc`". It does not. The build looks at
+`petsc_base`, then `$PETSC_DIR`, then the compiler's own search paths — and
+Debian's `libpetsc-real-dev` installs under `/usr/lib/petsc`, which is not one
+of them. Without it the build stops at
+
+    Checking for C++ header file petsc.h... no
+    ERROR: the PETSc header 'petsc.h' was not found.
+
+which at least names the fix. Both CI build jobs set `PETSC_DIR` explicitly;
+only this file assumed otherwise. Inside a conda environment it is
 `$CONDA_PREFIX`. There is a `build-debug` variant.
 Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**213 Python tests, and 4 modules are 99% of the runtime.** Measured on a
+**216 Python tests, and 4 modules are 99% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
@@ -41,10 +51,10 @@ environment on a cluster.
 | `test_restart.py` | 8 | 260 s |
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
-| everything else (14 modules) | 196 | **5 s** |
-| whole suite | 213 | ~1150 s |
+| everything else (14 modules) | 199 | **6 s** |
+| whole suite | 216 | ~1150 s |
 
-So run the 196 while you work and the whole suite before you push. The 196 need
+So run the 199 while you work and the whole suite before you push. The 199 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
@@ -55,7 +65,7 @@ cd test && python3 -m unittest \
     test_vtu_reader test_eigen_paths test_include_paths \
     test_conda_paths test_petsc_compat test_run_fingerprint \
     test_run_growth test_run_one
-# Ran 196 tests in 4.8s -- OK
+# Ran 199 tests in 5.6s -- OK
 ```
 
 `cd test` first. From the repository root the stdlib's own `test` package wins
@@ -67,7 +77,7 @@ compiler but no PETSc.
 
 The 17 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 213 tests` and no skips.
+suite reports `Ran 216 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 

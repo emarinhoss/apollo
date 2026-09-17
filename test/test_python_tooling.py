@@ -286,6 +286,58 @@ class TestNoGeneratedFilesInTree(unittest.TestCase):
              '--cached them:'] + offenders))
 
 
+class TestTheDocumentedFastTestSetIsComplete(unittest.TestCase):
+    """CLAUDE.md names the test modules that need no solver. Nothing checked it.
+
+    That list is the working instruction for this repository - run these while
+    you work, the whole suite before you push - and it is maintained by hand.
+    A module missing from it is silently not run for as long as nobody notices,
+    which is this repository's recurring failure in its purest form.
+
+    It has already happened twice. The list was once a glob, `test_[!rv]*.py`,
+    which quietly excluded test_vtu_reader.py and its ten tests; and adding
+    test_run_growth.py and test_run_one.py meant editing the list by hand,
+    which is the kind of step that gets skipped.
+
+    So: every test module is either in the documented fast list or in the
+    documented slow table, and nothing is in both.
+    """
+
+    CLAUDE = os.path.join(REPO, 'CLAUDE.md')
+
+    def _documented(self):
+        with open(self.CLAUDE) as h:
+            text = h.read()
+        fast = set(re.findall(r'\b(test_[a-z0-9_]+)\b',
+                              text.split('cd test && python3 -m unittest')[1]
+                                  .split('```')[0]))
+        slow = set(re.findall(r'`(test_[a-z0-9_]+)\.py`', text))
+        return fast, slow
+
+    def test_every_test_module_is_accounted_for(self):
+        on_disk = {f[:-3] for f in os.listdir(os.path.join(REPO, 'test'))
+                   if f.startswith('test_') and f.endswith('.py')}
+        fast, slow = self._documented()
+        missing = sorted(on_disk - fast - slow)
+        self.assertEqual(
+            [], missing,
+            'CLAUDE.md names neither as fast nor as slow: %s\n'
+            'Add each to the fast list in the code block, or to the table of '
+            'modules that need a solver.' % ', '.join(missing))
+
+    def test_the_fast_list_names_nothing_that_is_gone(self):
+        on_disk = {f[:-3] for f in os.listdir(os.path.join(REPO, 'test'))
+                   if f.startswith('test_') and f.endswith('.py')}
+        fast, _ = self._documented()
+        self.assertEqual([], sorted(fast - on_disk),
+                         'CLAUDE.md names test modules that do not exist')
+
+    def test_no_module_is_both_fast_and_slow(self):
+        fast, slow = self._documented()
+        self.assertEqual([], sorted(fast & slow),
+                         'CLAUDE.md lists these as both fast and needing a solver')
+
+
 class TestNoUndefinedNames(unittest.TestCase):
     """pyflakes catches typo'd identifiers, the class of bug that hid
     WxDGArray2, Console() and open(fileName) in otherwise valid files."""

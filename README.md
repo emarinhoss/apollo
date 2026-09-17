@@ -102,8 +102,19 @@ build and run Apollo with no source builds and no edits to
 `src/this_host_config.py`. It is also exactly what CI installs on both of those
 releases, so it is checked on every push.
 
-`libpetsc-real-dev` installs PETSc under `/usr/lib/petsc`, which the build finds
-either automatically or via `export PETSC_DIR=/usr/lib/petsc`.
+`libpetsc-real-dev` installs PETSc under `/usr/lib/petsc`, **which is not on the
+compiler's default search path**, so tell the build where it is:
+
+```bash
+export PETSC_DIR=/usr/lib/petsc
+```
+
+This sentence used to say the build found it "either automatically or via
+`export PETSC_DIR`". It does not find it automatically: with `PETSC_DIR` unset
+the build stops at `Checking for C++ header file petsc.h... no`, having searched
+`['<system defaults>']`. Both CI build jobs set it, which is why the gap never
+showed there. The error does name the fix; the documentation should not have
+needed it to.
 
 **Which PETSc you get depends on the release, and it matters.** Ubuntu 22.04
 ships PETSc 3.15, 24.04 ships 3.19, and conda-forge currently ships 3.25.5.
@@ -389,7 +400,7 @@ Options, as reported by `apollo --help`:
 | --- | --- |
 | `-i <file>`, `--input-file=<file>` | input file; defaults to `apollo.inp` |
 | `-o <prefix>`, `--output-prefix=<prefix>` | output prefix; defaults to the input name without its extension |
-| `-r <file>`, `--restart=<file>` | restart from `<file>` |
+| `-r <file>`, `--restart=<file>` | resume from the `<runName>.checkpoint` a previous run wrote each output frame |
 | `--help` | print the option summary |
 
 Two entries in that summary do not do what they say: the short form `-h` is not
@@ -629,8 +640,11 @@ is canonical.
 [docs/known-issues.md](docs/known-issues.md) records defects that are confirmed
 but not fixed, with the evidence and a way to reproduce each. Read it before
 trusting a result from the multifluid module, before using
-`Numerical_Flux = Wave`, before enabling a slope limiter, or before assuming a
-run can be restarted.
+`Numerical_Flux = Wave`, or before enabling a slope limiter. §6 covers
+checkpoint/restart, which exists: a run writes `<runName>.checkpoint` at every
+output frame and `-r` resumes from it, reproducing a straight-through run
+exactly. That entry used to say the opposite, and saying the opposite cost
+someone twelve hours.
 
 [docs/rmf-frc-model-assessment.md](docs/rmf-frc-model-assessment.md) assesses the
 `multifluid/rmf_frc` example against the RMF current-drive literature: what is

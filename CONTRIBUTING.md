@@ -12,8 +12,12 @@ and no source builds are needed. Then:
 
 ```bash
 cd src
-scons build-opt          # or build-debug
+PETSC_DIR=/usr/lib/petsc scons build-opt    # or build-debug
 ```
+
+`PETSC_DIR` is needed because Debian's `libpetsc-real-dev` installs under
+`/usr/lib/petsc`, which is not on the compiler's default search path. Without it
+the build stops at `Checking for C++ header file petsc.h... no`.
 
 If a dependency is missing the build says which one and how to install it. Do not
 commit a change to `src/this_host_config.py` that hardcodes a path on your own
@@ -23,9 +27,13 @@ machine: that file's values override everyone else's environment, and a stale
 ## Before you open a pull request
 
 ```bash
-python3 -m unittest discover -s test    # ~1 s
+python3 -m unittest discover -s test    # ~19 min with a binary present
 test/run_examples.sh                    # ~15 s, needs a built binary
 ```
+
+The suite is 216 tests and four modules are 99% of that time; `CLAUDE.md` names
+the 199 that need no solver and run in about six seconds, which is what to run
+while you work.
 
 CI runs both, plus a syntax check over the SCons scripts and a full build of both
 variants. Getting them green locally first is much faster than round-tripping.

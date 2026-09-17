@@ -877,7 +877,9 @@ and 2 verified theirs, because a diagnostic that has never been checked is not e
   by mutation — removing it has to break the suite — which is how the R² guard above was found to
   be doing nothing.
 - **`scripts/rmf_scan.py`** runs a scan, applies the diagnostics, and skips points already
-  complete — the only restart available. **`test/test_rmf_scan.py`**, 12 checks, holds its cost
+  complete — restart at the level of the scan. (It said "the only restart available"; a single
+  point interrupted part-way now resumes from its own checkpoint, `known-issues` §6.)
+  **`test/test_rmf_scan.py`**, 12 checks, holds its cost
   model against six timesteps the solver actually printed, reproducing each to five significant
   figures.
 

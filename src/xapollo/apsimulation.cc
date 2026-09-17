@@ -305,7 +305,7 @@ ApSimulation<REAL>::usage()
             << " --output-prefix=<output-prefix>\n"
             << "    Use this as output prefix. Defaults to input file name without extension.\n" << std::endl;
   // for restart file
-  std::cout << "-r <file-name>\n" 
+  std::cout << " -r <file-name>\n"
             << " --restart=<file-name>\n"
             << "    Restart simulation from file <file-name>.\n" << std::endl;
   // for specifing real number type to use
