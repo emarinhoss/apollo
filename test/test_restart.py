@@ -185,26 +185,37 @@ class TestRestartReproduces(unittest.TestCase):
             # implementation worked once and refused the second time.
             _stage(resumed)
             for stop_after in (2, 4):
-                proc = subprocess.Popen(
-                    [APOLLO, '-i', 'gate.inp'] +
-                    (['-r', 'gate.checkpoint'] if stop_after > 2 else []),
-                    cwd=resumed, stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT, text=True)
-                # Stop once the frame we want is on disk.
-                import time as _t
-                deadline = _t.time() + 600
-                while _t.time() < deadline:
-                    try:
-                        if int(_meta(resumed)['frame']) >= stop_after:
+                # To a FILE, not to subprocess.PIPE. Nothing here reads the
+                # solver's output - we watch the checkpoint sidecar instead -
+                # and a pipe nobody drains blocks the writer once the kernel
+                # buffer fills, at 64 KiB on Linux. This deck prints about 7 KB
+                # before frame 4, so a pipe happens to work; a longer deck, or a
+                # chattier PETSc, would wedge the solver short of the frame this
+                # loop waits for, and the failure would look like a timeout
+                # rather than like a deadlock. A file also survives the run, so
+                # a failure below has something to read. (The pipe additionally
+                # leaked, which is what CI's ResourceWarning was reporting.)
+                log = os.path.join(resumed, 'interrupted-%d.log' % stop_after)
+                with open(log, 'w') as sink, subprocess.Popen(
+                        [APOLLO, '-i', 'gate.inp'] +
+                        (['-r', 'gate.checkpoint'] if stop_after > 2 else []),
+                        cwd=resumed, stdout=sink,
+                        stderr=subprocess.STDOUT, text=True) as proc:
+                    # Stop once the frame we want is on disk.
+                    import time as _t
+                    deadline = _t.time() + 600
+                    while _t.time() < deadline:
+                        try:
+                            if int(_meta(resumed)['frame']) >= stop_after:
+                                break
+                        except (OSError, KeyError, ValueError):
+                            pass
+                        if proc.poll() is not None:
                             break
-                    except (OSError, KeyError, ValueError):
-                        pass
-                    if proc.poll() is not None:
-                        break
-                    _t.sleep(1)
-                if proc.poll() is None:
-                    proc.terminate()
-                    proc.wait(timeout=60)
+                        _t.sleep(1)
+                    if proc.poll() is None:
+                        proc.terminate()
+                        proc.wait(timeout=60)
             # Finish it.
             done = _run(resumed, ['-r', 'gate.checkpoint'])
             self.assertEqual(done.returncode, 0, done.stdout[-600:])
