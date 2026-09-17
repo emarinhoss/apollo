@@ -226,6 +226,29 @@ jobs:
           python test/test_rmf_antenna_field.py -v
           python test/test_rmf_bc_field.py -v
 
+      # Restart is the one feature whose failure mode is SILENT: a resumed run
+      # that produces slightly different numbers still finishes and still looks
+      # like a continuation. test_restart.py asserts the resumed run reproduces
+      # a straight run exactly, and that only means something if it runs.
+      #
+      # It needs a built solver, so it SKIPS in the python-tooling job, and it
+      # was not named here - so when it was added it ran nowhere at all and CI
+      # was green on a guarantee nothing had checked. The skip count is asserted
+      # below for exactly that reason: this repository's recurring failure is a
+      # green run that tested nothing.
+      - name: Restart reproduces a straight run
+        env:
+          APOLLO_BIN: src/build-opt/apollo
+        run: |
+          python test/test_restart.py -v 2>&1 | tee restart.log
+          if grep -qE 'skipped=[1-9]|OK \(skipped' restart.log; then
+            echo "::error::restart tests SKIPPED - they need a built solver and"
+            echo "::error::found none, so nothing verified the restart guarantee."
+            exit 1
+          fi
+          grep -q 'Ran [1-9]' restart.log || {
+            echo "::error::restart tests ran nothing"; exit 1; }
+
       # The work directory is named so the read-back step below can use the
       # output these runs already produced instead of running the 209-second
       # maxwell case a second time.
