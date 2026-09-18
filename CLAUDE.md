@@ -154,6 +154,20 @@ result. The ones that bite hardest while editing:
   continues unlimited. Seven shipped Euler decks are affected; no RMF deck is.
   A compile-only gate cannot catch this — it is a runtime check inside PETSc,
   not a symbol that comes and goes. (§17)
+- **The formation run dies at the ANTENNA, not anywhere the mesh is refined.**
+  `03-formation/formation.pin` reaches 1.73 of 20 RMF periods. Every peak sits at
+  r = 0.0350-0.0398; the winding is at 0.036 and the mesh refines only r < 0.030,
+  so λ_D, c/ω_pe and the resistive skin depth are 0.27, 0.36 and 0.84 cells there
+  against 0.40, 0.52 and 1.23 in the column. Neither refinement test could detect
+  an improvement, and both were flawed the same way - every arm stayed
+  under-resolved. Use `scripts/where_peak.py` before assuming where a run failed.
+  (§19)
+- **You cannot pass PETSc options on Apollo's command line**, and the log will
+  not tell you. `getopt_long(argc, argv, "hi:r:o:")` exits 2 on any `-ts_*`,
+  `-dm_*` or `-log_view`; use `PETSC_OPTIONS=` or a `.petscrc`. The banner's
+  "Time integration done using: ssp" prints before the options are read and says
+  `ssp` for every scheme, so a dropped variable produces an identical log. Only
+  `-ts_view` shows `Scheme:`. (§21)
 - **`Numerical_Flux = Wave` aborts**, and `eigenSystem()` is dead code that is
   also wrong where it can be read. (§3, §4)
 
@@ -195,8 +209,9 @@ are small and current.
 `docs/rmf-frc-model-assessment.md` assesses `examples/.../multifluid/rmf_frc`
 against the rotating-magnetic-field current-drive literature and carries a
 phased plan. Phases 0–2 are done; Phase 3, the validation campaign, is
-instrumented and priced but blocked on two findings about the shipped decks
-(§3.10 and known-issues §13). `examples/.../rmf_frc/phase3/` holds ready-to-run
+instrumented and priced but blocked on three findings about the shipped decks
+(§3.10, known-issues §13 for the edge-driven decks, and known-issues §19 for the
+antenna deck, whose formation run dies at 1.73 of its 20 periods). `examples/.../rmf_frc/phase3/` holds ready-to-run
 input folders and a README explaining what to run and in what order.
 
 Tools: `scripts/rmf_diagnostics.py` (what a run produced),

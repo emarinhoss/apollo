@@ -759,6 +759,15 @@ what Phase 3 established, what it built, and what each remaining item now costs 
 than estimated, because the first thing the phase found is that the usual way of making a run like
 this affordable does not work here.
 
+**A third blocker was added after this section was written, and it is the antenna deck's own.**
+`03-formation/formation.pin` was run and died at 1.73 of its 20 periods. The growth is at the
+ANTENNA WINDING, which sits at r = 0.036 — outside the r < 0.030 region the mesh refines — where
+λ_D, c/ω_pe and the resistive skin depth are resolved at 0.27, 0.36 and 0.84 cells against 0.40,
+0.52 and 1.23 in the column. Two refinement tests could not detect an improvement, and both were
+flawed the same way: every arm stayed on the under-resolved side of the threshold. It is not the
+time integrator. `docs/known-issues.md` §19 carries the numbers, the two tests and their flaw, and
+§20 disposes of the integrator. That is separate from the edge-driven decks' ψ problem below.
+
 #### 0. Which way the drive turns — **settled, and it did not need a run**
 
 The plan asked for tens of RMF periods to confirm that the driven B_z on axis moves against the
