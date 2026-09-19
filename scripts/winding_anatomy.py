@@ -172,10 +172,16 @@ def main(argv=None):
     params['a_e0'] = math.sqrt(g * params['n_dens'] * params['Q'] * params['Te']
                                / (params['n_dens'] * params['ME']))
     dt_frame = params['TEND'] / params['OUT']
+    # The floors are the DECK's, not a guessed 1%. rmf_frc decks set
+    # MIN_DENS_FRAC = 0.01 (uniform decks) but the plasma-vacuum ramp decks set
+    # MIN_DENS_FRAC = 0.01*VAC_FRAC, four decades lower, so assuming 0.01 here
+    # reported the whole tenuous region as "below the floor" when nothing was
+    # floored at all. Prefer the deck's own derived values.
+    frac = params.get('MIN_DENS_FRAC', 0.01)
     floors = {
-        'p': 0.01 * params['n_dens'] * params['Q'] * params['Te'],   # MIN_PRES
-        'rho_e': params['ME'] * 0.01 * params['n_dens'],
-        'rho_i': params['MI'] * 0.01 * params['n_dens'],
+        'p': params.get('MIN_PRES', frac * params['n_dens'] * params['Q'] * params['Te']),
+        'rho_e': params.get('ELC_MIN_DENS', params['ME'] * frac * params['n_dens']),
+        'rho_i': params.get('ION_MIN_DENS', params['MI'] * frac * params['n_dens']),
     }
 
     frames = sorted(args.frames, key=frame_index)

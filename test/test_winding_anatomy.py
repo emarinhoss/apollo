@@ -213,6 +213,26 @@ class TestWindingAnatomy(unittest.TestCase):
         gr = [float(r.split()[9]) for r in _rows(out)]
         self.assertGreater(gr[-1], 0.5)
 
+    def test_floors_come_from_the_deck_not_a_hardcoded_one_percent(self):
+        """A ramp deck sets MIN_DENS_FRAC = 0.01*VAC_FRAC, four decades below 1%.
+
+        Assuming 0.01 reported the entire tenuous region as "below the floor"
+        when nothing was floored at all - 14494 nodes of a real run, every frame.
+        Found by running the tool on the plasma-vacuum ramp deck.
+        """
+        deck = os.path.join(self.d, 'lowfloor.pin')
+        with open(deck, 'w') as h:
+            h.write(fb.deck_text().replace('<warpx>', 'MIN_DENS_FRAC = 1.e-6\n<warpx>'))
+        # density at 1e-4 of the column: far below 1% of n0, far above the
+        # deck's real floor of 1e-6 n0, so nothing is floored.
+        def frame(f):
+            return [(r, th, state(n_e=N0 * 1.0e-4, n_i=N0 * 1.0e-4))
+                    for (r, th) in self._ring()]
+        out = _run([deck] + self._write(frame)).stdout
+        floored = [int(r.split()[8]) for r in _rows(out)]
+        self.assertEqual(floored, [0] * len(floored),
+                         'nodes above the deck floor were counted as floored')
+
     def test_missing_light_refuses(self):
         bad = os.path.join(self.d, 'bad.pin')
         with open(bad, 'w') as h:
