@@ -979,9 +979,15 @@ run dies at ~1100 steps from that, while the same mesh under `rk104` runs clean
 >= 4x under `rk104` and unmeasured above it.
 
 **What is still open.** Whether resolving `lambda_D` removes the growth is
-untested: every mesh tried stayed at `lambda_D/h` <= 0.42. The cheap decisive
-test is the antenna-off tanh-ramp reproducer (the deck header's own "dies in
-30-260 steps with or without the antenna" case) on a small disc across
+untested: every mesh tried stayed at `lambda_D/h` <= 0.42. **The tanh-ramp
+reproducer is NOT the cheap version of this test, and §22 is why**: that death
+is hydrodynamic, survives deleting every electromagnetic source, and is
+insensitive to the mesh, so it can neither confirm nor refute what is happening
+at the antenna. It was the obvious cheap proxy and it is the wrong one. The
+remaining test of this hypothesis is refinement of the antenna deck itself.
+The superseded reasoning kept below for the record: the antenna-off tanh-ramp
+reproducer (the deck header's own "dies in 30-260 steps with or without the
+antenna" case) on a small disc across
 `lambda_D/h` = 0.44, 0.68, 1.02, 1.63; if the deaths retreat as the layer is
 resolved, the mechanism is the unresolved sheath and the cure is resolution or a
 positivity-preserving scheme; if they do not, it is the two-fluid model's own
@@ -1112,3 +1118,104 @@ Refuse to interpret any run whose log does not carry the `Scheme:` line you
 expected. The §20 comparison was set up through the command line first and would
 have returned a confident false result — both arms `rks2`, both growing, read as
 "the integrator is exonerated" — had the option not been rejected loudly.
+
+---
+
+## 22. The plasma–vacuum ramp fails on positivity at the expansion front, not on the Debye length
+
+`03-formation/formation.pin`'s header explains at length why the deck has no
+vacuum annulus, and the explanation is wrong. It says:
+
+> Apollo carries explicit charge separation, so the electron dynamics have two
+> scales that have to be resolved. [...] A density ramp at the column edge
+> excites exactly them: the runs diverge at the ramp, near r = 0.035 [...]
+> A hard step fails on the first residual evaluation; a 1.5 mm tanh ramp lasts
+> about 30 steps, a 3 mm ramp about 150, a 5 mm ramp at least 244.
+
+The step counts are right. The attribution to λ_D and ω_pe is not, and neither
+is "at the ramp". Ten runs of the ramp reproducer, on one core each, say so.
+
+**The ramp death does not care about the Debye length.** Holding the ramp width
+at 3.0 mm and refining the mesh across the threshold the whole §19 question
+turns on:
+
+| arm | λ_D/h (from the run's own dt) | triangles | dies at |
+| --- | --- | --- | --- |
+| L1 | 0.45 | 16 809 | 5.3475e-09 |
+| L2 | 0.76 | 31 456 | 5.3219e-09 |
+| L3 | **1.14** | 60 497 | 5.2913e-09 |
+
+A 2.3× refinement, 3.6× the cells, crossing λ_D/h = 1 — and the death time moves
+by **1%**. Against that, halving the ramp width at the *finest* mesh (C1,
+λ_D/h = 1.14, W = 1.29 mm) brings the death forward by **42%**, to 3.0613e-09.
+The clock is set by a physical length, the ramp width, not by the cell.
+
+**It does not need the electromagnetic sources at all.** Deleting the whole
+`Sources` list — no Lorentz force, no currents, no charge sources, no
+resistivity, so no charge separation anywhere in the run — still dies, at
+3.1544e-09. A failure that survives the removal of every term that could
+produce charge separation is not a Debye-shielding failure. (An empty
+`Sources = []` does not parse; the key has to be deleted.)
+
+**It does not care about the antenna, and it is not at the wall.** With
+`Bomega = 0.0` and `rmfAntenna` dropped it dies at 5.3215e-09 against
+5.3228e-09 with the drive running — the header's "with or without the antenna"
+was asserted but never run, and it holds to three figures. Moving the
+conducting wall from r = 0.060 to r = 0.090 changes the death time by **0%**
+(5.3475e-09), so the wall-reflected expansion is not it either; that hypothesis
+was tested and refuted rather than assumed.
+
+**Where it actually fails, and why.** The negative-pressure nodes appear at the
+same radius and the same *local density* whatever the mesh or the wall:
+
+| arm | wall | fails at r | local n/n₀ there |
+| --- | --- | --- | --- |
+| G0 | 0.060 | 0.0434–0.0440 | 6.2e-05 – 1.8e-04 |
+| L3 | 0.060 | 0.0425–0.0436 | 1.6e-04 – 3.4e-04 |
+| C4 | 0.090 | 0.0440 | 1.0e-04 – 1.2e-04 |
+
+That local density is `VAC_FRAC` = 1e-4: the failure is where the expansion
+front arrives at the undisturbed background, travelling at 2.63e6 m/s = 0.89 of
+the electron sound speed. There the flow is fast and the gas is thin, so
+`p = (γ-1)(E - ρv²/2)` is a difference of nearly equal numbers — which is
+exactly what the deck's own `constantResistivity` comment warns about, in a
+scheme with no limiter and no positivity fix. The ramp itself is *static*: its
+θ-mean density profile is unchanged from the first frame to the last.
+
+**The decisive test is an intervention, not a correlation.** Raise the
+background from 1e-4 to 1e-2 of the column and the run **survives to 3.0e-08**,
+840 steps, no NaN — 5.6× past the baseline death, on the same mesh with the same
+ramp. Nothing about λ_D changed; the thing the front expands into did.
+
+**What this costs and what it buys.** The vacuum annulus that Phase 1 wanted is
+not blocked by the Debye length, so the "three times the resolution for nine
+times the cells" the header offers as the price would have bought nothing. It is
+blocked by the absence of a positivity-preserving scheme (§2: the only two-fluid
+limiter produces NaN). A deck that needs a tenuous region can have one today by
+keeping it above roughly 1% of the column density.
+
+**This does NOT explain §19.** The antenna instability is a different failure and
+the two are easy to tell apart with `winding_anatomy.py`: the formation run's
+Gauss residual `|div E - ρ/ε₀|/|div E|` grows 0.28 → 0.64 and c₀φ/E⊥ sits at
+0.25–0.33, while this ramp case stays at 0.06 → 0.12 and 0.011 → 0.045. The ramp
+death is hydrodynamic; the antenna death is electrostatic. §19's standing
+hypothesis is untouched by this result — it only loses the ramp deaths as
+supporting evidence, which were never evidence for it.
+
+The superseded explanation is still in `antenna/frc2d.pin`'s header (and so in
+every deck generated from it) and in the assessment's §3.10 discussion.
+
+### repro
+
+```bash
+# the ramp reproducer, antenna off, on a uniform-in-the-ramp mesh
+python3 scripts/mkdiscmesh.py -o disc.msh --outer 0.060 --ring 0.035 \
+        --h-inner 9.3e-4 --h-outer 1.5e-3
+# edit a copy of antenna/frc2d.pin: Bomega = 0.0, drop rmfAntenna from Sources,
+# EDGE_W = 3.0e-3, VAC_FRAC = 1.e-4, TEND = 3.0e-8, OUT = 60
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 apollo -i frc2d.inp
+python3 scripts/winding_anatomy.py frc2d.pin frc2d_*.vtu   # neg-p nodes, Gauss residual
+```
+
+`winding_anatomy.py` reports the negative-pressure nodes **two frames before the
+NaN** (486 of them), so this failure announces itself if anything is looking.
