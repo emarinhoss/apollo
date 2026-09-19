@@ -54,7 +54,7 @@ environment on a cluster.
 | everything else (17 modules) | 221 | **8 s** |
 | whole suite | 238 | ~1150 s |
 
-So run the 209 while you work and the whole suite before you push. The 209 need
+So run the 221 while you work and the whole suite before you push. The 221 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
