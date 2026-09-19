@@ -1183,16 +1183,26 @@ scheme with no limiter and no positivity fix. The ramp itself is *static*: its
 θ-mean density profile is unchanged from the first frame to the last.
 
 **The decisive test is an intervention, not a correlation.** Raise the
-background from 1e-4 to 1e-2 of the column and the run **survives to 3.0e-08**,
-840 steps, no NaN — 5.6× past the baseline death, on the same mesh with the same
-ramp. Nothing about λ_D changed; the thing the front expands into did.
+background density and the failure goes away, on the same mesh with the same
+ramp:
+
+| `VAC_FRAC` | outcome |
+| --- | --- |
+| 1e-4 | dies at 5.32e-09 (150 steps) |
+| **1e-3** | **survives to 3.0e-08**, 840 steps, no NaN |
+| **1e-2** | **survives to 3.0e-08**, 840 steps, no NaN |
+
+One decade is enough, and the threshold lies between 1e-4 and 1e-3. Nothing
+about λ_D changed across those three runs; the thing the front expands into did.
 
 **What this costs and what it buys.** The vacuum annulus that Phase 1 wanted is
 not blocked by the Debye length, so the "three times the resolution for nine
 times the cells" the header offers as the price would have bought nothing. It is
 blocked by the absence of a positivity-preserving scheme (§2: the only two-fluid
 limiter produces NaN). A deck that needs a tenuous region can have one today by
-keeping it above roughly 1% of the column density.
+keeping it at or above 1e-3 of the column density — a decade above the value
+that fails, and 1.4e-2 m of Debye length at that density, so the annulus is the
+best-resolved part of the domain rather than the worst.
 
 **This does NOT explain §19.** The antenna instability is a different failure and
 the two are easy to tell apart with `winding_anatomy.py`: the formation run's
