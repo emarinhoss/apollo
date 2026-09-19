@@ -204,5 +204,5 @@ WxFEMGeometry<REAL>::getCoordinate1d(WxGridBox<REAL> gb, REAL **rhs)
 }
 
 // instantiations
-template class WxFEMGeometry<float>;
+//template class WxFEMGeometry<float>;
 template class WxFEMGeometry<double>;

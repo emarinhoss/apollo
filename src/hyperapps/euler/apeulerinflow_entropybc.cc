@@ -34,5 +34,5 @@ WxEulerInflowEntropyBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, R
 }
 
 // instantiations
-template class WxEulerInflowEntropyBC<float>;
+//template class WxEulerInflowEntropyBC<float>;
 template class WxEulerInflowEntropyBC<double>;

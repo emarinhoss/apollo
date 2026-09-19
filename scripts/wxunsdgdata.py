@@ -37,10 +37,10 @@ class WxDGArray:
         reader.Update()
         
         data = reader.GetOutput()
-        self.nodesPerElem = (self.order+1)*(self.order+2)/2 # number of nodes per Element
+        self.nodesPerElem = (self.order+1)*(self.order+2)//2 # number of nodes per Element
         self.TotNumElements = 0 # Total number of Elements
         self.NumArrays  = data.GetCellData().GetNumberOfArrays() # Total number of arrays
-        self.NumComp    = (self.NumArrays-1)/self.nodesPerElem # number of components per node
+        self.NumComp    = (self.NumArrays-1)//self.nodesPerElem # number of components per node
         #self.gridPoints = zeros((self.TotNumElements*self.nodesPerElem,3))
         #self.variables  = zeros((self.TotNumElements*self.nodesPerElem,self.NumComp))
         
@@ -110,7 +110,7 @@ class WxVisData:
 
         # ensure file exist
         if not os.path.exists(fn):
-            raise "WxData::__init__ : Dump %d of run %s not exist" % (frm, base)
+            raise Exception("WxData::__init__ : Dump %d of run %s not exist" % (frm, base))
             
         self.fname = fn
         # read in simulation time

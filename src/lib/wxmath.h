@@ -316,7 +316,10 @@ JacobiP(REAL x, REAL alpha, REAL beta, int N)
   REAL gamma0=0.0, gamma1=0.0;
   REAL ab=alpha+beta, ab1=alpha+beta+1.0, a1=alpha+1.0, b1=beta+1.0;
 
-  REAL P, PL0, PL1, PL2, prow, x_bnew;
+  // PL2 is assigned by the recurrence below, which runs only for N >= 2;
+  // initialise it so an out-of-range N returns a value rather than reading
+  // an indeterminate one.
+  REAL P = 0.0, PL0 = 0.0, PL1 = 0.0, PL2 = 0.0, prow = 0.0, x_bnew = 0.0;
 
   // Initial values P_0(x) and P_1(x)
   gamma0 = pow(2.0,ab1)/(ab1)*tgamma(a1)*tgamma(b1)/tgamma(ab1);

@@ -319,5 +319,5 @@ WxDGQuadrature<REAL>::evalExpansion3D(int lm, int ln, int lp,
 }
 
 // instantiations
-template class WxDGQuadrature<float>;
+//template class WxDGQuadrature<float>;
 template class WxDGQuadrature<double>;

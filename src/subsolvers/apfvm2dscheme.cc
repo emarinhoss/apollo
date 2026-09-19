@@ -4,6 +4,7 @@
 #include <wxcreator.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 # include <wxmpimsg.h>
 
@@ -293,5 +294,5 @@ ApFVM2Dscheme<REAL>::step(REAL t, REAL dt, Vec in, Vec out)
 }
 
 // instantiations
-template class ApFVM2Dscheme<float>;
+//template class ApFVM2Dscheme<float>;
 template class ApFVM2Dscheme<double>;

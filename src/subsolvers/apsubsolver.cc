@@ -59,5 +59,5 @@ ApSolver<REAL> *ApSubSolver<REAL>::getParent() const
 //}
 
 // instantiations
-template class ApSubSolver<float>;
+//template class ApSubSolver<float>;
 template class ApSubSolver<double>;

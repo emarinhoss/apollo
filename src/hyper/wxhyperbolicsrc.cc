@@ -82,5 +82,5 @@ WxHyperbolicSrc<REAL>::compSource(REAL *tx, REAL *qfull, REAL *qauxfull, REAL *s
 }
 
 // instantiations
-template class WxHyperbolicSrc<float>;
+//template class WxHyperbolicSrc<float>;
 template class WxHyperbolicSrc<double>;
