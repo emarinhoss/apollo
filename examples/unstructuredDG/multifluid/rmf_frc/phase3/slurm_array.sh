@@ -54,6 +54,15 @@ export APOLLO
 export APOLLO_BIN="${APOLLO_BIN:-$APOLLO/src/build-opt/apollo}"
 export APOLLO_RANKS=1
 
+# One core per task, so pin the maths libraries to one thread each. The DG hot
+# path calls GSL/OpenBLAS dgemm and PETSc may spawn OpenMP; left unpinned they
+# oversubscribe a --cpus-per-task=1 allocation and each task runs ~2x slower
+# (measured: 0.89 s/step pinned vs ~1.8 s unpinned on the shipped mesh). It
+# does not change the answer, only the wall clock.
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export GOTO_NUM_THREADS=1
+
 # Resume rather than start over. A task that hits --time is killed with
 # SIGTERM, run_one.sh leaves the checkpoint where it is, and resubmitting the
 # same array picks each task up from its last output frame. With this unset,

@@ -162,15 +162,15 @@ def main(deck, frames, comps, nframes):
         rows.append((frame_number(p), row))
 
     print()
-    print('%6s ' % 'frame' + ' '.join('%26s' % n for n in comps))
+    print('%6s ' % 'frame' + ' '.join('%34s' % n for n in comps))
     for idx, row in rows[-nframes:]:
         cells = []
         for item in row:
             if item is None:
-                cells.append('%26s' % '-')
+                cells.append('%34s' % '-')
             else:
                 value, rr, tag, th = item
-                cells.append('%11.3e r=%.4f %-7s' % (value, rr, tag))
+                cells.append('%11.3e r=%.4f %-7s th=%+04.0f' % (value, rr, tag, th))
         print('%6d ' % idx + ' '.join(cells))
 
     if geo:

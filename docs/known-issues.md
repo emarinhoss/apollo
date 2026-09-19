@@ -910,6 +910,85 @@ It is not a knife-edge: `OUT` = 15, 30 and 60 all die at t = 5.483–5.489e-07. 
 it is not the first of a trend: the meshes at 2.75× and 3.25× both ran to
 t = 1.4e-06, 2.6× past it, with no NaN. Why 3× specifically is **not explained**.
 
+### What the structure is, measured on the surviving frames
+
+Two diagnostics were written to separate a smooth, drive-locked pattern from
+grid-scale structure the mesh cannot resolve, and to read the winding state the
+column-only `rmf_diagnostics` bins cannot reach:
+
+```bash
+python3 scripts/ring_spectrum.py   03-formation/formation.pin <results>/*.vtu
+python3 scripts/winding_anatomy.py 03-formation/formation.pin <results>/*.vtu
+```
+
+Run on a k=1 formation frame set (the `rk104`, `cfl` x4 proxy that reaches
+0.45 of a period and reproduces the shipped `rks2` run's winding fields to four
+digits) and on the k=2 and k=2.75 sets, they show the following. These are
+measurements of those runs, not of the 140-hour run itself, whose frames are on
+the cluster.
+
+- **The winding density hole is shallow and decelerating, and the pressure is
+  flat.** `n_e` at the winding falls to 0.971 of the column by 0.45 periods, in
+  steps that shrink frame to frame (0.0074, 0.0098, 0.0052, 0.0033 per 0.11
+  period); `T_e` rises 30.0 -> 31.4 eV at the hottest node and the electron
+  pressure over the whole disc holds to +-1.3%. There is no local hot spot and
+  no 1/n thermal runaway at this resolution: the hole is a bounded, quasi-static
+  J x B / Ohmic depression, not the thing that grows.
+
+- **What grows exponentially is grid-scale; the smooth part grows linearly.**
+  On the winding node rings the m = 0 amplitude of `phi` and of the charge
+  density `e(n_i - n_e)` grows **linearly** in time, while the r.m.s. of the
+  cell-to-cell (high-m) remainder grows **exponentially**, at 3-7e6 s^-1 (k=1)
+  and 3.9-4.8e6 s^-1 (k=2). Fitting a single exponential to `run_growth.py`'s
+  global max|value| returns ~2e6 s^-1 - which is that linear m = 0 growth dressed
+  as a rate. **The "2.2e6 s^-1 growth rate" of this run is a fit artefact, not a
+  mode rate**; the real exponential is in the unresolved charge structure.
+
+- **The charge the fields carry is increasingly inconsistent with Gauss's law.**
+  The per-cell residual `div E - rho_c/eps0`, normalised by `div E`, grows from
+  0.28 to 0.64 over the run: the electrostatic field and the charge density it
+  should satisfy drift apart at the cell scale, which is exactly what an
+  under-resolved Debye layer (lambda_D/h = 0.3 here) does. `phi`, whose only
+  source is that residual, records it - it leads `E` but is a symptom, and the
+  in-plane `E` growth is independent of `DIVE_SPEED` over the first 0.15 period.
+
+- **The peak sits at fixed mesh azimuths, not on the rotating drive.**
+  `where_peak.py` (now printing theta) shows `e-rho` pinned at theta ~ -120 deg
+  and `phi` at theta ~ 0/-120 deg for frame after frame while the antenna
+  rotates - the ring-count stitch seams of the generated mesh (`mkdiscmesh`
+  closes each ring pair near theta = 0 and emits mismatch cells at the winding
+  near +-120 deg). The failure nucleates where the mesh is locally worst.
+
+- **The electron-fluid state limit is the endgame, not the cause.** The
+  return-current drift `u_ez` stays at 0.12 of the electron sound speed and
+  `|u_e| + a_e` at 1.12 c0 through 0.45 periods, with no node reaching a
+  non-positive pressure or the density floor. Those limits (which the amplitude
+  ladder hits at 1.9-3.8 a_e, and which end the k=3 wall cell) are how the run
+  finally NaNs once a cell has hollowed, not why the structure grew.
+
+So on the evidence available the growth is a **numerical charge-separation
+structure at the unresolved Debye scale, seeded by a bounded physical hole and
+sited by the mesh seams**, not a resolved plasma instability - but that is a
+hypothesis with a decisive test that has not been run (below), not a conclusion.
+
+**A correction this measurement forces.** The "clean at 4x `cfl`" figure once
+read as a spatial-CFL margin is not one: at `cfl` x4 the default `rks2`
+integrator amplifies the electron oscillation (net +5.8e-3 per step, §20) and a
+run dies at ~1100 steps from that, while the same mesh under `rk104` runs clean
+- so the number measured the integrator, not the flux. The spatial CFL margin is
+>= 4x under `rk104` and unmeasured above it.
+
+**What is still open.** Whether resolving `lambda_D` removes the growth is
+untested: every mesh tried stayed at `lambda_D/h` <= 0.42. The cheap decisive
+test is the antenna-off tanh-ramp reproducer (the deck header's own "dies in
+30-260 steps with or without the antenna" case) on a small disc across
+`lambda_D/h` = 0.44, 0.68, 1.02, 1.63; if the deaths retreat as the layer is
+resolved, the mechanism is the unresolved sheath and the cure is resolution or a
+positivity-preserving scheme; if they do not, it is the two-fluid model's own
+vacuum-expansion or the Lax-Friedrichs species asymmetry. Neither refinement nor
+a physical-mode search (an azimuthal m-spectrum with a real frequency) has been
+done at `lambda_D/h` >= 1.
+
 ### repro
 
 ```bash

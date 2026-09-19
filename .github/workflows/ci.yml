@@ -59,6 +59,8 @@ jobs:
           python test/test_rmf_scan.py -v
           python test/test_rmf_cleaning_check.py -v
           python test/test_where_peak.py -v
+          python test/test_ring_spectrum.py -v
+          python test/test_winding_anatomy.py -v
 
       # Needs a C++ compiler but no PETSc: it compiles petsc_compat.h against a
       # stub <petsc.h> that declares what each PETSc release declares, so the
