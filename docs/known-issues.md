@@ -1311,16 +1311,47 @@ at r = 0.039, the winding-band Gauss residual still 0.070 and no negative
 pressures — the same death, arriving when the same speed is reached (the 1e-3
 arm's last frame had 2.09 a_e and 2.98 c₀), twice as late because the drift
 builds up at half the rate. Whether §19's growth is *absent over periods* when
-the winding sits in tenuous plasma can therefore only be asked of the 1e-1 arm,
-which is running as this is written: alive at 66 ns with u_ez = 0.44–0.46 a_e
-flattening, \|u_e\|+a_e = 1.48 c₀ and the winding-band residual 0.10. This
-section will record where it ends.
+the winding sits in tenuous plasma could therefore only be asked of the 1e-1
+arm — and it turns out that it cannot be asked of that arm either, for a
+reason that has nothing to do with the numerics.
+
+**The column in a gap is not an equilibrium: it expands into the gap at the ion
+sound speed.** β = 50 in this deck (720 Pa of plasma against 14 Pa of B_z), so
+nothing holds the tanh edge. The 1e-1 arm survives the rise (its drift peaks at
+0.45 a_e, \|u_e\|+a_e at 1.52 c₀, at 73 ns, and relaxes as the gap fills) and
+by 0.25 periods the θ-mean profile has become a free expansion: u_er =
+5.0–5.9e4 m/s from r = 0.025 to 0.045 (c_s = 6.6e4 m/s), density on the axis
+0.83 n₀ and at r = 0.029 0.37 n₀, the gap between the column and the winding
+filled to 0.32–0.36 n₀, the column electrons cooled adiabatically from 30 to
+15–26 eV. The transit time r/c_s is 0.46 µs = 0.36 periods, against the 20
+periods a formation run needs. The embedded deck has no such problem only
+because its plasma has nowhere to expand to. So a gap deck at this β cannot
+carry the formation question however the numerics behave, and the shipped
+deck's "plasma to the wall" is the physical configuration for this bias
+field, not merely the numerically convenient one.
+
+What the 1e-1 arm shows at the winding by 0.25 periods is therefore a winding
+that the expanding column has re-embedded, at 0.35 n₀ and rising, with a
+density gradient moving through it — and on that substrate §19's signature
+appears: on the winding rings (r = 0.033–0.043, 138–165 nodes each)
+`ring_spectrum.py` finds the grid band of ρ_c growing exponentially at
+2–9.4e6 s⁻¹ with the dominant harmonic at m = 27–29, φ's grid band at
+2.5–9.7e6 s⁻¹ on every ring, and the m = 0 parts flat — the embedded k=2 case's
+3.9–4.8e6 s⁻¹, with the same shape. The per-band residual at 0.25 periods is
+column 0.16, edge 0.34, winding 0.26, wall 0.20, against the embedded run at
+the same age (257–314 ns): 0.12, 0.35–0.37, 0.54–0.57, 0.77. Half the
+embedded value at the winding and a quarter at the wall, but growing, and no
+longer separable from the embedding it was meant to remove. The arm is still
+running as this is written (0.26 periods, 9070 steps); this section will
+record where it ends, since a run that dies at ~1.7 periods with the winding
+peaks would say the re-embedded case fails like the embedded one.
 
 **What this closes and what it leaves.** "Move the antenna out of the plasma",
 listed in §19 as one of the cures, is not available at LIGHT = 3e6 and
 B_ω = 50 G: the winding has to sit in plasma of at least about a tenth of the
 column density, where the gap is a plasma that screens it in a cell or two
-rather than a vacuum. The routes that would restore a real gap each cost
+rather than a vacuum — and at β = 50 the column fills that gap in a third of a
+period anyway. The routes that would restore a real gap each cost
 something this repository has not paid: raising `LIGHT` (steps ∝ c₀, and λ_D
 ∝ 1/c₀ through EPS0, so the §19 question gets harder as the gap gets easier),
 or lowering `Bomega` (u ∝ B_ω, so a tenth of the drive at 1e-2 background — no
