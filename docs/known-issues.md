@@ -1305,10 +1305,16 @@ carries *no more* residual than the undisturbed column interior. That is the
 first branch of the decision rule this deck was built to apply — the embedding,
 not any driven gradient, is what §19's structure grows on — but it is a
 statement about the first 31 ns. No arm below a tenth of the column density
-lives past the antenna rise, so whether §19's growth is *absent over periods*
-when the winding sits in tenuous plasma can only be asked of the 1e-1 arm,
-which is running as this is written (alive at 46 ns, \|u_e\|+a_e = 1.3 c₀,
-Gauss residual at the winding 0.10). This section will record where it ends.
+lives long past the antenna rise: the 1e-2 companion died at 6.27e-8 s, 1765
+steps, with its last frame (52 ns) at u_ez = 1.84 a_e and \|u_e\|+a_e = 2.78 c₀
+at r = 0.039, the winding-band Gauss residual still 0.070 and no negative
+pressures — the same death, arriving when the same speed is reached (the 1e-3
+arm's last frame had 2.09 a_e and 2.98 c₀), twice as late because the drift
+builds up at half the rate. Whether §19's growth is *absent over periods* when
+the winding sits in tenuous plasma can therefore only be asked of the 1e-1 arm,
+which is running as this is written: alive at 66 ns with u_ez = 0.44–0.46 a_e
+flattening, \|u_e\|+a_e = 1.48 c₀ and the winding-band residual 0.10. This
+section will record where it ends.
 
 **What this closes and what it leaves.** "Move the antenna out of the plasma",
 listed in §19 as one of the cures, is not available at LIGHT = 3e6 and
