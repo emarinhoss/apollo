@@ -1204,6 +1204,13 @@ keeping it at or above 1e-3 of the column density — a decade above the value
 that fails, and 1.4e-2 m of Debye length at that density, so the annulus is the
 best-resolved part of the domain rather than the worst.
 
+**Correction (§23).** That last sentence held for a tenuous region nothing
+drives — every arm above had the antenna off. Put the winding in it and the
+electron fluid there is driven past the reduced speed of light at any
+background below about a tenth of the column density; the 1e-3 arm with the
+antenna on dies 5 ns after the rise. What §22 buys is narrower than this
+paragraph first said: the edge itself is not the obstacle, but a driven gap is.
+
 **This does NOT explain §19.** The antenna instability is a different failure and
 the two are easy to tell apart with `winding_anatomy.py`: the formation run's
 Gauss residual `|div E - ρ/ε₀|/|div E|` grows 0.28 → 0.64 and c₀φ/E⊥ sits at
@@ -1229,3 +1236,96 @@ python3 scripts/winding_anatomy.py frc2d.pin frc2d_*.vtu   # neg-p nodes, Gauss 
 
 `winding_anatomy.py` reports the negative-pressure nodes **two frames before the
 NaN** (486 of them), so this failure announces itself if anything is looking.
+
+## 23. A tenuous gap around the antenna drives the electron fluid past the reduced speed of light
+
+§22 removed the reason the antenna deck gives for having no vacuum annulus and
+measured that a background of 1e-3 of the column density survives the edge
+expansion that kills 1e-4 — with the antenna off. The obvious next deck is that
+annulus with the antenna on: the Phase-1 geometry (column to r = 0.030, tanh
+edge 3.0 mm, winding at r = 0.040 ± 0.008 in the tenuous region, conducting wall
+at 0.060, `discAnnulus.msh`), `VAC_FRAC = 1e-3`, two RMF periods. It is checked
+in as `phase3/04-vacuum-gap/frc2d.pin`. Two companions, the same deck at
+`VAC_FRAC = 1e-2` and `1e-1`, ran beside it on this container's spare cores.
+
+**It dies at t = 3.53e-8 s, 993 steps, five nanoseconds after the 30 ns antenna
+rise ends** — `NaN after Mass matrix multiplication RHS`, 18 minutes on one
+core. Not for §22's reason and not for §19's.
+
+**The mechanism was written down before the run, and the ladder follows it.** A
+region too thin to screen the winding does not shield its electrons from the
+inductive field of the rise, so each one picks up the canonical momentum
+e·ΔA_z/m_e when the vector potential rises. For a winding at r = 0.040 above a
+column of radius 0.030 that screens it, ΔA_z = B_ω(r − a²/r) = 8.75e-5 T m, and
+e·ΔA_z/m_e = 1.54e7 m/s = **5.1 c₀** at LIGHT = 3e6. Screening it instead needs
+the return current J = B_ω/(μ₀δ_e) carried at u_e = J/(ne) ∝ n^-1/2:
+
+| background n/n₀ | c/ω_pe | u_e needed to screen | measured peak u_ez / a_e at 31 ns | max(\|u_e\|+a_e)/c₀ at 31 ns |
+| --- | --- | --- | --- | --- |
+| 1 (the embedded deck) | 0.53 mm | 0.16 c₀ | 0.07 (at 28.6 ns) | 1.06 |
+| 1e-1 | 1.7 mm | 0.49 c₀ | 0.33 | 1.31 |
+| 1e-2 | 5.3 mm | 1.56 c₀ | 1.24 | 2.25 |
+| **1e-3** | 16.8 mm | 4.9 c₀ | **2.09** | **2.98** |
+
+The measured peaks sit at r = 0.039 in all three arms, on the inboard half of
+the winding where the density has fallen to 0.7%, 1.5% and 10% respectively,
+and the a_e-normalised drift rises monotonically through the edge as the
+density falls (1e-3 arm: 0.06 at r = 0.033, 0.17 at 0.034, 0.45 at 0.035, 0.81
+at 0.036, 1.49 at 0.038). The time step is pinned to c₀ and blind to the fluids
+(§16), so a fluid whose fastest wave runs at 3 c₀ is stepped at three times its
+CFL limit, and the run ends when that catches up with it. At the physical c the
+same 1.5e7 m/s would be 0.05 c and unremarkable: it is the reduced speed of
+light that makes a *driven* tenuous gap impossible at this B_ω.
+
+**It is not §22's failure.** §22's death is an expansion front reaching the
+background, with hundreds of negative-pressure nodes at the front two frames
+before the NaN and the local density at `VAC_FRAC`. Here `n_e,min/n₀` stays at
+0.0014 → 0.0010 → 0.0008 over the three frames, the only negative pressures are
+one ring of 236 nodes at r = 0.0496 at 10 ns, in the gap, with the axial drift
+already 0.04–0.44 a_e — and they are gone by 21 ns. The axial drive, not the
+radial expansion, is what makes p = (γ−1)(E − ρv²/2) a difference of nearly
+equal numbers.
+
+**It is not §19's failure either, and that is the useful part.** The two numbers
+that grow in the embedded formation deck are flat here. Per radial band of
+cells, rms(∇·E − ρ/ε₀)/rms(∇·E):
+
+| band | embedded, 28.6 ns | embedded, 0.457 µs | gap 1e-3, 31 ns | gap 1e-2 | gap 1e-1 |
+| --- | --- | --- | --- | --- | --- |
+| column interior r < 0.027 | 0.073 | 0.098 | 0.082 | 0.081 | 0.077 |
+| column edge | 0.163 | 0.298 | 0.043 | 0.042 | 0.079 |
+| **winding** | **0.281** | **0.614** | **0.071** | **0.074** | **0.098** |
+| outboard of the winding | 0.488 | 0.483 | 0.424 | 0.162 | 0.107 |
+
+and c₀max\|φ\|/max\|E⊥\| over the disc is 0.013–0.025 in all three gap arms
+against 0.257 in the embedded run at the same age. With the winding out of the
+dense plasma the charge-separation signature at the winding is four times
+weaker at the same age, and the driven density gradient at the column edge
+carries *no more* residual than the undisturbed column interior. That is the
+first branch of the decision rule this deck was built to apply — the embedding,
+not any driven gradient, is what §19's structure grows on — but it is a
+statement about the first 31 ns. No arm below a tenth of the column density
+lives past the antenna rise, so whether §19's growth is *absent over periods*
+when the winding sits in tenuous plasma can only be asked of the 1e-1 arm,
+which is running as this is written (alive at 46 ns, \|u_e\|+a_e = 1.3 c₀,
+Gauss residual at the winding 0.10). This section will record where it ends.
+
+**What this closes and what it leaves.** "Move the antenna out of the plasma",
+listed in §19 as one of the cures, is not available at LIGHT = 3e6 and
+B_ω = 50 G: the winding has to sit in plasma of at least about a tenth of the
+column density, where the gap is a plasma that screens it in a cell or two
+rather than a vacuum. The routes that would restore a real gap each cost
+something this repository has not paid: raising `LIGHT` (steps ∝ c₀, and λ_D
+∝ 1/c₀ through EPS0, so the §19 question gets harder as the gap gets easier),
+or lowering `Bomega` (u ∝ B_ω, so a tenth of the drive at 1e-2 background — no
+longer the formation drive). §22's "usable today at ≥ 1e-3" is corrected in
+place above: it holds for a region nothing drives.
+
+### repro
+
+```bash
+cd examples/unstructuredDG/multifluid/rmf_frc/phase3/04-vacuum-gap
+./../run_one.sh frc2d.pin                                   # dies at step 993
+python3 ../../../../../../scripts/winding_anatomy.py frc2d.pin frc2d_*.vtu
+#   max(lam_e)/c0 column: 2.61  2.62  2.98;  gauss_resid/divE: 0.058 0.052 0.062
+```

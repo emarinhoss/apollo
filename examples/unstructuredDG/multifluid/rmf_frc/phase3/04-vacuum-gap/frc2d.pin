@@ -1,0 +1,464 @@
+# -*- python -*-
+#
+# THE VACUUM-GAP ARM: the antenna in a tenuous annulus instead of in the plasma.
+# Run once, on one core, and it answers its question in 18 minutes:
+# docs/known-issues.md 23. It is checked in so that the answer can be
+# reproduced, not because it is a run worth repeating.
+#
+# This is the Phase-1 annulus deck - a plasma column of radius RAD_PLASMA with
+# a tanh edge of width EDGE_W falling to VAC_FRAC of the column density, the
+# winding at COIL_R in the tenuous region, the conducting wall at WALL_RADIUS -
+# with the background raised from the 1e-4 that fails on positivity at the
+# expansion front (known-issues 22) to 1e-3, which 22 measured to survive that
+# with the antenna off. With the antenna on it dies at t = 3.53e-8 s, 993 steps,
+# five nanoseconds after the 30 ns rise ends, for a third reason that is neither
+# 22's nor 19's:
+#
+#     an electron in a region too thin to screen the winding picks up
+#     e*dA_z/m_e when the winding's vector potential rises, and for this
+#     winding above a screened column that is 1.5e7 m/s = 5 times the
+#     reduced speed of light LIGHT.
+#
+# Screening it instead needs a drift of Bomega/(mu0 delta_e n e), which goes as
+# n^-1/2: 0.16 c0 in the column, 0.49 c0 at a tenth of it, 1.6 c0 at a
+# hundredth, 4.9 c0 at VAC_FRAC = 1e-3. Measured at the end of the rise, the
+# electron fluid at r = 0.039 reaches 2.1, 1.2 and 0.33 electron sound speeds
+# for backgrounds of 1e-3, 1e-2 and 1e-1, and |u_e| + a_e reaches 3.0, 2.3 and
+# 1.3 c0. The time step is pinned to c0 (known-issues 16) and does not see any
+# of that. At the physical c the same 1.5e7 m/s would be 0.05 c and harmless;
+# it is the reduced c0 that makes a driven tenuous gap impossible at this
+# Bomega. The companions VAC_FRAC = 1.e-2 and 1.e-1 are the same deck with that
+# one line changed; known-issues 23 records how far each got.
+#
+# What the gap DID show before it died (known-issues 23): with the winding out
+# of the dense plasma, the Gauss residual |div E - rho/eps0| / |div E| at the
+# winding is 0.07 against 0.28 in the embedded formation deck at the same age,
+# c0|phi|/|E_perp| is 0.016 against 0.26, and the column edge carries no more
+# residual than the column interior. That is the charge-separation signature of
+# 19 going away when the winding leaves the plasma - at 31 ns.
+#
+# Everything below the geometry block is the Phase-1 deck as it was, including
+# its header, which is kept because its explanation of the annulus is still the
+# right one; its VAC_FRAC discussion is superseded by known-issues 22 and 23.
+#
+# To make the companions: sed -e 's/^VAC_FRAC = .*/VAC_FRAC = 1.e-2/' frc2d.pin
+#
+# RMF-FRC formation, driven by an ANTENNA rather than by the plasma edge.
+#
+# This is the same physical problem as ../frc2d.pin - a uniform hydrogen column
+# in a uniform axial bias field, with a rotating magnetic field applied to drive
+# the azimuthal current that reverses the bias and forms an FRC - but the RMF is
+# produced by an antenna current inside the domain instead of being written onto
+# the plasma edge as a boundary condition.
+#
+# WHY THAT MATTERS. In ../frc2d.pin the transverse field at r = a is prescribed.
+# The plasma is then forbidden from screening it: the RMF the plasma sees is the
+# vacuum field by construction, the antenna cannot be loaded, and neither the
+# penetration threshold in B_omega nor the absorbed power - the two numbers the
+# RMF literature is built on - can be read off a run. Here the plasma sits in a
+# vacuum annulus, the antenna drives a current, and the field at the plasma edge
+# is an OUTCOME. See docs/rmf-frc-model-assessment.md.
+#
+# GEOMETRY
+#
+#     r < RAD_PLASMA                 plasma column
+#     RAD_PLASMA < r < WALL_RADIUS   vacuum annulus, as a tenuous two-fluid gas
+#     COIL_R +- COIL_W/2             the antenna winding, inside the annulus
+#     r = WALL_RADIUS                perfectly conducting wall
+#
+# The wall is the flux conserver. A perfect conductor holds both tangential
+# components of E at zero, so by Faraday's law the axial flux enclosed by it is
+# conserved exactly - no area-integral feedback of the kind ../frc2d.pin needs,
+# and no assumption about how the flux is distributed outside the plasma.
+#
+# The antenna is INSIDE the conserver. In a laboratory RMF-FRC the coils sit
+# outside a slotted conserver, which passes the transverse field while still
+# holding axial flux; that arrangement is not a local boundary condition and is
+# not modelled here. An internal antenna inside a solid conserver is a different
+# but self-consistent machine, and it is the one that makes the antenna
+# loadable, which is the point of this deck. The conserver's image current
+# reduces the field the winding produces by (1 - COIL_R^2/WALL_RADIUS^2); the
+# antenna source accounts for that when it converts Bomega into a current, and
+# reports the current it arrived at in the setup log.
+#
+# MESH. Generated, not hand-drawn - the plasma region keeps the resolution of
+# ../optimizedCircle2.msh and the annulus is coarser, so extending the domain
+# costs cells but not time step (the step is set by the smallest cell, which is
+# still in the plasma):
+#
+#   python3 scripts/mkdiscmesh.py -o discAnnulus.msh \
+#           --outer 0.06 --ring 0.03 --h-inner 9.3e-4 --h-outer 1.8e-3
+#
+import math
+PI = math.pi
+
+MP = 1.67e-27 # [kg] proton mass
+MI = MP # hydrogen
+mass_ratio = 1836
+ME = MP/mass_ratio
+Q = 1.6e-19 # [C] charge
+GAMMA = 1.66666666667
+BOLTZ = 1.3807e-23 # J/K  Boltzmann constant
+MU0 = PI*4.0e-7 # [H/m]  permiability of free space
+LIGHT = 3.0e6 # [m/s] speed of light, reduced by 100 to relax the CFL
+EPS0 = 1.0/(MU0*LIGHT*LIGHT)
+
+MEQN = 18
+P_ORDER = 1
+DIVB_SPEED = 1.0
+DIVE_SPEED = 1.0
+
+# RMF drive
+Bomega = 50.e-4   # T, transverse field the antenna is asked to produce
+Baxial = 60.e-4   # T, bias B-field
+omega  = 7.95e5   # Hz, rmf frequency
+PHASE  = 0. 	  # rads, offset in the RMF rotation
+RISE   = 3.0e-8   # sec
+
+ETA    = 0.5e-5	  # Ohm-m
+
+# Geometry
+RAD_PLASMA  = 0.030
+COIL_R      = 0.040
+COIL_W      = 0.008
+WALL_RADIUS = 0.060
+
+# Plasma
+Te = 30.          # eV, electron temperature
+Temp = Te*Q/BOLTZ # K, temperature in Kelvin
+n_dens = 1.e20    # m^-3, number density
+Pe = n_dens*BOLTZ*Temp
+
+# The annulus. It has to be tenuous enough that it does not screen the antenna:
+# the collisionless skin depth c/omega_pe = sqrt(me/(mu0 n e^2)) is 5.3e-4 m in
+# the column, and grows as 1/sqrt(n), so at VAC_FRAC = 1e-5 it is 0.17 m. The
+# field only has to cross the 6 mm from the column edge to the winding, so the
+# annulus attenuates it by a few percent at most.
+# (That length does not depend on the reduced speed of light: c/omega_pe has
+# both c and eps0 cancel out of it, so lowering c does not fake transparency.)
+# Collisions vanish faster still: the friction coefficient goes as n^2.
+VAC_FRAC = 0.001
+
+# The column edge is a RAMP, not a step. A jump of five decades between
+# neighbouring nodes of a P1 element overshoots into negative pressure on the
+# first residual evaluation - the solver stops with "Negative electron pressure
+# in ConstantResistivity src" before it takes a step. Physically a plasma column
+# has an edge of finite width in any case. tanh falls off as exp(-2(r-a)/EDGE_W),
+# so the density changes by a factor of about four per cell at EDGE_W = 1.5 mm
+# and reaches the annulus value by r = a + 6*EDGE_W.
+EDGE_W = 3.0e-3
+
+# Floors, well below the annulus so that they never bind there. ../frc2d.pin
+# floors at 1% of the column, which is four orders of magnitude above the
+# annulus and would refill it with enough plasma to screen the antenna outright.
+MIN_DENS_FRAC = 0.01*VAC_FRAC
+MIN_PRES = MIN_DENS_FRAC*Pe
+ELC_MIN_PRES = MIN_PRES
+ION_MIN_PRES = MIN_PRES
+ELC_MIN_DENS = ME*MIN_DENS_FRAC*n_dens
+ION_MIN_DENS = MI*MIN_DENS_FRAC*n_dens
+
+TIME = 2.*PI/omega # seconds, one RMF period
+TEND = 2.5157232704402515e-06
+OUT  = 240
+
+<warpx>
+
+ Simulation = frc2d
+ Verbosity = info
+
+ <frc2d>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND]
+   Output_files = OUT
+   Dt = 0.01
+   Dimensions = 2
+   Gridname = 'discAnnulus.msh'
+   NumFields = 1
+
+   <hyperbolic>
+	   Type = ApSubSolver
+	   Kind = nodalDG2d
+
+	   Equations = [eulerElc, eulerIon, maxwell]
+	   boundaryConditions = [wall]
+	   Sources = [lorentzElc, lorentzIon, ionCurrents, elcCurrents, ionCharge, elcCharge, Resistivity, rmfAntenna]
+     # ../frc2d.pin leaves the limiter commented out; it can, because a uniform
+     # column against a reflecting wall never develops a steep front. Here the
+     # column has an edge that expands into the annulus, and without limiting
+     # the electron fluid there runs away within about thirty steps.
+     #Limiter = [twoFluidLimiter]
+
+	   polynomialOrder = P_ORDER
+	   cfl = 1.0/((2.*(P_ORDER+1)-1))
+
+	   DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)//2]
+
+	   <InitialCondition>
+		    Type = WxFunction
+		    Kind = exprFunc
+
+	     gm1 = GAMMA-1.
+         me  = ME
+         mi  = MI
+         num_dens = n_dens
+         p0  = Pe
+         Bz  = Baxial
+         a   = RAD_PLASMA
+         fvac= VAC_FRAC
+         w   = EDGE_W
+
+         # Uniform column inside r = a, falling over EDGE_W to a tenuous gas
+         # of the same temperature outside it, with the bias field everywhere.
+         # Scaling density and pressure by the same factor keeps the annulus at
+         # the column's temperature, so its sound speed - and with it the time
+         # step - is unchanged.
+         progn = ["r = sqrt(x*x+y*y)", \
+                  "f = fvac + (1.-fvac)*0.5*(1.-tanh((r-a)/w))", \
+                  "rhoe = f*num_dens*me", \
+                  "rhoi = f*num_dens*mi", \
+                  "energy = f*p0/gm1"]
+
+         exprList = ["rhoe", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "energy", \
+                     "rhoi", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "energy/2.", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "0.0", \
+                     "Bz", \
+                     "0.0", \
+                     "0.0" ]
+
+	</InitialCondition>
+
+      <eulerElc>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        minPressure = MIN_PRES
+        minDensity = ELC_MIN_DENS
+
+      </eulerElc>
+
+      <eulerIon>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        minPressure = MIN_PRES
+        minDensity = ION_MIN_DENS
+
+      </eulerIon>
+
+      <maxwell>
+        Type = WxHyperbolicEqn
+        Kind = phMaxwellEqn
+
+        c0 = LIGHT
+        gamma = DIVB_SPEED # error propagation speed for div(B)
+        chi = DIVE_SPEED
+      </maxwell>
+
+      # Lorentz source term for electron
+     <lorentzElc>
+       Type = WxHyperbolicSrc
+       Kind = lorentzForces
+
+       InpRange = [0,1,2,3,10,11,12,13,14,15]
+       OutRange = [1,2,3,4]
+
+       mass = ME
+       charge = -Q
+     </lorentzElc>
+
+     # Lorentz source term for ions
+     <lorentzIon>
+       Type = WxHyperbolicSrc
+       Kind = lorentzForces
+
+       InpRange = [5,6,7,8,10,11,12,13,14,15]
+       OutRange = [6,7,8,9]
+
+       mass = MI
+       charge = Q
+     </lorentzIon>
+
+     # Current sources for electric field from electrons
+     <elcCurrents>
+       Type = WxHyperbolicSrc
+       Kind = currents
+
+       InpRange = [1,2,3]
+       OutRange = [10,11,12]
+
+       mass = ME
+       charge = -Q
+       epsilon0 = EPS0
+     </elcCurrents>
+
+     # Current sources for electric field from ions
+     <ionCurrents>
+       Type = WxHyperbolicSrc
+       Kind = currents
+
+       InpRange = [6,7,8]
+       OutRange = [10,11,12]
+
+       charge = Q
+       mass = MI
+       epsilon0 = EPS0
+     </ionCurrents>
+
+     # Charge sources for electric field divergence from electrons
+     <elcCharge>
+       Type = WxHyperbolicSrc
+       Kind = charges
+
+       InpRange = [0]
+       OutRange = [16]
+
+       mass = ME
+       charge = -Q
+       epsilon0 = EPS0
+       chi = DIVE_SPEED
+       gamma = DIVB_SPEED
+     </elcCharge>
+
+     # Charge sources for electric field divergence from ions
+     <ionCharge>
+       Type = WxHyperbolicSrc
+       Kind = charges
+
+       InpRange = [5]
+       OutRange = [16]
+
+       mass = MI
+       charge = Q
+       epsilon0 = EPS0
+       chi = DIVE_SPEED
+       gamma = DIVB_SPEED
+     </ionCharge>
+
+     <Resistivity>
+       Type = WxHyperbolicSrc
+       Kind = constantResistivity
+
+       InpRange = [0,1,2,3,4,5,6,7,8,9]
+       OutRange = [  1,2,3,4,  6,7,8,9]
+
+       mi = MI
+       me = ME
+       charge = Q
+       gas_gamma = GAMMA
+       boltz = BOLTZ
+       resistivity = ETA
+
+       # Without these the source ABORTS the run the first time it sees a
+       # non-positive pressure or density, which the tenuous annulus produces
+       # readily: there the total energy is dominated by the kinetic term, so
+       # p = (gamma-1)(E - rho v^2/2) is a difference of nearly equal numbers.
+       # With them set, the source clamps instead, matching what the equation
+       # objects above already do to the state itself.
+       elcMinPressure = ELC_MIN_PRES
+       ionMinPressure = ION_MIN_PRES
+       elcMinDensity = ELC_MIN_DENS
+       ionMinDensity = ION_MIN_DENS
+
+     </Resistivity>
+
+     # The antenna: a rotating m = 1 axial current sheet, which is what the
+     # coils of an RMF machine are. It sources dE_z/dt with -J_z/eps0, the same
+     # way the plasma's own current does, so the field it produces is a solution
+     # of Maxwell's equations rather than a prescription.
+     <rmfAntenna>
+       Type = WxHyperbolicSrc
+       Kind = maxwellRMFAntenna
+
+       OutRange = [12]
+
+       frequency  = omega
+       B_rmf      = Bomega
+       phase      = PHASE
+       rise_time  = RISE
+       radius     = COIL_R
+       width      = COIL_W
+       conductor_radius = WALL_RADIUS
+       epsilon0   = EPS0
+       mu0        = MU0
+     </rmfAntenna>
+
+   </hyperbolic>
+
+  <twoFluidLimiter>
+    Type = ApSubSolver
+    Kind = tuAliabadiLimiter
+
+    Equations = [eulerE,eulerI,maxwell]
+
+      <eulerE>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        minPressure = ELC_MIN_PRES
+        minDensity = ELC_MIN_DENS
+
+      </eulerE>
+
+      <eulerI>
+        Type = WxHyperbolicEqn
+        Kind = eulerEqn
+
+        gas_gamma = GAMMA
+        minPressure = ION_MIN_PRES
+        minDensity = ION_MIN_DENS
+
+      </eulerI>
+
+      <maxwell>
+        Type = WxHyperbolicEqn
+        Kind = phMaxwellEqn
+
+        c0 = LIGHT
+        gamma = DIVB_SPEED
+        chi = DIVE_SPEED
+      </maxwell>
+
+    boundaryConditions = [wall]
+  </twoFluidLimiter>
+
+   # The flux conserver. Specular reflection for both fluids, and a perfect
+   # conductor for the field: zero tangential E, zero normal B.
+   <wall>
+      Type = ApSubSolver
+      Kind = twoFluidConductingWallBC
+   </wall>
+
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+
+   ##
+   # Solver sequence
+   ##
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </frc2d>
+
+</warpx>

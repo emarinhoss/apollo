@@ -163,6 +163,13 @@ result. The ones that bite hardest while editing:
   an improvement, and both were flawed the same way - every arm stayed
   under-resolved. Use `scripts/where_peak.py` before assuming where a run failed.
   (§19)
+- **The antenna cannot sit in a tenuous gap at the reduced speed of light.** An
+  electron in plasma too thin to screen the winding picks up e·ΔA_z/m_e when the
+  antenna ramps, 5 c₀ at B_ω = 50 G, and screening at density n needs a drift
+  ∝ n^-1/2 that crosses c₀ between 0.1 and 0.01 of the column density. The gap
+  deck dies 5 ns after the rise with the Gauss residual flat — a third failure,
+  distinct from §19's and §22's. §22's "usable at ≥ 1e-3" holds only for a
+  region nothing drives. (§23)
 - **You cannot pass PETSc options on Apollo's command line**, and the log will
   not tell you. `getopt_long(argc, argv, "hi:r:o:")` exits 2 on any `-ts_*`,
   `-dm_*` or `-log_view`; use `PETSC_OPTIONS=` or a `.petscrc`. The banner's
