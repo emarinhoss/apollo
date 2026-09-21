@@ -40,4 +40,5 @@ companions, `VAC_FRAC = 1.e-2` and `1.e-1`, are the same deck with that one
 line changed; §23 records how far each got. The 1e-1 arm survives the rise and
 then shows the other reason a gap deck cannot carry the formation question:
 at β = 50 nothing confines the column, and it expands into the gap at the ion
-sound speed, filling it in a third of a period.
+sound speed, filling it in a third of a period. It then dies at 0.6 periods in
+a wall cell the reflected plasma had emptied, with the winding quiet.

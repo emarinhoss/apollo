@@ -1341,10 +1341,28 @@ appears: on the winding rings (r = 0.033–0.043, 138–165 nodes each)
 column 0.16, edge 0.34, winding 0.26, wall 0.20, against the embedded run at
 the same age (257–314 ns): 0.12, 0.35–0.37, 0.54–0.57, 0.77. Half the
 embedded value at the winding and a quarter at the wall, but growing, and no
-longer separable from the embedding it was meant to remove. The arm is still
-running as this is written (0.26 periods, 9070 steps); this section will
-record where it ends, since a run that dies at ~1.7 periods with the winding
-peaks would say the re-embedded case fails like the embedded one.
+longer separable from the embedding it was meant to remove.
+
+**Where the 1e-1 arm ended: at the wall, at 0.6 periods, with the winding
+quiet.** It died at t = 7.498e-7 s, 21 102 steps, 72 frames, 6.1 h on one core,
+`NaN in volume integral evaluation RHS`. By then the expanding column had
+reached the wall and come back: on the last frame the axis holds 0.12 n₀ at
+7.4 eV, a shell at r = 0.030–0.047 holds 0.36–0.52 n₀ moving *inward* at
+1–3e4 m/s, and the plasma against the wall sits at 0.20–0.32 n₀ and 43–64 eV.
+The failure is a single wall cell at r = 0.0583, θ = −114°, emptied to
+6.3e-3 n₀ by the reflection and carrying an in-plane electron flow of 1.26 c₀
+(u_ez only 0.04 a_e): max(\|u_e\|+a_e) there is 9.64 c₀ on the last frame, against
+1.06–1.18 c₀ across the whole winding band. φ peaks in that wall cell from
+frame 67 on, E_y and e-rho join it in the last two frames, and the per-band
+residual on the last frame reads column 0.26, edge 0.14, winding 0.28, outboard
+0.45, wall 0.47. Over the final 20 frames the winding rings' grid bands of ρ_c
+and φ are *falling* (rms 0.5–0.7 → 0.22–0.30 and 2.5–3.5e-4 → 1.0–1.3e-4, every
+fit flat or negative). So this is the thin-cell kinematics of this section,
+sited where §19 already lists a wall-cell death (its H10, "a peak in a wall
+cell is an unresolved electron sheath"), arriving on a sloshing plasma that no
+longer resembles the formation deck — and not the winding growth that kills
+the embedded run at 1.73 periods. The arm says nothing about that growth
+either way: the winding it re-embedded was decaying when the wall failed.
 
 **What this closes and what it leaves.** "Move the antenna out of the plasma",
 listed in §19 as one of the cures, is not available at LIGHT = 3e6 and
