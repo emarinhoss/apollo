@@ -41,5 +41,5 @@ WxPHMaxwellConductingWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qa
 }
 
 // instantiations
-template class WxPHMaxwellConductingWallBC<float>;
+//template class WxPHMaxwellConductingWallBC<float>;
 template class WxPHMaxwellConductingWallBC<double>;

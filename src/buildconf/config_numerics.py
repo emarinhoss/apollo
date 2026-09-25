@@ -19,7 +19,7 @@ try:
 	# assuming all of the binding libraries are present if the lapack.hpp bindings are present
 	assert(conf.CheckCXXHeader('boost/numeric/bindings/lapack.hpp'))
 except:
-	print 'BOOST library or header not found'
+	print('BOOST library or header not found')
 	raise
 
 
@@ -30,12 +30,12 @@ else:
 	try:
 		assert(conf.CheckLib('blas'))
 	except:
-		print 'BLAS library not found'
+		print('BLAS library not found')
 		raise
 	try:
 		assert(conf.CheckLib('lapack'))
 	except:
-		print 'LAPACK library not found'
+		print('LAPACK library not found')
 		raise
 
 

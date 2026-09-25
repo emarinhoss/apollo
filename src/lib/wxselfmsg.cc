@@ -20,8 +20,8 @@ WxSelfMsg::WxSelfMsg()
         ( new WxSelfMsgTmpl<long>() );
     this->addMsg<unsigned long>
         ( new WxSelfMsgTmpl<unsigned long>() );
-    this->addMsg<float>
-        ( new WxSelfMsgTmpl<float>() );
+    //this->addMsg<float>
+    //    ( new WxSelfMsgTmpl<float>() );
     this->addMsg<double>
         ( new WxSelfMsgTmpl<double>() );
     this->addMsg<long double>

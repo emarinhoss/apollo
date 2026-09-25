@@ -66,7 +66,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     inpFile = inpFile + "_" + str(frame)
 
     # write electron density
-    print "Writing electron density...."
+    print("Writing electron density....")
     fn = inpFile + "_elc_density.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)
@@ -74,7 +74,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     fd.close()
 
     # write electron velocity
-    print "Writing electron velocity...."
+    print("Writing electron velocity....")
     fn = inpFile + "_elc_velocity.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)
@@ -84,7 +84,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     writeVector(fd, vx, vy, vz, "elc_velocity")
 
     # write electron pressure
-    print "Writing electron pressure...."
+    print("Writing electron pressure....")
     fn = inpFile + "_elc_pressure.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)
@@ -97,7 +97,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     fd.close()    
 
     # write ion density
-    print "Writing ion density...."
+    print("Writing ion density....")
     fn = inpFile + "_ion_density.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)
@@ -105,7 +105,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     fd.close()
 
     # write ion velocity
-    print "Writing ion velocity...."
+    print("Writing ion velocity....")
     fn = inpFile + "_ion_velocity.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)
@@ -115,7 +115,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     writeVector(fd, vx, vy, vz, "ion_velocity")
 
     # write ion pressure
-    print "Writing ion pressure...."
+    print("Writing ion pressure....")
     fn = inpFile + "_ion_pressure.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)
@@ -128,7 +128,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     fd.close()
 
     # write electric field
-    print "Writing electric field...."
+    print("Writing electric field....")
     fn = inpFile + "_elec.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)    
@@ -139,7 +139,7 @@ def convertTwoFluid2VTK(inpFile, frame, arrName, meqn):
     fd.close()
 
     # write electric field
-    print "Writing magnetic field...."
+    print("Writing magnetic field....")
     fn = inpFile + "_magn.vtk"
     fd = open(fn, "w")
     writeHeaderAndGrid(fd, q)    

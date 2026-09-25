@@ -1,6 +1,7 @@
 #ifndef WXPNODALDGFUNCTIONS_H
 #define WXPNODALDGFUNCTIONS_H
 
+#include <wxexcept.h>
 #include <wxlogger.h>
 #include <wxlogstream.h>
 #include "wxmath.h"
@@ -105,7 +106,28 @@ nodalDGfunctions(unsigned N, REAL *p_r, REAL *p_s, REAL *p_Dr, REAL *p_Ds, REAL 
 //        dataN16(p_r, p_s, p_Dr, p_Ds, p_LIFT, p_Fmask);
 //        break;
     default:
-        break;
+    {
+        // Only the N=1 tables were ever wired up; dataN02 through dataN16 are
+        // commented out above. Falling through here used to leave every operator
+        // (Dr, Ds, Drw, Dsw, Vand, IVand, LIFT) exactly as the caller allocated
+        // it - all zeros - and return normally.
+        //
+        // The run then died downstream in FaceNodesNormals2d, where a zero Dr
+        // and Ds make the metric terms zero, the Jacobian zero, and the solver
+        // report "Error: Jacobian determinant for element k is 0". That reads
+        // as a broken mesh, which is why three separate commits in this
+        // repository's history are titled "Fix Jacobian determinant error by
+        // disabling mesh interpolation". The mesh was never the problem.
+        WxExcept wxe("polynomialOrder = ");
+        wxe << N << " is not available for this scheme. Only order 1 is "
+            << "implemented: the tables for orders 2-16 exist in "
+            << "lib/dataN02.h .. dataN16.h but their dispatch in "
+            << "lib/wxpnodaldgfunctions.h is commented out, so a higher order "
+            << "would leave every differentiation and lifting operator zero. "
+            << "Use polynomialOrder = 1 with this scheme, or the nodalDG2d "
+            << "scheme, which supports orders 1-8." << std::endl;
+        throw wxe;
+    }
     }
 }
 

@@ -4,7 +4,6 @@ each input file and performs the substitution in the rest of the input
 file.
 """
 
-import compiler
 import os.path
 import re
 import xml.dom.minidom
@@ -38,14 +37,14 @@ class WxInpParse(object):
     # for line continuation
     lineContRe = re.compile(r"\\\s*")
     # for parsing key = value lines
-    nameValueRe = re.compile('\s*(?P<key>[a-zA-Z_][a-zA-Z0-9\-_]*)\s*=\s*(?P<value>.*)')
+    nameValueRe = re.compile(r'\s*(?P<key>[a-zA-Z_][a-zA-Z0-9\-_]*)\s*=\s*(?P<value>.*)')
     # for parsing strings
-    strRe = re.compile('(?P<str>".*")');
+    strRe = re.compile(r'(?P<str>".*")');
 
     def __init__(self, inpFile=None):
         if inpFile:
             if not os.path.exists(inpFile):
-                raise "File %s does not exist!" % inpFile
+                raise Exception("File %s does not exist!" % inpFile)
             self.inpFile = inpFile
             self.inp = open(inpFile, 'r')
         self.pyDict = {} # dictionary of names to python compiled objects
@@ -70,12 +69,12 @@ class WxInpParse(object):
         
         try:
             topNode = xml.dom.minidom.parseString(ndata).childNodes[0]
-        except xml.parsers.expat.ExpatError, e:
-            # print error 
+        except xml.parsers.expat.ExpatError as e:
+            # print error
             lineno = e.lineno
             lines = ndata.split('\n')
             closeTag = lines[lineno-1]
-            print "** Error: Closing tag %s does not match any in the input file" % (closeTag.strip())
+            print("** Error: Closing tag %s does not match any in the input file" % (closeTag.strip()))
             exit(1)
                 
         code = '' # python code string in topNode
@@ -87,16 +86,32 @@ class WxInpParse(object):
             elif child.nodeType == child.ELEMENT_NODE:
                 elemNodes.append(child)
 
-        # compile and evaluate the code
-        co = compiler.compile(code, self.inpFile + '.err', 'exec')
-        eval(co)
-        # add all symbols in co to self
-        for name in co.co_names:
-            try:
-                self.pyDict[name] = eval(name)
-            except:
-                # do nothing if adding failed
-                pass
+        # Compile and evaluate the deck's Python preamble in a namespace of its
+        # own, and read the results straight back out of that namespace.
+        #
+        # This used to be a bare `exec(co)` followed by `eval(name)` per symbol,
+        # which worked only by accident. Inside a function, exec() with no
+        # explicit namespace writes into locals(), and on CPython 3.12 and older
+        # those writes happened to persist on the frame so the later eval() could
+        # see them. PEP 667 (Python 3.13) made locals() return an independent
+        # snapshot, so the writes went nowhere, every eval() raised NameError,
+        # the bare `except: pass` below swallowed all of them, and pyDict came
+        # back empty. No substitution then happened anywhere in the deck, and the
+        # first value containing an operator reached the solver verbatim:
+        #
+        #   Error: unexpected symbol '/' on line 23 of the input file
+        #
+        # naming neither the key nor the cause. An explicit namespace is correct
+        # on every version and does not depend on locals() semantics at all.
+        namespace = {}
+        co = compile(code, self.inpFile + '.err', 'exec')
+        exec(co, namespace)
+        # Everything the preamble defined or imported, rather than only the names
+        # in co_names: `from math import *` contributes names that co_names does
+        # not list.
+        for name, value in namespace.items():
+            if not name.startswith('__'):
+                self.pyDict[name] = value
         
         # recursively step into the XML file creating WarpX data object
         wxds = self._createDataSet(elemNodes[0]) # there is only one top level block
@@ -128,9 +143,9 @@ class WxInpParse(object):
 
             # add unprocessed pair to dataset
             wxds.unprocessedValues.append( (key, valueStr) )
-            
+
             # now parse value into tokens, performing needed substitution
-            co = compiler.compile(valueStr, self.inpFile + '.err', 'exec')
+            co = compile(valueStr, self.inpFile + '.err', 'exec')
             # create dictionary of names for default replacement
             di = {}
             for name in co.co_names:

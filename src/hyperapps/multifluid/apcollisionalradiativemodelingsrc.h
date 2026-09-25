@@ -248,7 +248,7 @@ class ApCollisionalRadiativeModelingSrc : public WxHyperbolicSrc<REAL>
             printf("\n#### Backward Euler Integration ####\n\n");
 
         // Initialize kinetics solver and associated structures
-        _kso = CR_BKE::CR_BKE(Nstate,pars.intNe_bool,pars.fxdNe_bool,pars.intTh_bool,pars.intTe_bool);
+        _kso = new CR_BKE(Nstate,pars.intNe_bool,pars.fxdNe_bool,pars.intTh_bool,pars.intTe_bool);
         _kso->setRad(pars.rad_bool);
         _kso->setIrrad(pars.irrad_bool);
         _kso->addRates(&_kin);

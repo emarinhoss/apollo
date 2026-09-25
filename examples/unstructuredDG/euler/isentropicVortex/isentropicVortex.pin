@@ -39,7 +39,7 @@ P_ORDER = 1
 
 	
 	# Field number, Field name, number of unknowns per element
-	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
+	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)//2]
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc

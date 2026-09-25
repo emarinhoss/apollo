@@ -206,17 +206,46 @@ class WxBragFrictionSrc : public WxHyperbolicSrc<REAL>
         Ruz = -alpha_par*wpar - alpha_perp*wperp + alpha_cross*wbcrossu;
       }
 
-      REAL Q_delta = 3*_mi/_me*ne*nue*(Pe/ne-Pi/ni);
+      // Braginskii electron-ion thermal equilibration,
+      //     Q_Delta = 3 (m_e/m_i) n_e nu_ei (T_e - T_i).
+      // The mass ratio was inverted here (3*_mi/_me), overstating the rate by
+      // (m_i/m_e)^2 - a factor of 3.4e6 for hydrogen, which would equilibrate
+      // the species essentially instantaneously instead of making it the
+      // slowest collisional process in the system. The same coefficient in
+      // apconstantresistivity.h, written as (3/m_i) n^2 eta e^2 with
+      // eta = m_e nu_ei/(n e^2), reduces to this and has always been right.
+      REAL Q_delta = 3*_me/_mi*ne*nue*(Pe/ne-Pi/ni);
+
+      // Collisional energy exchange, in total-energy variables.
+      //
+      // With R the friction on the electrons (so -R on the ions) and
+      // w = u_e - u_i, the sources are s_e = R.u_e + Q_e and
+      // s_i = -R.u_i + Q_i, and conservation forces Q_e + Q_i = -R.w, the
+      // frictional heat (equal to eta*J^2 for the isotropic law). Braginskii
+      // deposits that in the electrons and moves Q_Delta from electrons to
+      // ions, so Q_e = -R.w - Q_Delta and Q_i = Q_Delta. Substituting, both
+      // collapse to one dot product with the ION velocity:
+      //
+      //     s_e = +R.u_i - Q_Delta ,   s_i = -R.u_i + Q_Delta
+      //
+      // which sum to zero for any friction law. The frictional heating needs
+      // no separate term: the momentum source already removes exactly that
+      // much kinetic energy from the electron fluid, and leaving it out of the
+      // energy source is what turns it into heat.
+      //
+      // Previously s_e carried -R.u_i and s_i carried no work term at all,
+      // giving total energy a spurious source of -R.u_i.
+      REAL Rdotui = Rux*ui + Ruy*vi + Ruz*wi;
 
       s[0] = Rux;
       s[1] = Ruy;
       s[2] = Ruz;
-      s[3] = -(Rux*ui+Ruy*vi+Ruz*wi)-Q_delta;
+      s[3] =  Rdotui - Q_delta;
 
       s[4] = -Rux;
       s[5] = -Ruy;
       s[6] = -Ruz;
-      s[7] = Q_delta;
+      s[7] = -Rdotui + Q_delta;
 
       return true;
     }

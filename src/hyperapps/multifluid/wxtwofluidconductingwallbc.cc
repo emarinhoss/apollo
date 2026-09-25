@@ -59,5 +59,5 @@ WxTwoFluidConductingWallBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qau
 }
 
 // instantiations
-template class WxTwoFluidConductingWallBC<float>;
+//template class WxTwoFluidConductingWallBC<float>;
 template class WxTwoFluidConductingWallBC<double>;

@@ -41,5 +41,5 @@ WxSolverBase<REAL>::getSolverName() const
 }
 
 // instantiations
-template class WxSolverBase<float>;
+//template class WxSolverBase<float>;
 template class WxSolverBase<double>;

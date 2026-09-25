@@ -38,5 +38,5 @@ ApSubSolverStep<REAL>::setup(const WxCryptSet& wxc, DM dm)
 }
 
 // instantiations
-template class ApSubSolverStep<float>;
+//template class ApSubSolverStep<float>;
 template class ApSubSolverStep<double>;

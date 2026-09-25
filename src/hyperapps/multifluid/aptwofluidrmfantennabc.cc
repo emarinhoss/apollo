@@ -9,6 +9,9 @@ WxTwoFluidRMFAntennaBC<REAL>::setup(const WxCryptSet& wxc, DM dm)
   WxGridBC<REAL>::setup(wxc, dm);
 
   REAL freq = wxc.template get<REAL>("frequency");
+  // _baxial is used by the flux-conserver expression in applyBC() and was
+  // never read here, so that expression ran on an uninitialised member.
+  _baxial = wxc.template get<REAL>("B_axial");
   _B0 = wxc.template get<REAL>("B_rmf");
   _phase = wxc.template get<REAL>("phase");
   _rise = wxc.template get<REAL>("rise_time");
@@ -61,7 +64,20 @@ WxTwoFluidRMFAntennaBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, R
                        -(1.-exp(-t/_rise))*sin(_omega*t+_phase)*_omega);
 
     // Area integral \int B_z \cdot dA
-    REAL intBzda = AreaInts[15];
+    // The slope limiter (tuAliabadiLimiter) calls boundary conditions to build
+    // ghost states, and passes no area integrals - WxTuAliabadiLimiter::applyBc
+    // hands on the NULL it was given. Every RMF boundary condition in this
+    // directory read AreaInts[15] unguarded, so enabling the limiter on any
+    // deck that uses one segfaulted on the first step. That is why `Limiter`
+    // is commented out in the shipped rmf_frc deck.
+    //
+    // Falling back to the unperturbed flux pi a^2 B_axial is the right answer
+    // here: the limiter only needs a ghost state to measure a slope against,
+    // and the flux-conserver correction is a global quantity that does not
+    // change which cells need limiting.
+    REAL intBzda = AreaInts ? AreaInts[15] : 0.0;
+    if (intBzda == 0.0)
+        intBzda = _pi*_a*_a*_baxial;
     REAL newBz = _b*_b*_baxial/(_b*_b-_a*_a)-intBzda/(_b*_b-_a*_a)/_pi;
 
     REAL bnorm = bx*nx[0] + by*nx[1];
@@ -82,5 +98,5 @@ WxTwoFluidRMFAntennaBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, R
 }
 
 // instantiations
-template class WxTwoFluidRMFAntennaBC<float>;
+//template class WxTwoFluidRMFAntennaBC<float>;
 template class WxTwoFluidRMFAntennaBC<double>;

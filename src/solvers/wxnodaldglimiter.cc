@@ -25,5 +25,5 @@ WxNodalDGLimiter<REAL>::applyToVector(wxNodalDGgeometry2D<REAL> *geom, WxCubatur
 }
 
 // instantiations
-template class WxNodalDGLimiter<float>;
+//template class WxNodalDGLimiter<float>;
 template class WxNodalDGLimiter<double>;

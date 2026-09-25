@@ -560,5 +560,5 @@ WxHyperbolicEqnSet<REAL>::tuAndAliabadiLimiter(REAL *avgCons, REAL *avgPrim, REA
 }
 
 // instantiations
-template class WxHyperbolicEqnSet<float>;
+//template class WxHyperbolicEqnSet<float>;
 template class WxHyperbolicEqnSet<double>;

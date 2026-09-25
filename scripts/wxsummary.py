@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 import sys
-import string
 import wxinputparser
 
 scriptdir = os.path.split( os.path.realpath( sys.argv[0] ) )[0]
@@ -20,7 +19,7 @@ if options.inputFile:
     inpFile = options.inputFile
 else:
     if len(args) == 0:
-        print "Must provide name of input file."
+        print("Must provide name of input file.")
         exit(1)
     else:
         inpFile = args[0]
@@ -143,7 +142,7 @@ for step in startOnly:
     hf.writelines("<td>%s</td>" % step)
     hf.writelines("<td>%s</td>" % ssString)
     hf.writelines("<td>%s</td>" % dt)
-    hf.writelines("<td>%s</td>" % string.join(syncVars, ', '))
+    hf.writelines("<td>%s</td>" % ', '.join(syncVars))
 
     hf.writelines("</tr>")
 hf.writelines('</table>')
@@ -186,8 +185,8 @@ for subsolver in completeSubSolverLst:
     hf.writelines("<tr>")
     hf.writelines("<td>%s</td>" % ns)
     hf.writelines("<td>%s</td>" % kind)
-    hf.writelines("<td>%s</td>" % string.join(readVars, ', '))
-    hf.writelines("<td>%s</td>" % string.join(writeVars, ', '))
+    hf.writelines("<td>%s</td>" % ', '.join(readVars))
+    hf.writelines("<td>%s</td>" % ', '.join(writeVars))
 
     hf.writelines("</tr>")        
 hf.writelines('</table>')
@@ -238,7 +237,7 @@ for step in perStep:
     hf.writelines("<td>%s</td>" % step)
     hf.writelines("<td>%s</td>" % ssString)
     hf.writelines("<td>%s</td>" % dt)
-    hf.writelines("<td>%s</td>" % string.join(syncVars, ', '))
+    hf.writelines("<td>%s</td>" % ', '.join(syncVars))
 
     hf.writelines("</tr>")
 hf.writelines('</table>')
@@ -281,8 +280,8 @@ for subsolver in completeSubSolverLst:
     hf.writelines("<tr>")
     hf.writelines("<td>%s</td>" % ns)
     hf.writelines("<td>%s</td>" % kind)
-    hf.writelines("<td>%s</td>" % string.join(readVars, ', '))
-    hf.writelines("<td>%s</td>" % string.join(writeVars, ', '))
+    hf.writelines("<td>%s</td>" % ', '.join(readVars))
+    hf.writelines("<td>%s</td>" % ', '.join(writeVars))
 
     hf.writelines("</tr>")        
 hf.writelines('</table>')
