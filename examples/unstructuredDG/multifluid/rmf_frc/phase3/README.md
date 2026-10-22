@@ -19,6 +19,7 @@ that decides whether the others are worth their compute, and it takes a minute.
 | [`02-threshold-scan`](02-threshold-scan) | Where is the RMF penetration threshold? (items 1 and 3) | 9 | 35 h each, 13 days total |
 | [`03-formation`](03-formation) | Does the FRC formation sequence reproduce? (item 4) | 1 | 140 h |
 | [`04-vacuum-gap`](04-vacuum-gap) | Can the antenna sit in a tenuous annulus instead of in the plasma? (§23: not at this c₀ and B_ω) | 1 | 18 min, then it dies |
+| [`05-winding-resolution`](05-winding-resolution) | Does the antenna instability of §19 go away when the winding is resolved, and is the mesh's seam its site? | 5 | 7 h to 68 h each, 117 h total |
 
 `02` is nine independent runs and `01` is two, so on any machine with spare
 cores the campaign is far shorter in wall clock than in core-hours — see the

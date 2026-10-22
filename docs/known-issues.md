@@ -984,7 +984,11 @@ reproducer is NOT the cheap version of this test, and §22 is why**: that death
 is hydrodynamic, survives deleting every electromagnetic source, and is
 insensitive to the mesh, so it can neither confirm nor refute what is happening
 at the antenna. It was the obvious cheap proxy and it is the wrong one. The
-remaining test of this hypothesis is refinement of the antenna deck itself.
+remaining test of this hypothesis is refinement of the antenna deck itself, and
+`phase3/05-winding-resolution` is that test, ready to run: four meshes at a
+measured 0.29, 0.40, 0.62 and 1.06 cells per Debye length at the winding, plus
+the shipped mesh rotated by 60° to move every seam. Its README states the
+decision rule before any result exists. Not yet run.
 The superseded reasoning kept below for the record: the antenna-off tanh-ramp
 reproducer (the deck header's own "dies in 30-260 steps with or without the
 antenna" case) on a small disc across

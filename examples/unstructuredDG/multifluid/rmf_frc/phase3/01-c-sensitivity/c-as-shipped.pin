@@ -114,42 +114,27 @@ Pe = n_dens*BOLTZ*Temp
 #
 # The obvious way to build this problem is a plasma column of radius RAD_PLASMA
 # with vacuum between it and the antenna, and that is what Phase 1 of
-# docs/rmf-frc-model-assessment.md proposed. What blocks it is not the vacuum -
-# it is the EDGE between the two.
+# docs/rmf-frc-model-assessment.md proposed. Three things block it on this
+# model, each measured (docs/known-issues.md sections 22 and 23):
 #
-# Apollo carries explicit charge separation, so the electron dynamics have two
-# scales that have to be resolved. At the column's density:
-#
-#     Debye length  lambda_D = sqrt(eps0 k Te/(n e^2)) = 4.07e-4 m
-#                              = 0.40-0.45 of a cell
-#     plasma period 2 pi/omega_pe, omega_pe = 5.64e9 rad/s
-#                              = 1.11e-9 s = 31 time steps
-#
-# Both are marginal. ../frc2d.pin gets away with them because its state is
-# uniform and nothing excites either mode. A density ramp at the column edge
-# excites exactly them: the runs diverge at the ramp, near r = 0.035, with
-# electron speeds reaching 7e7 m/s and the pressure going negative, with or
-# without the antenna running. A hard step fails on the first residual
-# evaluation; a 1.5 mm tanh ramp lasts about 30 steps, a 3 mm ramp about 150, a
-# 5 mm ramp at least 244. Widening the ramp buys steps, not stability, and past
-# a few millimetres the "edge" is the whole gap to the winding.
-#
-# Two things worth stating precisely, because the obvious intuitions are
-# backwards:
-#
-#   - The reduced speed of light HELPS, through the Debye length. Rescaling
-#     eps0 up by 1e4 raises lambda_D by 100; at the true c it would be 4.07e-6 m,
-#     a two-hundredth of a cell, and the mesh would have to shrink by that factor
-#     to resolve it. The plasma PERIOD is not helped - dt is CFL-limited by c, so
-#     raising c by 100 shortens the step by 100 and the period stays at about 31
-#     steps either way. It is lambda_D, measured against a fixed mesh, that the
-#     reduced c rescues.
-#   - A TENUOUS REGION IS BETTER RESOLVED, not worse: lambda_D goes as
-#     1/sqrt(n), so an annulus at 1e-4 of the column density would have
-#     lambda_D = 41 mm against 1.6 mm cells, the best-resolved part of the
-#     domain. Transparency was never the binding constraint either - the
-#     collisionless skin depth c/omega_pe = 5.3e-4/sqrt(f) only has to exceed
-#     the 3.5 mm from the column edge to the winding, which needs f < 2.3e-2.
+#   - THE EDGE FAILS ON POSITIVITY. A tanh ramp from the column down to a
+#     tenuous background dies where its expansion front meets the background:
+#     a hard step on the first residual evaluation, a 1.5 mm ramp in about 30
+#     steps, a 3 mm ramp in about 150. There p = (gamma-1)(E - rho v^2/2) is a
+#     difference of nearly equal numbers, and nothing limits it. This header
+#     used to blame an under-resolved Debye length. That is wrong: refining the
+#     mesh 2.3x, across lambda_D = 1 cell, moved the death by 1%, and the ramp
+#     dies with every source term removed. A background of at least 1e-3 of the
+#     column density survives the expansion.
+#   - A TENUOUS GAP CANNOT CARRY THE DRIVE. Electrons too thin to screen the
+#     winding pick up e*dA_z/m_e as its vector potential rises, about 5 c0 at
+#     Bomega = 50 G and the reduced LIGHT; screening it at density n needs a
+#     drift that goes as n^-1/2 and passes c0 somewhere between a tenth and a
+#     hundredth of the column density. With the antenna on, backgrounds of
+#     1e-3 and 1e-2 die within 63 ns.
+#   - THE COLUMN DOES NOT STAY PUT. At beta = 50 the bias field cannot hold
+#     the edge: the column expands into the gap at the ion sound speed and
+#     fills it in about a third of an RMF period.
 #
 # So the plasma fills the domain out to the conducting wall and the antenna is
 # embedded in it. That keeps everything Phase 1 is for - the drive is a current,
@@ -159,10 +144,11 @@ Pe = n_dens*BOLTZ*Temp
 # reaches r < RAD_PLASMA is now a result of the run rather than a boundary
 # condition, which is the whole point.
 #
-# What would restore the gap: a working slope limiter (see below); a finer mesh
-# in the COLUMN, which is where the Debye length is under-resolved, at about
-# three times the resolution for nine times the cells; or a quasi-neutral or
-# Hall formulation that does not carry charge separation at all.
+# What would restore the gap: a positivity-preserving scheme at the edge (the
+# only two-fluid limiter produces NaN; see below), a higher LIGHT or a smaller
+# Bomega so the drive does not outrun c0, and a bias field strong enough to
+# confine the column. A quasi-neutral or Hall formulation would remove the
+# second obstacle and not the other two.
 #
 # THE ABSORBED POWER, the other number the RMF literature is built on, follows
 # from a run because the drive is a current:

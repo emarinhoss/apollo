@@ -557,6 +557,17 @@ inner edge of the winding, which needs f < 2.3e-2 — or f < 2.3e-4 for a comfor
 margin. That is easily satisfiable and was never the binding constraint. (c/ω_pe is independent
 of the c rescaling: c²/ω_pe² = m_e/(μ₀ n e²), in which neither c nor ε₀ appears.)
 
+**Correction (known-issues §22, §23).** The explanation above is wrong, and is kept here as the
+record of what was believed. The ramp deaths are not a Debye-length failure: refining the mesh
+2.3× across λ_D = 1 cell moved the death time by 1%, and the ramp still dies with every source
+term removed. It fails on positivity where the expansion front meets the tenuous background,
+and a background of at least 1e-3 of the column density survives that. Two further obstacles
+turned up once that one was out of the way. With the antenna on, electrons in a tenuous gap are
+driven past c₀, because screening the winding needs a drift ∝ n^-1/2. And at β = 50 the column
+expands into the gap at the ion sound speed, filling it in about a third of a period. The
+conclusion, no annulus, stands; the reasons are those three, and the "factor of nine in cells"
+below would have bought nothing.
+
 **What was built instead.** The plasma fills the domain out to the conducting wall and the
 antenna is embedded in it. That keeps everything Phase 1 was for — the drive is a current, the
 field everywhere is an outcome, the plasma screens it, the antenna is loaded, and the absorbed

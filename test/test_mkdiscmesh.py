@@ -236,5 +236,56 @@ class TestWellFormedGmsh(unittest.TestCase):
         self.assertEqual(tags, {1, 2})
 
 
+class TestRotation(unittest.TestCase):
+    """--rotate turns the whole mesh, so mesh-tied features move with it.
+
+    Every ring starts its nodes at the same angle, which makes that angle a
+    seam: the formation run's peaks sit on seams (docs/known-issues.md 19). A
+    rotated mesh is the control that tells a mesh-sited growth from a physical
+    one, and it is only a clean control if nothing but the angle changes - same
+    connectivity, same cells, same time step.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix='apollo-mkdiscmesh-rot-')
+        args = dict(outer=0.04, ring=0.02, h_inner=2.0e-3, h_outer=4.0e-3)
+        cls.base_path = generate(cls.tmp, 'base.msh', **args)
+        cls.zero_path = generate(cls.tmp, 'zero.msh', rotate=0.0, **args)
+        cls.base = Mesh(cls.base_path)
+        cls.rot = Mesh(generate(cls.tmp, 'rot.msh', rotate=60.0, **args))
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_zero_rotation_is_byte_identical(self):
+        with open(self.base_path, 'rb') as a, open(self.zero_path, 'rb') as b:
+            self.assertEqual(a.read(), b.read())
+
+    def test_connectivity_is_unchanged(self):
+        self.assertEqual(self.base.conn, self.rot.conn)
+        self.assertEqual(self.base.kinds, self.rot.kinds)
+
+    def test_every_node_is_turned_by_the_angle(self):
+        c, s = math.cos(math.radians(60.0)), math.sin(math.radians(60.0))
+        worst = 0.0
+        for (x, y, _), (xr, yr, _) in zip(self.base.nodes, self.rot.nodes):
+            worst = max(worst, math.hypot(c * x - s * y - xr, s * x + c * y - yr))
+        self.assertLess(worst, 1e-12, f'a node is {worst:.3e} m from its rotated place')
+
+    def test_the_seam_has_moved(self):
+        """The first node of the outermost ring sits at the rotation angle."""
+        x, y, _ = self.rot.nodes[self.rot.edges[0][0] - 1]
+        self.assertAlmostEqual(math.degrees(math.atan2(y, x)), 60.0, places=9)
+
+    def test_cells_are_unchanged(self):
+        """Same signed areas, so the same smallest cell and the same dt."""
+        for tri in self.base.triangles:
+            self.assertAlmostEqual(self.base.signed_area(tri),
+                                   self.rot.signed_area(tri), delta=1e-15)
+
+
 if __name__ == '__main__':
     unittest.main()

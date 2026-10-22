@@ -42,7 +42,7 @@ Apollo does **not** use CMake. See `README.md` for dependencies,
 `requirements.txt` for the Python side, `environment.yml` for a conda
 environment on a cluster.
 
-**239 Python tests, and 4 modules are 99% of the runtime.** Measured on a
+**244 Python tests, and 4 modules are 99% of the runtime.** Measured on a
 4-core container with a `build-opt` binary present:
 
 | | tests | time |
@@ -51,10 +51,10 @@ environment on a cluster.
 | `test_restart.py` | 8 | 260 s |
 | `test_rmf_bc_field.py` | 4 | 215 s |
 | `test_vortex_accuracy.py` | 2 | 20 s |
-| everything else (17 modules) | 222 | **8 s** |
-| whole suite | 239 | ~1150 s |
+| everything else (17 modules) | 227 | **8 s** |
+| whole suite | 244 | ~1150 s |
 
-So run the 222 while you work and the whole suite before you push. The 222 need
+So run the 227 while you work and the whole suite before you push. The 227 need
 no solver, and naming them is the only reliable way to select them — a glob is
 not, because the fast and slow modules interleave alphabetically:
 
@@ -66,7 +66,7 @@ cd test && python3 -m unittest \
     test_conda_paths test_petsc_compat test_run_fingerprint \
     test_run_growth test_run_one test_where_peak \
     test_ring_spectrum test_winding_anatomy
-# Ran 222 tests in 8s -- OK
+# Ran 227 tests in 8s -- OK
 ```
 
 `cd test` first. From the repository root the stdlib's own `test` package wins
@@ -74,11 +74,14 @@ the import, so `python3 -m unittest test.test_rmf_scan` dies with
 `ModuleNotFoundError: No module named 'test.test_rmf_scan'` — pointing at a file
 that is plainly sitting there. Use `discover -s test`, or `cd test` and name the
 modules as above. `test_petsc_compat` is in the fast set; it needs a C++
-compiler but no PETSc.
+compiler but no PETSc. Install `requirements.txt` first: in a fresh container
+without numpy the fast set reports 31 failures and 2 errors, each saying only
+"numpy is required", which reads like a broken tree rather than a missing
+package.
 
 The 17 that do need a solver skip themselves without one, so **a green run does
 not by itself mean they ran** — check the skip count. With a binary present the
-suite reports `Ran 239 tests` and no skips.
+suite reports `Ran 244 tests` and no skips.
 
 ## Things that will cost you a day if you do not know them
 

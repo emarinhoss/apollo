@@ -131,19 +131,25 @@ def ring_counts(radii, h_inner, h_outer, r_ring, grade_len=None):
     return [max(6, int(round(2.0 * math.pi * r / h(r)))) for r in radii]
 
 
-def build(radii, counts):
+def build(radii, counts, rotate=0.0):
     """Nodes and triangles for the rings, plus the outer boundary edges.
 
     Returns (nodes, triangles, boundary_edges) with 1-based node ids, every
     triangle counter-clockwise (the shipped meshes are, and
     wxNodalDGgeometry2D::elementArea takes the signed area).
+
+    Every ring starts its nodes at angle `rotate` [rad]. That start is where
+    the stitching between rings begins and ends, so it is a seam fixed to the
+    mesh; rotating it moves every mesh-tied feature while leaving the cells
+    themselves, and hence the time step, unchanged. 0.0 reproduces the
+    unrotated mesh byte for byte.
     """
     nodes = [(0.0, 0.0)]          # the centre, node 1
     ring_ids = []
     for r, n in zip(radii, counts):
         ids = []
         for k in range(n):
-            th = 2.0 * math.pi * k / n
+            th = 2.0 * math.pi * k / n + rotate
             nodes.append((r * math.cos(th), r * math.sin(th)))
             ids.append(len(nodes))
         ring_ids.append(ids)
@@ -253,6 +259,9 @@ def main(argv=None):
     ap.add_argument('--grade-len', type=float, default=None,
                     help='e-folding length over which the spacing relaxes from '
                          'h-inner to h-outer [m]')
+    ap.add_argument('--rotate', type=float, default=0.0,
+                    help='rotate the whole mesh by this many degrees, moving the '
+                         'ring-stitching seam off theta = 0 (default 0)')
     ap.add_argument('--region-tag', action='store_true',
                     help='tag triangles 1 inside --ring and 2 outside (the mesh '
                          'reader ignores cell tags; other tools may not)')
@@ -265,7 +274,7 @@ def main(argv=None):
 
     radii = ring_radii(args.outer, args.h_inner, h_outer, r_ring, args.grade_len)
     counts = ring_counts(radii, args.h_inner, h_outer, r_ring, args.grade_len)
-    nodes, tris, edges = build(radii, counts)
+    nodes, tris, edges = build(radii, counts, math.radians(args.rotate))
 
     on_ring = [r for r in radii if abs(r - r_ring) < 1e-12]
     if r_ring < args.outer and not on_ring:
