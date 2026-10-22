@@ -18,10 +18,10 @@ for k in range(8):
     
     x2 = radius*cos(angle2+k*pi/4.)
     y2 = radius*sin(angle2+k*pi/4.)
-    print "========\n"
-    print "== coil %1d ==\n" %(k+1)
-    print "x1 =%5.5f\n " %x1
-    print "y1 =%5.5f\n " %y1
-    print "x2 =%5.5f\n " %x2
-    print "y2 =%5.5f\n " %y2
-    print "========\n"
+    print("========\n")
+    print("== coil %1d ==\n") %(k+1)
+    print("x1 =%5.5f\n ") %x1
+    print("y1 =%5.5f\n ") %y1
+    print("x2 =%5.5f\n ") %x2
+    print("y2 =%5.5f\n ") %y2
+    print("========\n")

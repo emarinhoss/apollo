@@ -34,5 +34,5 @@ WxEulerInflowBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Ar
 }
 
 // instantiations
-template class WxEulerInflowBC<float>;
+//template class WxEulerInflowBC<float>;
 template class WxEulerInflowBC<double>;

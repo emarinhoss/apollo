@@ -1,0 +1,24 @@
+# Everything in requirements.txt, plus what the linting and the legacy
+# visualisation scripts want.
+#
+#     pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+# Linting. CI runs pyflakes over scripts/, src/buildconf/ and test/.
+pyflakes>=3.0
+
+# The legacy post-processing scripts in scripts/ import these. NOTHING in the
+# build, the tests, or the RMF analysis path needs them, and several of the
+# scripts that use them are near-duplicates of uncertain provenance
+# (docs/known-issues.md section 14). Install these only if you intend to use
+# those scripts; vtk in particular is a large dependency.
+#
+#   scripts/wxplot.py, wxinteractiveplot.py     matplotlib
+#   scripts/newTwoFluidWriteVtu.py and friends  pyvtk
+#   scripts/wxdata.py                           tables (PyTables), joblib
+#   scripts/twoFluidUDG.py, visualize_data.py   vtk / tvtk (Mayavi)
+matplotlib>=3.5
+pyvtk>=0.5
+tables>=3.7
+joblib>=1.1

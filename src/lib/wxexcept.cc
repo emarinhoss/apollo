@@ -45,6 +45,21 @@ namespace Warpx
   const char*
   Except::what() const throw()
   {
-    return this->exceptStrm.str().c_str();
+    // std::ostringstream::str() returns a temporary std::string by value, so
+    // calling c_str() on it yields a pointer into an object that is destroyed
+    // at the end of this expression: every caller of what() was reading freed
+    // memory and printing garbage. exceptMsg exists to own the message for as
+    // long as the exception does.
+    try
+    {
+      this->exceptMsg = this->exceptStrm.str();
+      return this->exceptMsg.c_str();
+    }
+    catch (...)
+    {
+      // what() is noexcept; if the copy cannot be made, say so rather than
+      // letting an exception escape and terminate the process.
+      return "Warpx::Except: message unavailable (allocation failed)";
+    }
   }
 }

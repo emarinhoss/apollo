@@ -71,5 +71,5 @@ ApAreaIntegralSet<REAL>::areaTerms(REAL *tx, REAL *q, REAL *qaux, REAL *s)
 }
 
 // instantiations
-template class ApAreaIntegralSet<float>;
+//template class ApAreaIntegralSet<float>;
 template class ApAreaIntegralSet<double>;

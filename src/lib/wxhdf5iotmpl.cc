@@ -254,7 +254,7 @@ template class WxHdf5IoTmpl<unsigned int>;
 template class WxHdf5IoTmpl<long>;
 template class WxHdf5IoTmpl<unsigned long>;
 template class WxHdf5IoTmpl<long long>;
-template class WxHdf5IoTmpl<float>;
+//template class WxHdf5IoTmpl<float>;
 template class WxHdf5IoTmpl<double>;
 template class WxHdf5IoTmpl<long double>;
 

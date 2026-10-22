@@ -127,5 +127,5 @@ WxFEMQuadrature<REAL>::getCoordinate(WxGridBox<REAL> gb, REAL *rhs)
 }
 
 // instantiations
-template class WxFEMQuadrature<float>;
+//template class WxFEMQuadrature<float>;
 template class WxFEMQuadrature<double>;

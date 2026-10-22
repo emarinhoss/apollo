@@ -45,7 +45,7 @@ P_ORDER = 1
 	filterOrder = P_ORDER
 	filterCutoff = 0.95
 	
-	DataStructure = [0,dg,(P_ORDER+1)*(P_ORDER+2)/2]
+	DataStructure = [0,dg,(P_ORDER+1)*(P_ORDER+2)//2]
 	<InitialCondition>
 		Type = WxFunction
 		Kind = exprFunc

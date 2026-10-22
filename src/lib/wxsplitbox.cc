@@ -334,5 +334,5 @@ WxSplitBox<TYPE>::getRank(TYPE coords[]) const
 
 // instantiations
 template class WxSplitBox<int>;
-template class WxSplitBox<float>;
+//template class WxSplitBox<float>;
 template class WxSplitBox<double>;

@@ -85,7 +85,7 @@ OUT  = 100
 	   polynomialOrder = P_ORDER
 	   cfl = 0.5/((2.*(P_ORDER+1)-1))
 	
-	   DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)/2]
+	   DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)//2]
 	   <InitialCondition>
 		    Type = WxFunction
 		    Kind = exprFunc

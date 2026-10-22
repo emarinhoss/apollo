@@ -196,9 +196,9 @@ WxCryptSet::_WxParser::expect(int sym)
     return true;
 
   std::ostringstream ss;
-  ss << "Error: Unexpected symbol " << _tokenStr
-     << "found  on line no "
-     << _fl.lineno();
+  ss << "Error: unexpected symbol '" << _tokenStr
+     << "' on line " << _fl.lineno()
+     << " of the input file";
   WxLogger::get("wxcryptset-logger")->error(ss.str());
   throw WxExcept(ss.str());
 }

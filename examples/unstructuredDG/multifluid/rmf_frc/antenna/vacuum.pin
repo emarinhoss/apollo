@@ -1,0 +1,181 @@
+# -*- python -*-
+#
+# The RMF antenna in vacuum: a verification case with an exact answer.
+#
+# Same antenna, same conducting wall and same radii as frc2d.pin, but with no
+# plasma - the fluids are present at a negligible density and every source that
+# couples them to the field is removed, so the Maxwell system sees only the
+# antenna current. In that limit the answer is known in closed form.
+#
+# A z-directed surface current k cos(theta - psi) on a shell of radius s, inside
+# a perfectly conducting cylinder at r = b, produces a UNIFORM transverse field
+# inside itself, of magnitude mu0 k (1 - s^2/b^2)/2 - the image current in the
+# wall accounting for the bracket. Superposing the shells of the winding and
+# rotating psi at omega, the field everywhere inside the winding is
+#
+#     |B| = B_rmf (1 - exp(-t/rise_time))       uniform, rotating at omega
+#
+# so a run can be checked against it point by point, with discretisation error
+# and the O((omega b/c)^2) = 1% quasi-static correction as the only tolerance.
+# test/test_rmf_antenna_field.py does exactly that.
+#
+# This is the verification Phase 2 of docs/rmf-frc-model-assessment.md asks for
+# ("a plasma-free run must reproduce the applied field exactly"), and it is the
+# reason the antenna can be trusted in frc2d.pin, where nothing is exact.
+#
+# The mesh is uniform and coarser than the physics deck's - there is no plasma
+# to resolve, only the winding, which spans about two and a half cells. The
+# winding profile is a raised cosine, so it survives that:
+#
+#   python3 scripts/mkdiscmesh.py -o vacuumDisc.msh --outer 0.05 --h-inner 2.0e-3
+#
+import math
+PI = math.pi
+
+MU0   = PI*4.0e-7
+LIGHT = 3.0e6      # as in frc2d.pin: c/100, with eps0 rescaled to match
+EPS0  = 1.0/(MU0*LIGHT*LIGHT)
+GAMMA = 1.66666666667
+
+MEQN  = 18
+P_ORDER = 1
+DIVB_SPEED = 1.0
+DIVE_SPEED = 1.0
+
+Bomega = 50.e-4    # T, the field the antenna is asked to produce
+omega  = 7.95e5    # Hz
+PHASE  = 0.        # rads
+# Longer than the physics deck's 30 ns on purpose. The cavity crossing time is
+# b/c = 17 ns, so a faster ramp rings the domain at its own resonances - which
+# are undamped here, there being no plasma to absorb them - and the ringing
+# would show up as scatter in a test that has no other error source.
+#
+# The number that matters is the ramp against the CAVITY PERIOD, not against the
+# crossing time. The relevant mode is the lowest the drive can actually excite:
+# the source is J_z ~ cos(theta - omega t - phase), pure m = 1, and the cavity is
+# axisymmetric, so the m = 0 mode (j_01 = 2.405) has zero overlap with it and the
+# first one that rings is m = 1, j_11 = 3.8317, at 3.8317 c/b = 2.30e8 rad/s -
+# a 27 ns period. A 50 ns ramp is under two of those and rings the domain at the
+# 10% level, measured by trying it, which is above the tolerances in
+# test/test_rmf_antenna_field.py. 100 ns is 3.7 periods and settles to about 1%.
+# The test then only looks at t >= 1.5*RISE.
+RISE   = 1.0e-7
+
+COIL_R      = 0.036
+COIL_W      = 0.005
+WALL_RADIUS = 0.050
+
+# A placeholder fluid. Nothing couples it to the field and nothing moves it, so
+# its only job is to fill the eighteen components the two-fluid solver expects.
+RHO0 = 1.e-20
+P0   = 1.e-20
+
+TEND = 3.0e-7
+OUT  = 12
+
+<warpx>
+
+ Simulation = vacuum
+ Verbosity = info
+
+ <vacuum>
+   Type = WxSolver
+   Kind = comboSolver
+
+   Time = [0.0, TEND]
+   Output_files = OUT
+   Dt = 0.01
+   Dimensions = 2
+   Gridname = 'vacuumDisc.msh'
+   NumFields = 1
+
+   <hyperbolic>
+     Type = ApSubSolver
+     Kind = nodalDG2d
+
+     Equations = [eulerElc, eulerIon, maxwell]
+     boundaryConditions = [wall]
+     # The antenna and nothing else: no Lorentz force, no plasma current, no
+     # charge source, no resistivity. That is what makes the answer exact.
+     Sources = [rmfAntenna]
+
+     polynomialOrder = P_ORDER
+     cfl = 1.0/((2.*(P_ORDER+1)-1))
+
+     DataStructure = [0,dg,MEQN*(P_ORDER+1)*(P_ORDER+2)//2]
+
+     <InitialCondition>
+       Type = WxFunction
+       Kind = exprFunc
+
+       gm1  = GAMMA-1.
+       rho0 = RHO0
+       p0   = P0
+       progn = ["energy = p0/gm1"]
+       exprList = ["rho0","0.0","0.0","0.0","energy", \
+                   "rho0","0.0","0.0","0.0","energy", \
+                   "0.0","0.0","0.0", \
+                   "0.0","0.0","0.0", \
+                   "0.0","0.0" ]
+     </InitialCondition>
+
+     <eulerElc>
+       Type = WxHyperbolicEqn
+       Kind = eulerEqn
+       gas_gamma = GAMMA
+       minPressure = 1.e-30
+       minDensity = 1.e-30
+     </eulerElc>
+
+     <eulerIon>
+       Type = WxHyperbolicEqn
+       Kind = eulerEqn
+       gas_gamma = GAMMA
+       minPressure = 1.e-30
+       minDensity = 1.e-30
+     </eulerIon>
+
+     <maxwell>
+       Type = WxHyperbolicEqn
+       Kind = phMaxwellEqn
+       c0 = LIGHT
+       gamma = DIVB_SPEED
+       chi = DIVE_SPEED
+     </maxwell>
+
+     <rmfAntenna>
+       Type = WxHyperbolicSrc
+       Kind = maxwellRMFAntenna
+
+       OutRange = [12]
+
+       frequency  = omega
+       B_rmf      = Bomega
+       phase      = PHASE
+       rise_time  = RISE
+       radius     = COIL_R
+       width      = COIL_W
+       conductor_radius = WALL_RADIUS
+       epsilon0   = EPS0
+       mu0        = MU0
+     </rmfAntenna>
+
+   </hyperbolic>
+
+   <wall>
+     Type = ApSubSolver
+     Kind = twoFluidConductingWallBC
+   </wall>
+
+   <stepHyper>
+      Type = WxSubSolverStep
+      SubSolvers = [hyperbolic]
+   </stepHyper>
+
+   <SolverSequence>
+      Type = WxSolverSequence
+      PerStep = [stepHyper]
+   </SolverSequence>
+
+ </vacuum>
+</warpx>

@@ -300,5 +300,5 @@ WxBox<TYPE>::contains(TYPE coord[]) const
 
 // instantiations
 template class WxBox<int>;
-template class WxBox<float>;
+//template class WxBox<float>;
 template class WxBox<double>;

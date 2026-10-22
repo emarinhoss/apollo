@@ -90,7 +90,7 @@ if __name__ == '__main__':
         inpFile = options.inputFile
     else:
         if len(args) == 0:
-            print "Must provide name of input file."
+            print("Must provide name of input file.")
             exit(1)
         else:
             inpFile = args[0]
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
     # check if write block exists
     if options.writer not in top.childrenMap:
-        print "Writer %s does not exist in file" % options.writer
+        print("Writer %s does not exist in file") % options.writer
         exit(1)
     
     # get writer block

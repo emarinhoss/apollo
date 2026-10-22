@@ -1,5 +1,6 @@
 #include "wxhesthavenwarburtoneulerlimiter.h"
 #include <wxmath.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 // Limit the Euler solution using slope limiting adapted from
 // A SLOPE LIMITING PROCEDURE IN DISCONTINUOUS GALERKIN FINITE ELEMENT METHOD FOR
@@ -101,6 +102,11 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
     for(int eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        // Skip non-triangular cells (boundary line elements)
+        PetscInt coneSize;
+        DMPlexGetConeSize(_dm, eNum, &coneSize);
+        if (coneSize != 3) continue;
+
         // Cell centers
         REAL xc[4]={0,0,0,0}, yc[4]={0,0,0,0};
         // weights for face gradients
@@ -324,6 +330,11 @@ WxHestavenWarburtonEulerLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *g
 
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        // Skip non-triangular cells (boundary line elements)
+        PetscInt coneSize;
+        DMPlexGetConeSize(_dm, eNum, &coneSize);
+        if (coneSize != 3) continue;
+
         bool update = false;
 
         // get neighbors ids
@@ -543,5 +554,5 @@ WxHestavenWarburtonEulerLimiter<REAL>::primitiveVariables(REAL *qCons, REAL *qPr
 }
 
 // instantiations
-template class WxHestavenWarburtonEulerLimiter<float>;
+//template class WxHestavenWarburtonEulerLimiter<float>;
 template class WxHestavenWarburtonEulerLimiter<double>;

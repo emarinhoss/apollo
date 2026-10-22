@@ -502,7 +502,9 @@ void
 WxPHMaxwellEqn<REAL>::
 DGnumericalFlux(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
-    REAL *xc, *qaux;
+    // flux() ignores both, but reading an indeterminate pointer value is
+    // undefined behaviour in its own right, and -Wuninitialized flags it.
+    REAL *xc = NULL, *qaux = NULL;
     REAL fM[8], fP[8], gM[8], gP[8]; // x/y Fluxes
 
     // evaluate fluxes
@@ -754,5 +756,5 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
 }
 
 // instantiations
-template class WxPHMaxwellEqn<float>;
+//template class WxPHMaxwellEqn<float>;
 template class WxPHMaxwellEqn<double>;

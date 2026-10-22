@@ -1,5 +1,6 @@
 ﻿#include "aptualiabadilimiter.h"
 #include <wxmath.h>
+#include "petsc_compat.h"  // PETSc API compatibility for version 3.19+
 
 // Limit the Euler solution using slope limiting adapted from
 // A SLOPE LIMITING PROCEDURE IN DISCONTINUOUS GALERKIN FINITE ELEMENT METHOD FOR
@@ -89,6 +90,14 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
     // get local values of the global vector in into locX
     DMGlobalToLocalBegin(_dm, qk, INSERT_VALUES, local_in);
     DMGlobalToLocalEnd(_dm, qk, INSERT_VALUES, local_in);
+
+    // Seed the output with the input. DMGetLocalVector leaves contents
+    // undefined and the whole of local_out is INSERT_VALUES'd into the solution
+    // at the end, so any cell the loops below do not write would otherwise
+    // inject whatever was in that memory. The loops skip the ghost cells
+    // DMPlexConstructGhostCells appends (they have no geometry to limit), and
+    // this is what leaves them holding the unlimited state instead of garbage.
+    VecCopy(local_in, local_out);
     VecGetArrayRead(local_in, &u);
 
     // get average vectors and matrices
@@ -113,6 +122,13 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
 
     for(int eNum=kStart; eNum<kEndInterior; eNum++)
     {
+        // The stratum includes PETSc ghost cells; see
+        // wxNodalDGgeometry2D::isRealCell. Asking one for its normals gives a
+        // zero-length edge and stops the run. Nothing is written for them in
+        // this pass - it only fills cellAVEcons/cellAVEprim and the gradient
+        // arrays, which the second pass reads only for real cells.
+        if (!geom->isRealCell(eNum)) continue;
+
         // Cell centers
         REAL xc[4]={0,0,0,0}, yc[4]={0,0,0,0};
         // weights for face gradients
@@ -189,13 +205,26 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
             if(connect[2*elem]<0)
             {
                 // face normal
-                REAL NX[2], XC[2];
+                REAL NX[2], XC[5];
 
                 // face normal
                 NX[0] = normals[3*elem]; NX[1] = normals[3*elem+1];
 
+                // Boundary conditions are handed (t, x, y, -, dt), the layout
+                // WxNodalDG2dMethod uses: they read xc[0] as the time and
+                // xc[1], xc[2] as the position. This used to declare XC[2] and
+                // fill it with (x, y), so every one of them took the node's
+                // x-coordinate for the time, its y-coordinate for x, and read
+                // xc[2] past the end of a two-element array. For an RMF
+                // boundary condition that meant an envelope evaluated at
+                // t = 0.03 s and a phase omega*t of about 1.5e5 radians -
+                // arbitrary - on top of the out-of-bounds read.
+                XC[0] = this->getCurrentTime();
+                XC[3] = 0.0;
+                XC[4] = 0.0;
+
                 // cell center coordinates
-                XC[0] = xc[elem+1]; XC[1] = yc[elem+1];
+                XC[1] = xc[elem+1]; XC[2] = yc[elem+1];
 
                 for(unsigned kk=0; kk<_meqn; kk++)
                     qCons[kk] = ConsAve[kk][0];
@@ -213,9 +242,9 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
                 // Apply BC to face nodes
                 for(unsigned nodes=0; nodes<NpF; nodes++)
                 {
-                    // node coordinates
-                    XC[0] = geom->Xcoordinate(eNum,faceIDs[elem*NpF+nodes]);
-                    XC[1] = geom->Ycoordinate(eNum,faceIDs[elem*NpF+nodes]);
+                    // node coordinates; XC[0] is still the time, set above
+                    XC[1] = geom->Xcoordinate(eNum,faceIDs[elem*NpF+nodes]);
+                    XC[2] = geom->Ycoordinate(eNum,faceIDs[elem*NpF+nodes]);
 
                     for(unsigned kk=0; kk<_meqn; kk++)
                         qCons[kk] = qIn[faceIDs[elem*NpF+nodes]*_meqn+kk];
@@ -318,6 +347,10 @@ WxTuAliabadiLimiter<REAL>::applyLimiter(wxNodalDGgeometry2D<REAL> *geom, WxCubat
     for(unsigned eNum=kStart; eNum<kEndInterior; eNum++)
     {
 //        bool update = false;
+        // Ghost cells are seeded from local_in before the loop, so skipping
+        // them here leaves them holding the unlimited state rather than
+        // whatever DMGetLocalVector happened to hand back.
+        if (!geom->isRealCell(eNum)) continue;
 
         // get neighbors ids
         geom->ElementTOElementANDFace(eNum,connect);
@@ -454,5 +487,5 @@ WxTuAliabadiLimiter<REAL>::isInfinityOrNAN(Vec f, std::string location)
 }
 
 // instantiations
-template class WxTuAliabadiLimiter<float>;
+//template class WxTuAliabadiLimiter<float>;
 template class WxTuAliabadiLimiter<double>;

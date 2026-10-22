@@ -279,5 +279,5 @@ getIndices(int idx[3])
 	idx[2] = _idx[2];
 }
 // instantiations
-template class WxHyperbolicEqn<float>;
+//template class WxHyperbolicEqn<float>;
 template class WxHyperbolicEqn<double>;

@@ -23,5 +23,5 @@ WxBoxCmp<TYPE>::operator()(const WxBox<TYPE>& lhs, const WxBox<TYPE>& rhs) const
 
 // instantiations
 template class WxBoxCmp<int>;
-template class WxBoxCmp<float>;
+//template class WxBoxCmp<float>;
 template class WxBoxCmp<double>;

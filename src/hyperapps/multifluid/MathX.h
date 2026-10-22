@@ -17,7 +17,7 @@
 #include <vector>
 #include "constant.h"
 #include "kmatrix.h"
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>  // Eigen3 library (eigen3 dir must be in include path)
 
 using namespace std;
 

@@ -52,5 +52,5 @@ WxPHMaxwellDielectricBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, 
 }
 
 // instantiations
-template class WxPHMaxwellDielectricBC<float>;
+//template class WxPHMaxwellDielectricBC<float>;
 template class WxPHMaxwellDielectricBC<double>;

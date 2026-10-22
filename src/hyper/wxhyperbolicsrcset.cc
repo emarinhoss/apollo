@@ -71,5 +71,5 @@ WxHyperbolicSrcSet<REAL>::sourceTerms(REAL *tx, REAL *q, REAL *qaux, REAL *s)
 }
 
 // instantiations
-template class WxHyperbolicSrcSet<float>;
+//template class WxHyperbolicSrcSet<float>;
 template class WxHyperbolicSrcSet<double>;

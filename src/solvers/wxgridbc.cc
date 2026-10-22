@@ -26,5 +26,5 @@ WxGridBC<REAL>::applyToArray(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *Area
 }
 
 // instantiations
-template class WxGridBC<float>;
+//template class WxGridBC<float>;
 template class WxGridBC<double>;

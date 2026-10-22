@@ -17,9 +17,9 @@ if warpMConstructionEnv['mpi_base'] != '':
 #testing
 import os
 output = os.popen('which mpicxx').read()
-print "Which mpicxx output", output
-print "mpi_base set as ", warpMConstructionEnv['mpi_base']
-##print "path is ", warpMConstructionEnv['ENV']['PATH']
+print("Which mpicxx output", output)
+print("mpi_base set as", warpMConstructionEnv['mpi_base'])
+##print("path is", warpMConstructionEnv['ENV']['PATH'])
 
 #configure libraries using some autoconf like functionality of scons
 conf = Configure(warpMConstructionEnv)
@@ -28,11 +28,20 @@ conf = Configure(warpMConstructionEnv)
 conf.env['CXX'] = 'mpicxx'
 conf.env['CC'] = 'mpicc'
 
-try:
-	assert(conf.CheckCHeader( 'mpi.h'))
-	assert(conf.CheckCXXHeader( 'mpi.h'))
-except:
-	print 'MPI header mpi.h not found'
-	raise
+if not (conf.CheckCHeader('mpi.h') and conf.CheckCXXHeader('mpi.h')):
+	print("")
+	print("ERROR: could not compile against <mpi.h> using the mpicc/mpicxx wrappers.")
+	print("")
+	print("  Apollo needs an MPI development installation. Install one with:")
+	print("    Debian/Ubuntu  sudo apt-get install libopenmpi-dev openmpi-bin")
+	print("    RHEL/Fedora    sudo dnf install openmpi-devel   (then: module load mpi)")
+	print("    macOS          brew install open-mpi")
+	print("")
+	print("  If MPI is installed somewhere non-standard, point the build at it:")
+	print("    scons build-opt mpi_base=/path/to/mpi")
+	print("  mpi_base is currently '%s'." % warpMConstructionEnv['mpi_base'])
+	print("  See src/this_host_config.py.")
+	print("")
+	Exit(1)
 
 warpMConstructionEnv = conf.Finish() # replace the environment with the one modified by Configure's auto-conf actions

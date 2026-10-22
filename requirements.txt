@@ -1,0 +1,21 @@
+# Python packages Apollo needs to build, run and analyse.
+#
+#     pip install -r requirements.txt
+#
+# The C and C++ dependencies are NOT here — PETSc, MPI, HDF5, Boost, Eigen and
+# GSL come from the system package manager or a module system. See README.md
+# ("Building Apollo") for the apt line, environment.yml for a conda environment,
+# and examples/unstructuredDG/multifluid/rmf_frc/phase3/README.md for a cluster
+# or Colab session.
+#
+# Versions are floors, not pins. The floors are what has actually been built and
+# run against: Python 3.11, SCons 4.x, numpy 2.4. numpy 2 removed np.trapz, and
+# scripts/rmf_diagnostics.py handles both spellings, so numpy 1.x also works.
+
+# Build system. Apollo does not use CMake.
+scons>=4.0
+
+# Analysis and the verification tests. Without it every test that touches solver
+# output skips itself, which in CI reads as a pass — so it belongs here rather
+# than in an extras group.
+numpy>=1.20

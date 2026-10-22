@@ -43,5 +43,5 @@ WxIsentropicVortexBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REA
 }
 
 // instantiations
-template class WxIsentropicVortexBC<float>;
+//template class WxIsentropicVortexBC<float>;
 template class WxIsentropicVortexBC<double>;

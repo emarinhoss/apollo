@@ -107,5 +107,5 @@ WxGridBox<REAL>::setup(const WxCryptSet& wxc)
 }        
 
 // instantiations
-template class WxGridBox<float>;
+//template class WxGridBox<float>;
 template class WxGridBox<double>;

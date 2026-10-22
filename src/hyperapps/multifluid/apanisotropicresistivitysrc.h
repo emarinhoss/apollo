@@ -155,15 +155,37 @@ class ApAnisotropicResistivitySrc : public WxHyperbolicSrc<REAL>
 
       REAL Q_delta = 3./_mi*ne*ne*eta_par*_qe*_qe*(Pe/ne-Pi/ni);
 
+      // Collisional energy exchange, in total-energy variables.
+      //
+      // With R the friction on the electrons (so -R on the ions) and
+      // w = u_e - u_i, the sources are s_e = R.u_e + Q_e and
+      // s_i = -R.u_i + Q_i, and conservation forces Q_e + Q_i = -R.w, the
+      // frictional heat (equal to eta*J^2 for the isotropic law). Braginskii
+      // deposits that in the electrons and moves Q_Delta from electrons to
+      // ions, so Q_e = -R.w - Q_Delta and Q_i = Q_Delta. Substituting, both
+      // collapse to one dot product with the ION velocity:
+      //
+      //     s_e = +R.u_i - Q_Delta ,   s_i = -R.u_i + Q_Delta
+      //
+      // which sum to zero for any friction law. The frictional heating needs
+      // no separate term: the momentum source already removes exactly that
+      // much kinetic energy from the electron fluid, and leaving it out of the
+      // energy source is what turns it into heat.
+      //
+      // Previously s_e carried -R.u_i and s_i carried no work term at all,
+      // giving total energy a spurious source of -R.u_i.
+      // Only the in-plane friction is applied here, so only in-plane work.
+      REAL Rdotui = Rux*ui + Ruy*vi;
+
       s[0] = Rux;
       s[1] = Ruy;
       s[2] = 0.0;
-      s[3] = -(Rux*ui+Ruy*vi)-Q_delta;
+      s[3] =  Rdotui - Q_delta;
 
       s[4] = -Rux;
       s[5] = -Ruy;
       s[6] =  0.0;
-      s[7] =  Q_delta;
+      s[7] = -Rdotui + Q_delta;
 
       return true;
     }

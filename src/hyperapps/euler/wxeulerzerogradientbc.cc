@@ -22,5 +22,5 @@ WxEulerZeroGradientBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, RE
 }
 
 // instantiations
-template class WxEulerZeroGradientBC<float>;
+//template class WxEulerZeroGradientBC<float>;
 template class WxEulerZeroGradientBC<double>;

@@ -63,5 +63,5 @@ APsimplifiedRMFbc<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, REAL *
 }
 
 // instantiations
-template class APsimplifiedRMFbc<float>;
+//template class APsimplifiedRMFbc<float>;
 template class APsimplifiedRMFbc<double>;

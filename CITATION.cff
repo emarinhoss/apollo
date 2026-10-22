@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: "Apollo: a Discontinuous Galerkin solver for hyperbolic PDEs on unstructured grids"
+message: "If you use this software in your research, please cite it as below."
+type: software
+authors:
+  - family-names: Sousa
+    given-names: Eder
+repository-code: "https://github.com/emarinhoss/apollo"
+abstract: >-
+  Apollo is a high-order Discontinuous Galerkin finite element solver for
+  hyperbolic partial differential equations on unstructured grids, built on
+  PETSc and MPI. It implements Maxwell's equations, the compressible Euler
+  equations, multifluid plasma models and scalar advection, and is used for
+  nuclear fusion device modelling (field-reversed configurations, rotating
+  magnetic field heating), computational electromagnetics and compressible
+  fluid dynamics.
+keywords:
+  - discontinuous Galerkin
+  - computational fluid dynamics
+  - plasma physics
+  - nuclear fusion
+  - computational electromagnetics
+  - unstructured mesh
+  - PETSc
+  - high-performance computing
+license: MIT

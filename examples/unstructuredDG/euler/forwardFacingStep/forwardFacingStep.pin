@@ -40,7 +40,7 @@ Pr = 5.
 	Limiter = [eulerLimit]
 	
 	## setup data structure, [fieldNumber,FieldName]
-	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)/2]
+	DataStructure = [0,dg,5*(P_ORDER+1)*(P_ORDER+2)//2]
 	
 	<InitialCondition>
 		Type = WxFunction

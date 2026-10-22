@@ -65,12 +65,16 @@ class ApSimulation : public WxObject
     virtual void init();
 
 /**
- * Load simulation from file.
+ * Initialize, then restore state from a checkpoint.
  *
- * @param io I/O object to use for reading
- * @param grpNode group node to read from
+ * init() still runs: it builds the solution vector, lays down the initial
+ * condition and sizes the timestep from it. Only the state is then replaced.
+ * Doing it the other way round - loading INSTEAD of initialising, which is what
+ * the old commented-out branch did - leaves the timestep unsized.
+ *
+ * @param file checkpoint written by ApSolver::writeCheckpoint()
  */
-//    virtual void load(WxIoBase& io, const WxIoNodeType& grpNode);
+    virtual void restart(const std::string& file);
 
 /** Run simulation */
     void simulate();

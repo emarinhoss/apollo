@@ -61,5 +61,5 @@ ApEMFieldsRMFWithHarmonics<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qau
 }
 
 // instantiations
-template class ApEMFieldsRMFWithHarmonics<float>;
+//template class ApEMFieldsRMFWithHarmonics<float>;
 template class ApEMFieldsRMFWithHarmonics<double>;

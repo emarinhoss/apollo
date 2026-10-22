@@ -1,61 +1,79 @@
+# Convenience wrapper around the real build, which is SCons under src/.
+#
+# This file used to be an unfinished dependency bootstrapper: `make all` deleted
+# $(SRCDIR) and then failed on three targets that were never written
+# (builddep_hdf5, builddep_boost, builddep_uc), and its one real target expanded
+# MPINAME, MPIZIP and MPIINSTALLDIR, none of which were ever defined. Since every
+# dependency is now available as a distribution package - see README.md - the
+# bootstrapper is not worth finishing, and these targets are useful instead.
+#
+# Everything here just calls what you would call by hand; nothing is hidden.
 
-# This is where I will install the support libraries for warpxm
-INSTALLDIR = $(HOME)/apollo/software
+SCONS       ?= scons
+PYTHON      ?= python3
+SRCDIR      := src
+JOBS        ?=
+SCONSFLAGS  ?=
 
-# This is where I will temporarily store the src files for the libraries while they are built
-SRCDIR = $(INSTALLDIR)/src
+# Passed straight through to SCons, e.g. `make opt ARGS="arch=x86-64-v2 openmp=yes"`
+ARGS ?=
 
-# This is where I will store the tar files before extraction
-STORAGEDIR = $(INSTALLDIR)
+.PHONY: help all opt debug both test test-python test-unit test-examples clean distclean deps-ubuntu
 
-# The number of jobs to build our libraries with
-NUM_JOBS = 8
+help:
+	@echo "Apollo - make targets"
+	@echo ""
+	@echo "  make opt              build the optimized solver -> $(SRCDIR)/build-opt/apollo"
+	@echo "  make debug            build the debug solver     -> $(SRCDIR)/build-debug/apollo"
+	@echo "  make both             build both variants"
+	@echo ""
+	@echo "  make test             run every test (python + unit + solver examples)"
+	@echo "  make test-python      python tooling tests only (no compiler needed)"
+	@echo "  make test-unit        C++ unit tests (source terms, boundary conditions, antenna)"
+	@echo "  make test-examples    run the solver against its bundled examples"
+	@echo ""
+	@echo "  make clean            remove build products"
+	@echo "  make distclean        also remove SCons caches and preprocessed decks"
+	@echo "  make deps-ubuntu      print the apt command that installs everything"
+	@echo ""
+	@echo "Options are passed to SCons through ARGS:"
+	@echo "  make opt ARGS=\"arch=x86-64-v2\"     portable binary for older nodes"
+	@echo "  make opt ARGS=\"petsc_base=/opt/petsc\""
+	@echo "  $(SCONS) -h                            (run in $(SRCDIR)/) full variable list"
 
-# Set the base compilers
-CC = gcc
-CXX = g++
+all: opt
 
-# Set the downloader
-DWNLD = wget
+opt:
+	cd $(SRCDIR) && $(SCONS) $(SCONSFLAGS) $(JOBS) build-opt $(ARGS)
 
-# These are the library names, if updating to a more recent library you (in theory) just need to modify these names... and the download link
-PETSCNAME=petsc-3.6.0
+debug:
+	cd $(SRCDIR) && $(SCONS) $(SCONSFLAGS) $(JOBS) build-debug $(ARGS)
 
-# Define the install directories
-PETSCINSTALLDIR=$(INSTALLDIR)/petsc
+both: opt debug
 
-# Define the source zip files
-MPIZIP=$(STORAGEDIR)/$(MPINAME).tar.gz
+test: test-python test-unit test-examples
 
-# Define the source directories
-MPISRCDIR=$(SRCDIR)/$(MPINAME)
+test-python:
+	$(PYTHON) -m unittest discover -s test -v
 
+test-unit:
+	$(MAKE) -C test/cxx
 
-# Define the MPI compilers that will be used to build hdf5, boost and metis
-MPICC = /usr/bin/mpicc
-MPICXX = /usr/bin/mpicxx
+test-examples:
+	test/run_examples.sh
 
-all: initialize builddep_mpi builddep_hdf5 builddep_boost builddep_uc
+clean:
+	cd $(SRCDIR) && $(SCONS) -c build-opt build-debug || true
+	rm -rf $(SRCDIR)/build-opt $(SRCDIR)/build-debug
 
-initialize: cleandeps
-	mkdir -p $(SRCDIR)
-	mkdir -p $(STORAGEDIR)
+distclean: clean
+	$(MAKE) -C test/cxx clean || true
+	rm -rf $(SRCDIR)/.sconf_temp $(SRCDIR)/.sconsign.dblite $(SRCDIR)/config.log
+	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
+	find examples -name '*.inp' -o -name '*_temp1' -o -name '*_temp2' | xargs -r rm -f
 
-builddep_mpi:
-	# Check if mpi is installed
-ifeq ("$(wildcard $(MPIINSTALLDIR)/bin/mpicxx)","")
-	
-	# Get OpenMPI
-ifeq ("$(wildcard $(MPIZIP))","")
-	cd $(STORAGEDIR);$(DWNLD) http://www.open-mpi.org/software/ompi/v1.8/downloads/openmpi-1.8.3.tar.gz
-endif
-	
-	# Extract mpi
-	tar xfz $(MPIZIP) -C $(SRCDIR)
-	
-	# Install mpi 
-	cd $(MPISRCDIR);CC=$(CC) CXX=$(CXX) ./configure --prefix=$(MPIINSTALLDIR) --enable-shared --disable-static;make all -j $(NUM_JOBS);make install
-endif
-
-cleandeps:
-	rm -rf $(SRCDIR)
+deps-ubuntu:
+	@echo "sudo apt-get install -y build-essential git python3-pip \\"
+	@echo "    libopenmpi-dev openmpi-bin libpetsc-real-dev libhdf5-openmpi-dev \\"
+	@echo "    libboost-dev libeigen3-dev libgsl-dev libopenblas-dev"
+	@echo "pip3 install scons"

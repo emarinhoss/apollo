@@ -1090,7 +1090,9 @@ void
 WxEulerEqn<REAL>::
 applyLax_FriedrichsFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
-    REAL *xc, *qaux;
+    // flux() ignores both, but reading an indeterminate pointer value is
+    // undefined behaviour in its own right, and -Wuninitialized flags it.
+    REAL *xc = NULL, *qaux = NULL;
     REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
     REAL pM[5], pP[5]; // primitive variables
 
@@ -1121,7 +1123,9 @@ void
 WxEulerEqn<REAL>::
 applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
-    REAL *xc, *qaux;
+    // flux() ignores both, but reading an indeterminate pointer value is
+    // undefined behaviour in its own right, and -Wuninitialized flags it.
+    REAL *xc = NULL, *qaux = NULL;
     REAL fM[5], fP[5], gM[5], gP[5]; // x/y Fluxes
     REAL pM[5], pP[5]; // primitive variables
     REAL fx[5];
@@ -1180,7 +1184,7 @@ applyHLLFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
     REAL zero = 0.0;
     REAL t1 = (dmin(SR,zero)-dmin(zero,SL))/(SR-SL);
     REAL t2 = 1.-t1;
-    REAL t3 = (SR*fabs(SL)-SL*abs(SR))/(2.*(SR-SL));
+    REAL t3 = (SR*fabs(SL)-SL*fabs(SR))/(2.*(SR-SL));
 
     for(unsigned n=0; n<5; n++)
         fx[n] = t1*fP[n] + t2*fM[n] - t3*(qP[n]-qM[n]);
@@ -1206,7 +1210,9 @@ void
 WxEulerEqn<REAL>::
 applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
-    REAL *xc, *qaux;
+    // flux() ignores both, but reading an indeterminate pointer value is
+    // undefined behaviour in its own right, and -Wuninitialized flags it.
+    REAL *xc = NULL, *qaux = NULL;
     REAL fM[5], fP[5]; // x/y Fluxes
     REAL pM[5], pP[5]; // primitive variables
     REAL fx[5];
@@ -1265,7 +1271,7 @@ applyRoeFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 
     nflux[0] = fx[0];
     nflux[1] = normals[0]*fx[1] - normals[1]*fx[2];
-    nflux[1] = normals[1]*fx[1] + normals[0]*fx[2];
+    nflux[2] = normals[1]*fx[1] + normals[0]*fx[2];
     nflux[3] = 0.0;
     nflux[4] = fx[4];
 
@@ -1282,7 +1288,9 @@ void
 WxEulerEqn<REAL>::
 applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL *maxSpeed)
 {
-    REAL *xc, *qaux;
+    // flux() ignores both, but reading an indeterminate pointer value is
+    // undefined behaviour in its own right, and -Wuninitialized flags it.
+    REAL *xc = NULL, *qaux = NULL;
     REAL fM[5], fP[5]; // x/y Fluxes
     REAL speeds[3],df[5],amdq[5], apdq[5];
     REAL **wave;
@@ -1314,7 +1322,7 @@ applyWavePropagationFluxes(REAL *normals, REAL *qM, REAL *qP, REAL *nflux, REAL 
 
     nflux[0] = fx[0];
     nflux[1] = normals[0]*fx[1] - normals[1]*fx[2];
-    nflux[1] = normals[1]*fx[1] + normals[0]*fx[2];
+    nflux[2] = normals[1]*fx[1] + normals[0]*fx[2];
     nflux[3] = 0.0;
     nflux[4] = fx[4];
 
@@ -1453,5 +1461,5 @@ limiterTuAndAliabadi(REAL *avgCons, REAL *avgPrim, REAL *dGrads, REAL *limitedVa
 }
 
 // instantiations
-template class WxEulerEqn<float>;
+//template class WxEulerEqn<float>;
 template class WxEulerEqn<double>;

@@ -53,5 +53,5 @@ ApThreeFluidConstantBC<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qaux, R
 }
 
 // instantiations
-template class ApThreeFluidConstantBC<float>;
+//template class ApThreeFluidConstantBC<float>;
 template class ApThreeFluidConstantBC<double>;

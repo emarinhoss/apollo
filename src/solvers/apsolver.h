@@ -124,6 +124,33 @@ class ApSolver : public WxSolverBase<REAL>
        void writeData(Vec X);
 
 /**
+ * Write a restart checkpoint for the current state.
+ *
+ * Called once per output frame, alongside the .vtu. The file is ROLLING - the
+ * same name every time - so the whole mechanism costs one solution vector on
+ * disk (5.2 MB on the phase3 mesh) rather than one per frame.
+ *
+ * @param X solution vector to checkpoint
+ * @param time simulation time X is at
+ */
+       void writeCheckpoint(Vec X, REAL time);
+
+/**
+ * Restore state from a checkpoint written by writeCheckpoint().
+ *
+ * Call AFTER init(), not instead of it: init() creates the solution vector,
+ * lays down the initial condition and sizes _dt from it, and the timestep must
+ * come from the same place it came from on the original run or the resumed run
+ * integrates differently from the one it claims to continue.
+ *
+ * Refuses, rather than resuming into a mismatch, when the checkpoint was
+ * written by a different problem.
+ *
+ * @param path checkpoint file to read
+ */
+       void loadCheckpoint(const std::string& path);
+
+/**
  * function that is to be used at every timestep
  * to display the iteration's progress.
  *
@@ -204,8 +231,17 @@ class ApSolver : public WxSolverBase<REAL>
     unsigned _startFrame;
 /** Current frame number */
     int _frameNum;
-/** No of output files to write */
+/** No of output intervals REMAINING to run. A restart shortens this. */
     unsigned _nout;
+/** No of output files the DECK asked for. Set once, never changed.
+ *
+ * Kept apart from _nout because loadCheckpoint() shortens _nout to the
+ * intervals that are left, and the checkpoint has to record what the deck
+ * asked for. Writing the running value made restart non-idempotent: resuming
+ * at frame 2 of 6 recorded "nout 4", and resuming from THAT checkpoint then
+ * compared 4 against the deck's 6 and refused. One resume worked and a second
+ * did not, which is the wrong half to get working. */
+    unsigned _noutDeck;
 /** Initial time-step to use */
     REAL _dt, _dt_temp;
 /** Problem dimensions */

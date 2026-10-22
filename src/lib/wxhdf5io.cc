@@ -42,7 +42,7 @@ void WxHdf5Io::setup(MPI_Comm mc, MPI_Info mi) {
   this->addIo( new WxHdf5IoTmpl<long>() );
   this->addIo( new WxHdf5IoTmpl<unsigned long>() );
   this->addIo( new WxHdf5IoTmpl<long long>() );
-  this->addIo( new WxHdf5IoTmpl<float>() );
+  //this->addIo( new WxHdf5IoTmpl<float>() );
   this->addIo( new WxHdf5IoTmpl<double>() );
   this->addIo( new WxHdf5IoTmpl<long double>() );
 }

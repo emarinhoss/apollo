@@ -25,5 +25,5 @@ WxMaxwellTransverseMagnetic<REAL>::applyBC(REAL *xc, REAL *nx, REAL *q, REAL *qa
 }
 
 // instantiations
-template class WxMaxwellTransverseMagnetic<float>;
+//template class WxMaxwellTransverseMagnetic<float>;
 template class WxMaxwellTransverseMagnetic<double>;
